@@ -176,8 +176,27 @@ def init_session():
     # ── pending JSON 적용 (위젯 렌더링 전에 실행) ──
     if "_pending_json" in st.session_state:
         data = st.session_state.pop("_pending_json")
+
+        # 중첩 리스트 안의 날짜 문자열 → date 객체 변환
+        for list_key in ("related_programs", "press_print", "press_online"):
+            if list_key in data and isinstance(data[list_key], list):
+                for item in data[list_key]:
+                    if isinstance(item, dict) and "date" in item:
+                        d = item["date"]
+                        if isinstance(d, str) and d:
+                            try:
+                                item["date"] = date.fromisoformat(d)
+                            except ValueError:
+                                item["date"] = None
+                        elif not isinstance(d, date):
+                            item["date"] = None
+
+        date_keys = {"period_start", "period_end"}
         for key, val in data.items():
-            if key in ("period_start", "period_end"):
+            # 위젯 키 소유권 해제 후 새 값 설정
+            if key in st.session_state:
+                del st.session_state[key]
+            if key in date_keys:
                 st.session_state[key] = date.fromisoformat(val) if val else None
             else:
                 st.session_state[key] = val

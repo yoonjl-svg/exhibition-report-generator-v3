@@ -9,6 +9,7 @@ from datetime import date
 from utils import fmt_money, fmt_number, collect_analysis_data
 import analysis_engine as ae
 import reference_data as rd
+from llm_writer import rewrite_insights, validate_api_key, estimate_cost, HAS_ANTHROPIC
 
 
 def render(tab, load_reference_data):
@@ -28,13 +29,41 @@ def render(tab, load_reference_data):
 
         st.divider()
 
+        # ── AI 글쓰기 설정 ──
+        st.subheader("✨ AI 분석 글쓰기")
+
+        if not HAS_ANTHROPIC:
+            st.warning("`anthropic` 패키지가 설치되지 않았습니다. `pip install anthropic`으로 설치하면 AI 글쓰기를 사용할 수 있습니다.")
+
+        api_key = st.text_input(
+            "Anthropic API 키",
+            type="password",
+            key="anthropic_api_key",
+            help="Claude API 키를 입력하면 보고서 생성 시 분석 문단을 보고서 문체로 자동 재작성합니다. 없으면 룰 기반 텍스트가 그대로 사용됩니다.",
+            placeholder="sk-ant-api03-..."
+        )
+
+        if api_key:
+            is_valid, msg = validate_api_key(api_key)
+            if is_valid:
+                st.caption(f"✅ {msg} — Sonnet 모델로 분석 문단을 재작성합니다.")
+            else:
+                st.caption(f"⚠️ {msg}")
+
+        use_llm = bool(api_key and api_key.strip().startswith("sk-ant-"))
+
+        st.divider()
+
         # ── 생성 ──
         st.subheader("📥 보고서 생성")
+
+        if use_llm:
+            st.info("🤖 AI 글쓰기 활성화 — 보고서 생성 시 Claude Sonnet이 분석 문단을 보고서 문체로 재작성합니다.")
 
         col1, col2 = st.columns(2)
         with col1:
             if st.button("📄 Word 보고서 생성", type="primary", use_container_width=True):
-                _generate_report()
+                _generate_report(api_key=api_key if use_llm else None)
 
         with col2:
             if st.button("💾 데이터 JSON 저장", use_container_width=True):
@@ -187,11 +216,57 @@ def _show_eval_items(eval_type):
         st.caption("(항목 없음)")
 
 
-def _generate_report():
-    """Word 보고서 생성"""
+def _generate_report(api_key=None):
+    """Word 보고서 생성 — LLM 글쓰기 통합"""
     try:
         from report_generator import generate_report
+
         data = _collect_report_data()
+        s = st.session_state
+
+        # ── LLM 분석 글쓰기 ──
+        if api_key:
+            with st.spinner("🤖 Claude가 분석 문단을 작성하고 있습니다..."):
+                # 선택된 인사이트를 LLM에 전달할 형태로 변환
+                insights_for_llm = data.get("section_insights", {})
+
+                # 선택된 평가 초안 수집
+                eval_drafts_for_llm = []
+                for eval_type in ["positive", "negative", "improvement"]:
+                    for d in s.get(f"eval_{eval_type}_drafts", []):
+                        if d.selected:
+                            eval_drafts_for_llm.append({
+                                "eval_type": eval_type,
+                                "text": d.text,
+                            })
+
+                analysis_data = collect_analysis_data()
+
+                llm_result = rewrite_insights(
+                    api_key=api_key,
+                    exhibition_title=s.exhibition_title,
+                    insights_by_section=insights_for_llm,
+                    analysis_data=analysis_data,
+                    eval_drafts=eval_drafts_for_llm,
+                )
+
+                if llm_result.is_fallback:
+                    if llm_result.error:
+                        st.warning(f"⚠️ AI 글쓰기 실패 — 룰 기반으로 대체합니다.\n{llm_result.error}")
+                    else:
+                        st.info("ℹ️ 룰 기반 텍스트를 사용합니다.")
+                else:
+                    cost = estimate_cost(llm_result.input_tokens, llm_result.output_tokens)
+                    st.success(
+                        f"✅ AI 분석 글쓰기 완료 — "
+                        f"{cost['total_tokens']:,} 토큰 사용 "
+                        f"(약 {cost['cost_krw']:.0f}원)"
+                    )
+
+                # 결과를 report data에 삽입
+                data["llm_sections"] = llm_result.sections
+
+        # ── Word 보고서 생성 ──
         output_path = os.path.join(tempfile.gettempdir(), "exhibition_report_v3.docx")
         generate_report(data, output_path)
 
@@ -199,10 +274,11 @@ def _generate_report():
             st.download_button(
                 "📥 보고서 다운로드",
                 f.read(),
-                file_name=f"전시보고서_{st.session_state.exhibition_title or 'v3'}.docx",
+                file_name=f"전시보고서_{s.exhibition_title or 'v3'}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         st.success("✅ 보고서가 생성되었습니다!")
+
     except Exception as e:
         st.error(f"보고서 생성 오류: {e}")
         import traceback
@@ -355,6 +431,17 @@ def _collect_report_data():
     return data
 
 
+def _convert_dates(obj):
+    """중첩 구조 안의 date 객체를 ISO 문자열로 변환"""
+    if isinstance(obj, date):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: _convert_dates(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_convert_dates(item) for item in obj]
+    return obj
+
+
 def _save_json():
     """현재 데이터를 JSON으로 저장"""
     s = st.session_state
@@ -371,7 +458,9 @@ def _save_json():
         val = s[key]
         if isinstance(val, date):
             save_data[key] = val.isoformat()
-        elif isinstance(val, (str, int, float, bool, list, dict)):
+        elif isinstance(val, (list, dict)):
+            save_data[key] = _convert_dates(val)
+        elif isinstance(val, (str, int, float, bool)):
             save_data[key] = val
 
     json_str = json.dumps(save_data, ensure_ascii=False, indent=2)
