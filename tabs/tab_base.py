@@ -89,14 +89,21 @@ def render(tab):
         for i, prog in enumerate(st.session_state.related_programs):
             cols = st.columns([1.5, 3, 2, 1.5, 2.5])
             with cols[0]:
-                st.session_state.related_programs[i]["category"] = st.text_input(
-                    "구분", value=prog.get("category", ""), key=f"prog_cat_{i}")
+                cat_options = ["아티스트 토크", "강연", "워크숍", "스크리닝", "퍼포먼스", "기타"]
+                cat_val = prog.get("category")
+                cat_idx = cat_options.index(cat_val) if cat_val in cat_options else None
+                st.session_state.related_programs[i]["category"] = st.selectbox(
+                    "구분", options=cat_options, index=cat_idx, key=f"prog_cat_{i}",
+                    placeholder="선택")
             with cols[1]:
                 st.session_state.related_programs[i]["title"] = st.text_input(
                     "제목", value=prog.get("title", ""), key=f"prog_title_{i}")
             with cols[2]:
-                st.session_state.related_programs[i]["date"] = st.text_input(
-                    "일자", value=prog.get("date", ""), key=f"prog_date_{i}")
+                date_val = prog.get("date")
+                if not isinstance(date_val, date):
+                    date_val = None
+                st.session_state.related_programs[i]["date"] = st.date_input(
+                    "일자", value=date_val, key=f"prog_date_{i}")
             with cols[3]:
                 st.session_state.related_programs[i]["participants"] = st.text_input(
                     "참여 인원", value=prog.get("participants", ""), key=f"prog_part_{i}")
@@ -107,7 +114,7 @@ def render(tab):
         c1, c2 = st.columns(2)
         with c1:
             if st.button("➕ 프로그램 추가", key="add_prog"):
-                add_item("related_programs", {"category": "", "title": "", "date": "", "participants": "", "note": ""})
+                add_item("related_programs", {"category": None, "title": "", "date": None, "participants": "", "note": ""})
                 st.rerun()
         with c2:
             if st.button("➖ 마지막 프로그램 제거", key="rm_prog"):
@@ -116,24 +123,17 @@ def render(tab):
 
         st.divider()
 
-        # ── 운영 인력 (서술) ──
-        st.subheader("전시 운영 인력")
-        st.caption("인원 수는 '정량 데이터' 탭에서 입력합니다. 여기서는 역할을 서술합니다.")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.text_input("스태프 역할 및 활동 내용", key="staff_main_role")
-        with c2:
-            st.text_input("봉사단 역할 및 활동 내용", key="staff_volunteers_role")
-
-        st.divider()
-
         # ── 인쇄물 ──
         st.subheader("인쇄물 및 굿즈")
         for i, mat in enumerate(st.session_state.printed_materials):
             cols = st.columns([3, 2, 4])
             with cols[0]:
-                st.session_state.printed_materials[i]["type"] = st.text_input(
-                    "종류", value=mat.get("type", ""), key=f"mat_type_{i}")
+                mat_options = ["포스터", "리플렛", "초대장", "굿즈", "기타"]
+                mat_val = mat.get("type")
+                mat_idx = mat_options.index(mat_val) if mat_val in mat_options else None
+                st.session_state.printed_materials[i]["type"] = st.selectbox(
+                    "종류", options=mat_options, index=mat_idx, key=f"mat_type_{i}",
+                    placeholder="선택")
             with cols[1]:
                 st.session_state.printed_materials[i]["quantity"] = st.text_input(
                     "수량", value=mat.get("quantity", ""), key=f"mat_qty_{i}")
@@ -144,7 +144,7 @@ def render(tab):
         c1, c2 = st.columns(2)
         with c1:
             if st.button("➕ 인쇄물 추가", key="add_mat"):
-                add_item("printed_materials", {"type": "", "quantity": "", "note": ""})
+                add_item("printed_materials", {"type": None, "quantity": "", "note": ""})
                 st.rerun()
         with c2:
             if st.button("➖ 마지막 인쇄물 제거", key="rm_mat"):
@@ -178,8 +178,11 @@ def render(tab):
                 st.session_state.press_print[i]["outlet"] = st.text_input(
                     "매체명", value=item.get("outlet", ""), key=f"pp_outlet_{i}")
             with cols[1]:
-                st.session_state.press_print[i]["date"] = st.text_input(
-                    "일자", value=item.get("date", ""), key=f"pp_date_{i}")
+                pp_date_val = item.get("date")
+                if not isinstance(pp_date_val, date):
+                    pp_date_val = None
+                st.session_state.press_print[i]["date"] = st.date_input(
+                    "일자", value=pp_date_val, key=f"pp_date_{i}")
             with cols[2]:
                 st.session_state.press_print[i]["title"] = st.text_input(
                     "제목", value=item.get("title", ""), key=f"pp_title_{i}")
@@ -190,7 +193,7 @@ def render(tab):
         c1, c2 = st.columns(2)
         with c1:
             if st.button("➕ 일간지 추가", key="add_pp"):
-                add_item("press_print", {"outlet": "", "date": "", "title": "", "note": ""})
+                add_item("press_print", {"outlet": "", "date": None, "title": "", "note": ""})
                 st.rerun()
         with c2:
             if st.button("➖ 마지막 일간지 제거", key="rm_pp"):
@@ -204,8 +207,11 @@ def render(tab):
                 st.session_state.press_online[i]["outlet"] = st.text_input(
                     "매체명", value=item.get("outlet", ""), key=f"po_outlet_{i}")
             with cols[1]:
-                st.session_state.press_online[i]["date"] = st.text_input(
-                    "일자", value=item.get("date", ""), key=f"po_date_{i}")
+                po_date_val = item.get("date")
+                if not isinstance(po_date_val, date):
+                    po_date_val = None
+                st.session_state.press_online[i]["date"] = st.date_input(
+                    "일자", value=po_date_val, key=f"po_date_{i}")
             with cols[2]:
                 st.session_state.press_online[i]["title"] = st.text_input(
                     "제목", value=item.get("title", ""), key=f"po_title_{i}")
@@ -216,7 +222,7 @@ def render(tab):
         c1, c2 = st.columns(2)
         with c1:
             if st.button("➕ 온라인 매체 추가", key="add_po"):
-                add_item("press_online", {"outlet": "", "date": "", "title": "", "url": ""})
+                add_item("press_online", {"outlet": "", "date": None, "title": "", "url": ""})
                 st.rerun()
         with c2:
             if st.button("➖ 마지막 온라인 매체 제거", key="rm_po"):

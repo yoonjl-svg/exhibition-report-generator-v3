@@ -13,42 +13,51 @@ def render(tab):
         # ════════════════════════════════════════
         st.subheader("💰 예산 및 수입")
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         with col1:
-            st.number_input("총 사용 예산 (원)", min_value=0, step=1_000_000,
-                            key="total_budget", format="%d")
-        with col2:
             st.number_input("전시 사용 예산 (원)", min_value=0, step=1_000_000,
                             key="budget_exhibition", format="%d")
-        with col3:
+        with col2:
             st.number_input("부대 사용 예산 (원)", min_value=0, step=100_000,
                             key="budget_supplementary", format="%d")
+
+        # 총 사용 예산 자동 합산
+        total_budget = st.session_state.budget_exhibition + st.session_state.budget_supplementary
+        st.session_state.total_budget = total_budget
+        if total_budget > 0:
+            st.metric("총 사용 예산", f"{total_budget:,}원")
 
         col1, col2, col3 = st.columns(3)
         with col1:
             st.number_input("예산 계획액 (원)", min_value=0, step=1_000_000,
                             key="budget_planned", format="%d")
         with col2:
-            st.number_input("총수입 (원)", min_value=0, step=1_000_000,
-                            key="total_revenue", format="%d")
-        with col3:
             st.number_input("입장 수입 (원)", min_value=0, step=100_000,
                             key="ticket_revenue", format="%d")
+        with col3:
+            st.number_input("기타 수입 (원)", min_value=0, step=100_000,
+                            key="other_revenue", format="%d")
+
+        # 총수입 자동 합산
+        total_revenue = st.session_state.ticket_revenue + st.session_state.other_revenue
+        st.session_state.total_revenue = total_revenue
+        if total_revenue > 0:
+            st.metric("총수입", f"{total_revenue:,}원")
 
         # 자동 계산 표시
-        if st.session_state.total_budget > 0:
+        if total_budget > 0:
             metrics = st.columns(3)
             with metrics[0]:
                 if st.session_state.budget_exhibition and st.session_state.budget_supplementary:
-                    ratio = st.session_state.budget_exhibition / st.session_state.total_budget * 100
+                    ratio = st.session_state.budget_exhibition / total_budget * 100
                     st.metric("전시비 비율", f"{ratio:.1f}%")
             with metrics[1]:
-                if st.session_state.total_revenue:
-                    recovery = st.session_state.total_revenue / st.session_state.total_budget * 100
+                if total_revenue:
+                    recovery = total_revenue / total_budget * 100
                     st.metric("예산 회수율", f"{recovery:.1f}%")
             with metrics[2]:
                 if st.session_state.budget_planned:
-                    exec_rate = st.session_state.total_budget / st.session_state.budget_planned * 100
+                    exec_rate = total_budget / st.session_state.budget_planned * 100
                     st.metric("집행률", f"{exec_rate:.1f}%")
 
         st.divider()
@@ -111,11 +120,6 @@ def render(tab):
         # ════════════════════════════════════════
         st.subheader("🎨 출품 작품")
 
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            st.number_input("출품 작품 수 (총)", min_value=0, key="artwork_total", format="%d")
-
-        st.markdown("**매체별 구성**")
         cols = st.columns(6)
         with cols[0]:
             st.number_input("회화", min_value=0, key="artwork_painting", format="%d")
@@ -130,15 +134,13 @@ def render(tab):
         with cols[5]:
             st.number_input("기타", min_value=0, key="artwork_other", format="%d")
 
-        # 매체별 합계 검증
-        media_sum = (st.session_state.artwork_painting + st.session_state.artwork_sculpture +
-                     st.session_state.artwork_photo + st.session_state.artwork_installation +
-                     st.session_state.artwork_media + st.session_state.artwork_other)
-        if media_sum > 0 and st.session_state.artwork_total > 0:
-            if media_sum != st.session_state.artwork_total:
-                st.warning(f"⚠️ 매체별 합계({media_sum}점)와 총 작품 수({st.session_state.artwork_total}점)가 다릅니다.")
-            else:
-                st.success(f"✅ 매체별 합계 일치: {media_sum}점")
+        # 출품 작품 수 자동 합산
+        artwork_total = (st.session_state.artwork_painting + st.session_state.artwork_sculpture +
+                         st.session_state.artwork_photo + st.session_state.artwork_installation +
+                         st.session_state.artwork_media + st.session_state.artwork_other)
+        st.session_state.artwork_total = artwork_total
+        if artwork_total > 0:
+            st.metric("출품 작품 수 (총)", f"{artwork_total}점")
 
         st.divider()
 

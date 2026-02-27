@@ -87,12 +87,8 @@ def init_session():
         "sponsors": "",
         "theme_text": "",
         "rooms": [{"name": "1전시실", "artists": ""}],
-        "related_programs": [{"category": "", "title": "", "date": "", "participants": "", "note": ""}],
-        "printed_materials": [{"type": "", "quantity": "", "note": ""}],
-        "staff_main_count": "",
-        "staff_main_role": "",
-        "staff_volunteers_count": "",
-        "staff_volunteers_role": "",
+        "related_programs": [{"category": None, "title": "", "date": None, "participants": "", "note": ""}],
+        "printed_materials": [{"type": None, "quantity": "", "note": ""}],
         # 홍보 방식 (B — 서술)
         "promo_advertising": "",
         "promo_press_release": "",
@@ -101,8 +97,8 @@ def init_session():
         "promo_sns": "",
         "promo_other": "",
         # 언론보도 리스트 (B — 서술)
-        "press_print": [{"outlet": "", "date": "", "title": "", "note": ""}],
-        "press_online": [{"outlet": "", "date": "", "title": "", "url": ""}],
+        "press_print": [{"outlet": "", "date": None, "title": "", "note": ""}],
+        "press_online": [{"outlet": "", "date": None, "title": "", "url": ""}],
         "membership_text": "",
         # 관객 후기 (B — 정성)
         "visitor_reviews": [{"category": "긍정", "content": "", "source": ""}],
@@ -114,6 +110,7 @@ def init_session():
         "budget_planned": 0,
         "total_revenue": 0,
         "ticket_revenue": 0,
+        "other_revenue": 0,
         "total_visitors": 0,
         "visitor_general": 0,
         "visitor_student": 0,
@@ -230,7 +227,7 @@ with st.sidebar:
 # ──────────────────────────────────────────────
 
 tab_b, tab_a, tab_c, tab_d = st.tabs([
-    "📋 기반 정보",
+    "📋 기본 정보",
     "📊 정량 데이터",
     "🔍 분석 & 평가",
     "📄 보고서 생성",

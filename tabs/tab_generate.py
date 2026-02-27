@@ -384,15 +384,12 @@ def _save_json():
 
 
 def _load_json(uploaded):
-    """JSON에서 데이터 복원"""
+    """JSON에서 데이터 복원 — pending 패턴으로 위젯 충돌 회피"""
     try:
         data = json.loads(uploaded.read())
-        for key, val in data.items():
-            if key in ("period_start", "period_end"):
-                st.session_state[key] = date.fromisoformat(val) if val else None
-            else:
-                st.session_state[key] = val
-        st.success("✅ 데이터가 복원되었습니다!")
+        # 위젯이 이미 렌더링된 상태이므로 직접 대입 불가.
+        # _pending_json에 저장 후 rerun → app.py의 init_session에서 적용
+        st.session_state["_pending_json"] = data
         st.rerun()
     except Exception as e:
         st.error(f"JSON 로드 오류: {e}")
