@@ -4,6 +4,7 @@ B(기반 정보) → A(정량 데이터) → C(자동 분석) → 생성
 """
 
 import os
+from datetime import date
 import streamlit as st
 import pandas as pd
 
@@ -174,6 +175,15 @@ def init_session():
     for key, val in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = val
+
+    # ── pending JSON 적용 (위젯 렌더링 전에 실행) ──
+    if "_pending_json" in st.session_state:
+        data = st.session_state.pop("_pending_json")
+        for key, val in data.items():
+            if key in ("period_start", "period_end"):
+                st.session_state[key] = date.fromisoformat(val) if val else None
+            else:
+                st.session_state[key] = val
 
 
 init_session()
