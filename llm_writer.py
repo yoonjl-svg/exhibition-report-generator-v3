@@ -171,13 +171,25 @@ def _build_user_prompt(
     insights_by_section: dict,
     analysis_data: dict,
     eval_drafts: list = None,
+    theme_text: str = "",
+    summary_metrics: list = None,
 ) -> str:
     """API에 보낼 사용자 프롬프트를 구성"""
 
     # 1. 전시 기본 정보
     prompt = f"## 전시 정보\n전시 제목: 《{exhibition_title}》\n\n"
 
-    # 핵심 수치 요약
+    # 2. 전시 주제 (큐레이터 의도) — VI장 종합 시 맥락으로 활용
+    if theme_text and theme_text.strip():
+        prompt += "## 전시 주제 — 큐레이터 의도 (II장 본문)\n"
+        prompt += (
+            "아래는 보고서 II장에 실리는 전시 주제 에세이입니다. "
+            "VI. Executive Summary 종합 시 큐레이터의 기획 의도를 이해하는 맥락으로 활용하세요. "
+            "이 텍스트 자체를 재작성하지 말고, 데이터 분석을 이 의도와 연결하세요.\n\n"
+        )
+        prompt += theme_text.strip() + "\n\n"
+
+    # 3. 핵심 수치 (정량 분석 입력)
     key_metrics = []
     metric_map = {
         "총 관객수": ("명", True),
@@ -202,7 +214,22 @@ def _build_user_prompt(
     if key_metrics:
         prompt += "## 핵심 수치\n" + "\n".join(key_metrics) + "\n\n"
 
-    # 2. 섹션별 인사이트 (룰 기반)
+    # 4. VI장 자동 삽입 종합표 (LLM이 이 수치와 일관성 유지하도록 안내)
+    if summary_metrics:
+        prompt += "## VI. Executive Summary 상단에 자동 삽입될 핵심 수치 종합표\n"
+        prompt += (
+            "아래 표가 VI장 시작 부분에 자동 삽입됩니다. "
+            "VI장 종합 문단을 작성할 때 이 수치들과 모순 없는 표현을 사용하세요. "
+            "(표에 이미 있는 수치를 문장에서 반복할 필요는 없음. 표는 사실 제시, 문단은 narrative.)\n\n"
+        )
+        for m in summary_metrics:
+            prompt += (
+                f"- {m['label']}: 본 전시 {m['current_fmt']}, "
+                f"{m['reference_label']} 평균 {m['reference_avg_fmt']} ({m['diff_fmt']})\n"
+            )
+        prompt += "\n"
+
+    # 5. 섹션별 인사이트 (룰 기반)
     prompt += "## 섹션별 인사이트 (룰 기반 분석 결과)\n\n"
     prompt += "아래 인사이트들을 보고서 문체로 재작성하세요. 수치와 비교 데이터는 정확히 유지하되, 문장을 자연스러운 보고서 문체로 통합하세요.\n\n"
 
@@ -214,14 +241,24 @@ def _build_user_prompt(
                 prompt += f"- {ins['text']}\n"
             prompt += "\n"
 
-    # 3. 사용자 평가 메모
+    # 6. 담당자 메모 (있을 때만)
     if eval_drafts:
         prompt += "## 담당자 메모\n"
-        prompt += "아래는 담당 큐레이터가 직접 작성한 메모입니다. VI. Executive Summary 섹션 작성 시 이 내용을 반드시 반영하세요.\n\n"
+        prompt += "아래는 담당 큐레이터가 직접 작성한 메모입니다. VI. Executive Summary 섹션 작성 시 이 내용을 반영하세요. (메모가 없는 부분은 데이터 자체에서 종합)\n\n"
         for ed in eval_drafts:
             type_label = {"positive": "긍정", "negative": "부정/한계", "improvement": "개선 방안"}.get(ed.get("eval_type", ""), "")
             prompt += f"- [{type_label}] {ed['text']}\n"
         prompt += "\n"
+
+    # 7. VI장 작성 지침 (강조)
+    prompt += (
+        "## VI. Executive Summary 종합 작성 지침\n"
+        "VI 섹션은 다른 섹션과 달리 **전시 전체를 종합하는 문단**입니다. "
+        "위에 제공된 (a) 전시 주제, (b) 핵심 수치 종합표, (c) 섹션별 인사이트, (d) 담당자 메모(있을 시)를 모두 통합해 "
+        "신문 기사 톤의 중립적 종합 2~4문장을 작성하세요. "
+        "다른 섹션의 단순 요약이 금지됨. 전시 전체의 narrative arc(주제 → 결과 → 의의)를 정렬. "
+        "평가어·단정 금지. 디렉터의 판단 영역 침범 금지.\n\n"
+    )
 
     # 문체 예시(FEW_SHOT_EXAMPLES)는 system 블록으로 이동하여 캐싱됨
 
@@ -251,6 +288,8 @@ def rewrite_insights(
     insights_by_section: dict,
     analysis_data: dict,
     eval_drafts: list = None,
+    theme_text: str = "",
+    summary_metrics: list = None,
 ) -> LLMWriterResult:
     """
     선택된 인사이트를 보고서 문체로 재작성
@@ -260,7 +299,9 @@ def rewrite_insights(
         exhibition_title: 전시 제목
         insights_by_section: {section_key: [{"text": ..., "category": ...}, ...]}
         analysis_data: collect_analysis_data()의 결과
-        eval_drafts: 선택된 평가 초안 리스트
+        eval_drafts: 선택된 평가 초안 리스트 (선택)
+        theme_text: II장 전시 주제 에세이 — VI장 종합 시 큐레이터 의도 맥락으로 사용
+        summary_metrics: compute_summary_metrics 결과 — VI장 종합표 수치와의 일관성 보장
 
     Returns:
         LLMWriterResult
@@ -283,7 +324,8 @@ def rewrite_insights(
         client = anthropic.Anthropic(api_key=api_key.strip())
 
         user_prompt = _build_user_prompt(
-            exhibition_title, insights_by_section, analysis_data, eval_drafts
+            exhibition_title, insights_by_section, analysis_data, eval_drafts,
+            theme_text=theme_text, summary_metrics=summary_metrics,
         )
 
         # System 블록을 두 개로 분할하여 정적 부분(규칙 + few-shot 예시)을 캐싱.

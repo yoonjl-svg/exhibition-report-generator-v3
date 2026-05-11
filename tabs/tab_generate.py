@@ -224,13 +224,25 @@ def _generate_report(api_key=None):
         data = _collect_report_data()
         s = st.session_state
 
+        # ── 핵심 수치 종합표 먼저 계산 ──
+        # LLM 사용 여부와 무관하게 항상 계산. LLM에도 전달해 종합 의견에서 일관성 보장.
+        try:
+            ref_df_for_summary = load_reference_data()
+            summary_analysis_data = collect_analysis_data()
+            exhibition_type_val = s.get("exhibition_type", None)
+            data["summary_metrics"] = ae.compute_summary_metrics(
+                summary_analysis_data, ref_df_for_summary, exhibition_type_val
+            )
+        except Exception:
+            data["summary_metrics"] = []
+
         # ── LLM 분석 글쓰기 ──
         if api_key:
             with st.spinner("🤖 Claude가 분석 문단을 작성하고 있습니다..."):
                 # 선택된 인사이트를 LLM에 전달할 형태로 변환
                 insights_for_llm = data.get("section_insights", {})
 
-                # 사용자 평가 메모 수집
+                # 사용자 평가 메모 수집 (단계적 폐지 중: 입력 유지, 자동 생성 우선)
                 eval_drafts_for_llm = []
                 for eval_type in ["positive", "negative", "improvement"]:
                     for c in s.get(f"eval_{eval_type}_custom", []):
@@ -248,6 +260,8 @@ def _generate_report(api_key=None):
                     insights_by_section=insights_for_llm,
                     analysis_data=analysis_data,
                     eval_drafts=eval_drafts_for_llm,
+                    theme_text=s.get("theme_text", ""),
+                    summary_metrics=data.get("summary_metrics", []),
                 )
 
                 if llm_result.is_fallback:
@@ -276,18 +290,6 @@ def _generate_report(api_key=None):
 
                 # 결과를 report data에 삽입
                 data["llm_sections"] = llm_result.sections
-
-        # ── 핵심 수치 종합표 (VI. Executive Summary 상단) ──
-        # LLM 사용 여부와 무관하게 항상 계산
-        try:
-            ref_df_for_summary = load_reference_data()
-            summary_analysis_data = collect_analysis_data()
-            exhibition_type_val = s.get("exhibition_type", None)
-            data["summary_metrics"] = ae.compute_summary_metrics(
-                summary_analysis_data, ref_df_for_summary, exhibition_type_val
-            )
-        except Exception as _e:
-            data["summary_metrics"] = []
 
         # ── 세션 상태에 저장 (미리보기·편집 UI에서 사용) ──
         st.session_state["report_state"] = {
