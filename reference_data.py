@@ -316,14 +316,23 @@ def filter_by_type(df: pd.DataFrame, exhibition_type) -> pd.DataFrame:
 
 
 def get_type_label(exhibition_type) -> str:
-    """유형 번호를 표시용 라벨로 변환합니다."""
+    """유형 번호를 보고서용 자연어 라벨로 변환.
+
+    내부 코드("1유형", "2유형")는 최종 결재권자가 이해할 수 없으므로
+    의미 기반 자연어로 표기:
+      1 → 기존 기획전 (정기 기획전)
+      2 → 기존 특별전 (특별전)
+      3 → 기존 전시 (기타)
+      None / 기타 → 역대 전시
+    """
     if exhibition_type is None:
-        return "전체"
+        return "역대 전시"
     try:
         t = int(float(exhibition_type))
     except (ValueError, TypeError):
-        return "전체"
-    return f"{t}유형"
+        return "역대 전시"
+    labels = {1: "기존 기획전", 2: "기존 특별전", 3: "기존 전시"}
+    return labels.get(t, "기존 전시")
 
 
 def get_type_count(df: pd.DataFrame, exhibition_type) -> int:

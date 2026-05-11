@@ -131,7 +131,7 @@ def _make_insight(
     text = (
         f"이번 전시의 {metric_name}{pp} {current_fmt}{pp_ro}, "
         f"{group_label} 평균({avg_fmt}) 대비 {abs(diff_pct):.1f}% {_direction_verb(diff_pct)} "
-        f"({stats.count}개 전시 중 {rank}위)."
+        f"(기존 전시 중 {rank}위)."
     )
     # priority가 명시되지 않으면 diff_pct 기반 자동 산출
     if priority is None:
@@ -225,7 +225,7 @@ def _analyze_visitors(cur, df, gl="역대"):
             avg_r = float(valid.mean())
             insights.append(Insight(
                 category="관객", section="results", title="유료 관객 비율",
-                text=f"유료 관객 비율은 {ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%) 대비 {abs(ratio-avg_r)*100:.1f}%p {'높습니다' if ratio > avg_r else '낮습니다'}.",
+                text=f"유료 관객 비율은 {ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%) 대비 {abs(ratio-avg_r)*100:.1f}%p {'높음' if ratio > avg_r else '낮음'}.",
                 metric_name="유료 관객 비율", current_value=ratio, reference_avg=avg_r,
                 priority=_compute_salience((ratio - avg_r) / abs(avg_r) * 100 if avg_r else None),
             ))
@@ -293,7 +293,7 @@ def _analyze_budget(cur, df, gl="역대"):
                 avg_r = float(valid.mean())
                 insights.append(Insight(
                     category="예산", section="results", title="예산 구조",
-                    text=f"전시비 비율은 {exh_ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%)과 비교됩니다. {'전시 직접비에 집중 투자한' if exh_ratio > avg_r else '부대 사업에 상대적으로 많이 배분한'} 구조입니다.",
+                    text=f"전시비 비율은 {exh_ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%)과 비교됨. {'전시 직접비에 집중 투자한' if exh_ratio > avg_r else '부대 사업에 상대적으로 많이 배분한'} 구조임.",
                     metric_name="전시비 비율", current_value=exh_ratio, reference_avg=avg_r,
                     priority=_compute_salience((exh_ratio - avg_r) / abs(avg_r) * 100 if avg_r else None),
                 ))
@@ -307,7 +307,7 @@ def _analyze_budget(cur, df, gl="역대"):
             avg_r = float(valid.mean())
             insights.append(Insight(
                 category="예산", section="results", title="예산 회수율",
-                text=f"예산 대비 수입 비율은 {ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%)을 {'상회' if ratio > avg_r else '하회'}합니다.",
+                text=f"예산 대비 수입 비율은 {ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%)을 {'상회함' if ratio > avg_r else '하회함'}.",
                 metric_name="예산 회수율", current_value=ratio, reference_avg=avg_r,
                 priority=_compute_salience((ratio - avg_r) / abs(avg_r) * 100 if avg_r else None),
             ))
@@ -339,7 +339,7 @@ def _analyze_programs(cur, df, gl="역대"):
             avg_r = float(valid.mean())
             insights.append(Insight(
                 category="프로그램", section="composition", title="프로그램 참여율",
-                text=f"프로그램 참여율(참여인원/총관객)은 {rate*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%) 대비 {abs(rate-avg_r)*100:.1f}%p {'높습니다' if rate > avg_r else '낮습니다'}.",
+                text=f"프로그램 참여율(참여인원/총관객)은 {rate*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%) 대비 {abs(rate-avg_r)*100:.1f}%p {'높음' if rate > avg_r else '낮음'}.",
                 metric_name="프로그램 참여율", current_value=rate, reference_avg=avg_r,
                 priority=_compute_salience((rate - avg_r) / abs(avg_r) * 100 if avg_r else None),
             ))
@@ -395,9 +395,9 @@ def _analyze_artworks(cur, df, gl="역대"):
                          if label in current_media]
                 composition_str = ", ".join(parts)
 
-                text = f"출품 작품의 매체 구성은 {composition_str}입니다. "
+                text = f"출품 작품의 매체 구성은 {composition_str}임. "
                 if ref_dominant_pct > 0:
-                    text += f"{dominant}의 비중({dominant_pct:.0f}%)은 {gl} 평균({ref_dominant_pct:.0f}%)과 비교하여 {'높은' if dominant_pct > ref_dominant_pct else '낮은'} 편입니다."
+                    text += f"{dominant}의 비중({dominant_pct:.0f}%)은 {gl} 평균({ref_dominant_pct:.0f}%)과 비교하여 {'높은' if dominant_pct > ref_dominant_pct else '낮은'} 편임."
 
                 media_diff = (dominant_pct - ref_dominant_pct) / abs(ref_dominant_pct) * 100 if ref_dominant_pct else None
                 insights.append(Insight(
@@ -497,14 +497,14 @@ def _analyze_cross(cur, df, gl="역대"):
             if b_diff < -5 and v_diff > 5:
                 insights.append(Insight(
                     category="교차분석", section="evaluation", title="예산 대비 관객 효율",
-                    text=f"총 사용 예산은 {gl} 평균 대비 {abs(b_diff):.0f}% 낮았으나, 총 관객수는 오히려 {abs(v_diff):.0f}% 높아 관객당 비용 {format_number(cost, '원')}으로 매우 효율적인 운영을 보였습니다 ({c_stats.count}개 전시 중 {c_rank}위).",
+                    text=f"총 사용 예산은 {gl} 평균 대비 {abs(b_diff):.0f}% 낮았으나, 총 관객수는 오히려 {abs(v_diff):.0f}% 높아 관객당 비용 {format_number(cost, '원')}으로 매우 효율적인 운영을 보임 (기존 전시 중 {c_rank}위).",
                     metric_name="예산-관객 효율", current_value=cost,
                     priority=1,  # 교차분석 핵심: 항상 우선
                 ))
             elif b_diff > 10 and v_diff < -5:
                 insights.append(Insight(
                     category="교차분석", section="evaluation", title="예산 대비 관객 효율",
-                    text=f"총 사용 예산은 {gl} 평균 대비 {abs(b_diff):.0f}% 높았으나, 총 관객수는 {abs(v_diff):.0f}% 낮아 관객당 비용이 {format_number(cost, '원')}에 달했습니다. 향후 예산 효율 개선이 필요합니다.",
+                    text=f"총 사용 예산은 {gl} 평균 대비 {abs(b_diff):.0f}% 높았으나, 총 관객수는 {abs(v_diff):.0f}% 낮아 관객당 비용이 {format_number(cost, '원')}에 달함. 향후 예산 효율 개선이 필요함.",
                     metric_name="예산-관객 비효율", current_value=cost,
                     priority=1,  # 교차분석 핵심: 항상 우선
                 ))
@@ -516,7 +516,7 @@ def _analyze_cross(cur, df, gl="역대"):
         if p_diff < -10 and v_diff > 5:
             insights.append(Insight(
                 category="교차분석", section="evaluation", title="홍보 채널 효과",
-                text=f"언론 보도는 {gl} 평균 대비 {abs(p_diff):.0f}% 적었으나 총 관객수는 {abs(v_diff):.0f}% 높아, 보도 외 채널(SNS, 구전 등)의 홍보 효과가 컸던 것으로 보입니다.",
+                text=f"언론 보도는 {gl} 평균 대비 {abs(p_diff):.0f}% 적었으나 총 관객수는 {abs(v_diff):.0f}% 높아, 보도 외 채널(SNS, 구전 등)의 홍보 효과가 컸던 것으로 보임.",
                 metric_name="보도-관객 관계",
                 priority=1,  # 교차분석: 항상 우선
             ))
@@ -530,7 +530,7 @@ def _analyze_cross(cur, df, gl="역대"):
             if recovery > 1.0 and avg_r < 1.0:
                 insights.append(Insight(
                     category="교차분석", section="evaluation", title="예산 회수율 초과",
-                    text=f"총수입({format_number(revenue, '원')})이 총예산({format_number(budget, '원')})을 초과하여 예산 회수율 {recovery*100:.1f}%를 달성했습니다 ({gl} 평균 {avg_r*100:.1f}%).",
+                    text=f"총수입({format_number(revenue, '원')})이 총예산({format_number(budget, '원')})을 초과하여 예산 회수율 {recovery*100:.1f}%를 달성함 ({gl} 평균 {avg_r*100:.1f}%).",
                     metric_name="예산 회수율", current_value=recovery, reference_avg=avg_r,
                     priority=1,  # 교차분석: 예산 초과 회수는 항상 핵심
                 ))
@@ -595,61 +595,61 @@ def _generate_eval_drafts(insights: list[Insight], cur: dict) -> list[EvalDraft]
         if diff > 15:
             if "관객" in ins.metric_name:
                 drafts.append(EvalDraft("positive",
-                    f"{ins.metric_name}이 역대 평균 대비 {abs(diff):.0f}% 높은 우수한 성과를 기록했습니다.",
+                    f"{ins.metric_name}이 역대 평균 대비 {abs(diff):.0f}% 높은 우수한 성과를 기록함.",
                     ins.metric_name))
             elif "비용" in ins.metric_name and diff < 0:
                 drafts.append(EvalDraft("positive",
-                    f"관객당 비용이 역대 평균보다 낮아 효율적인 예산 운영이 이루어졌습니다.",
+                    f"관객당 비용이 역대 평균보다 낮아 효율적인 예산 운영이 이루어짐.",
                     ins.metric_name))
             elif "참여" in ins.metric_name:
                 drafts.append(EvalDraft("positive",
-                    f"프로그램 참여율이 역대 평균을 상회하여 관객 경험 강화에 효과적으로 기여했습니다.",
+                    f"프로그램 참여율이 역대 평균을 상회하여 관객 경험 강화에 효과적으로 기여함.",
                     ins.metric_name))
             elif "회수" in ins.metric_name:
                 drafts.append(EvalDraft("positive",
-                    f"예산 회수율이 {ins.current_value*100:.1f}%로, 수입 확보 면에서 양호한 결과를 보였습니다.",
+                    f"예산 회수율이 {ins.current_value*100:.1f}%로, 수입 확보 면에서 양호한 결과를 보임.",
                     ins.metric_name))
             else:
                 drafts.append(EvalDraft("positive",
-                    f"{ins.metric_name}이 역대 평균 대비 우수한 수준입니다.",
+                    f"{ins.metric_name}이 역대 평균 대비 우수한 수준임.",
                     ins.metric_name))
 
         # 관객당 비용이 낮은 것은 긍정
         if "비용" in ins.metric_name and diff < -10:
             drafts.append(EvalDraft("positive",
-                f"관객당 비용이 역대 평균보다 {abs(diff):.0f}% 낮아 효율적인 예산 운영이 이루어졌습니다.",
+                f"관객당 비용이 역대 평균보다 {abs(diff):.0f}% 낮아 효율적인 예산 운영이 이루어짐.",
                 ins.metric_name))
 
         # ── 부정 평가 도출 ──
         if diff < -15:
             if "관객" in ins.metric_name and "비용" not in ins.metric_name:
                 drafts.append(EvalDraft("negative",
-                    f"{ins.metric_name}이 역대 평균 대비 {abs(diff):.0f}% 낮은 수치를 기록했습니다.",
+                    f"{ins.metric_name}이 역대 평균 대비 {abs(diff):.0f}% 낮은 수치를 기록함.",
                     ins.metric_name))
             elif "참여" in ins.metric_name:
                 drafts.append(EvalDraft("negative",
-                    f"프로그램 참여율이 역대 평균에 미치지 못하여, 프로그램 기획 및 홍보 전략 재검토가 필요합니다.",
+                    f"프로그램 참여율이 역대 평균에 미치지 못하여, 프로그램 기획 및 홍보 전략 재검토가 필요함.",
                     ins.metric_name))
 
         # 관객당 비용이 높은 것은 부정
         if "비용" in ins.metric_name and diff > 15:
             drafts.append(EvalDraft("negative",
-                f"관객당 비용이 역대 평균보다 {abs(diff):.0f}% 높아, 예산 효율성 면에서 개선이 필요합니다.",
+                f"관객당 비용이 역대 평균보다 {abs(diff):.0f}% 높아, 예산 효율성 면에서 개선이 필요함.",
                 ins.metric_name))
 
         # ── 개선 방안 도출 ──
         if diff < -20:
             if "관객" in ins.metric_name and "비용" not in ins.metric_name:
                 drafts.append(EvalDraft("improvement",
-                    f"관객 유치 확대를 위한 다채널 홍보 전략 및 타깃 마케팅 강화가 필요합니다.",
+                    f"관객 유치 확대를 위한 다채널 홍보 전략 및 타깃 마케팅 강화가 필요함.",
                     ins.metric_name))
             elif "참여" in ins.metric_name:
                 drafts.append(EvalDraft("improvement",
-                    f"프로그램 참여율 제고를 위해 사전 예약 시스템 도입이나 참여형 프로그램 확대를 검토할 수 있습니다.",
+                    f"프로그램 참여율 제고를 위해 사전 예약 시스템 도입이나 참여형 프로그램 확대를 검토할 수 있음.",
                     ins.metric_name))
             elif "보도" in ins.metric_name:
                 drafts.append(EvalDraft("improvement",
-                    f"언론 노출 확대를 위해 보도자료 배포 시점 및 매체 타깃팅 전략을 재검토할 필요가 있습니다.",
+                    f"언론 노출 확대를 위해 보도자료 배포 시점 및 매체 타깃팅 전략을 재검토할 필요가 있음.",
                     ins.metric_name))
 
     # 중복 제거 (같은 eval_type + source_metric)
@@ -693,7 +693,8 @@ def generate_all_insights(current_data, ref_df, exhibition_type=None) -> Analysi
     df_full = compute_derived_metrics(exclude_type_zero(ref_df))
     df_typed = filter_by_type(df_full, exhibition_type)
     is_filtered = len(df_typed) < len(df_full)
-    gl = f"동일 유형({get_type_label(exhibition_type)})" if is_filtered else "역대"
+    # 보고서 자연어 표기: "기존 기획전" / "기존 특별전" / "기존 전시" / "역대 전시"
+    gl = get_type_label(exhibition_type) if is_filtered else "역대 전시"
 
     all_insights = []
     all_insights.extend(_analyze_visitors(current_data, df_typed, gl))
