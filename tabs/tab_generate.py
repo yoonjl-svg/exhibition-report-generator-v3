@@ -46,7 +46,7 @@ def render(tab, load_reference_data):
         if api_key:
             is_valid, msg = validate_api_key(api_key)
             if is_valid:
-                st.caption(f"✅ {msg} — Sonnet 모델로 분석 문단을 재작성합니다.")
+                st.caption(f"✅ {msg} — Opus 모델로 분석 문단을 재작성합니다.")
             else:
                 st.caption(f"⚠️ {msg}")
 
@@ -58,7 +58,7 @@ def render(tab, load_reference_data):
         st.subheader("📥 보고서 생성")
 
         if use_llm:
-            st.info("🤖 AI 글쓰기 활성화 — 보고서 생성 시 Claude Sonnet이 분석 문단을 보고서 문체로 재작성합니다.")
+            st.info("🤖 AI 글쓰기 활성화 — 보고서 생성 시 Claude Opus가 분석 문단을 보고서 문체로 재작성합니다.")
 
         col1, col2 = st.columns(2)
         with col1:
