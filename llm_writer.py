@@ -28,7 +28,7 @@ SECTION_NAMES = {
     "results": "IV. 전시 결과",
     "composition": "III. 전시 구성",
     "promotion": "V. 홍보 방식 및 언론 보도",
-    "evaluation": "VI. 평가 및 개선 방안",
+    "evaluation": "VI. Executive Summary",
 }
 
 
@@ -147,7 +147,7 @@ SYSTEM_PROMPT = """당신은 일민미술관의 전시보고서 분석 문단을
   "results": "IV. 전시 결과 섹션에 삽입할 분석 문단",
   "composition": "III. 전시 구성 섹션에 삽입할 분석 문단",
   "promotion": "V. 홍보 섹션에 삽입할 분석 문단",
-  "evaluation": "VI. 평가 섹션에 삽입할 종합 분석 문단"
+  "evaluation": "VI. Executive Summary 섹션에 삽입할 종합 문단 (중립적 사실 종합, 평가어 금지)"
 }
 ```
 
@@ -210,7 +210,7 @@ def _build_user_prompt(
     # 3. 사용자 평가 메모
     if eval_drafts:
         prompt += "## 담당자 평가 메모\n"
-        prompt += "아래는 담당 큐레이터가 직접 작성한 평가 메모입니다. VI. 평가 섹션 작성 시 이 내용을 반드시 반영하세요.\n\n"
+        prompt += "아래는 담당 큐레이터가 직접 작성한 메모입니다. VI. Executive Summary 섹션 작성 시 이 내용을 반드시 반영하세요.\n\n"
         for ed in eval_drafts:
             type_label = {"positive": "긍정", "negative": "부정/한계", "improvement": "개선 방안"}.get(ed.get("eval_type", ""), "")
             prompt += f"- [{type_label}] {ed['text']}\n"

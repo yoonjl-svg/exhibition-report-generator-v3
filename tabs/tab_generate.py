@@ -161,8 +161,8 @@ def _show_preview():
             st.markdown(f"- SNS 게시: {s.sns_posts}건")
         _show_section_insights("promotion")
 
-    # VI. 평가 + 교차 분석 + 평가 초안
-    with st.expander("**VI. 평가 및 개선 방안**", expanded=True):
+    # VI. Executive Summary (교차 분석 + 큐레이터 메모)
+    with st.expander("**VI. Executive Summary**", expanded=True):
         _show_section_insights("evaluation")
 
         st.markdown("**긍정 평가:**")

@@ -685,7 +685,7 @@ SECTION_LABELS = {
     "results": "IV. 전시 결과",
     "composition": "III. 전시 구성",
     "promotion": "V. 홍보",
-    "evaluation": "VI. 평가",
+    "evaluation": "VI. Executive Summary",
 }
 
 

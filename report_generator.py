@@ -196,7 +196,7 @@ class ExhibitionReportGenerator:
             "III. 전시 구성",
             "IV. 전시 결과",
             "V. 홍보 방식 및 언론 보도",
-            "VI. 평가 및 개선 방안",
+            "VI. Executive Summary",
         ]
         for item in toc_items:
             add_paragraph(self.doc, item, size=Fonts.TOC_ITEM, bold=True,
@@ -502,10 +502,10 @@ class ExhibitionReportGenerator:
         # v3: 인라인 분석 (홍보)
         self._insert_section_insights("promotion")
 
-    # ─── VI. 평가 ───
+    # ─── VI. Executive Summary ───
 
     def _section_6_evaluation(self):
-        add_section_title(self.doc, "VI", "평가 및 개선 방안")
+        add_section_title(self.doc, "VI", "Executive Summary")
 
         # v3: 교차 분석 인사이트
         self._insert_section_insights("evaluation")
