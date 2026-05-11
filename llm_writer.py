@@ -20,7 +20,7 @@ except ImportError:
 # 설정
 # ──────────────────────────────────────────────
 
-MODEL = "claude-sonnet-4-20250514"
+MODEL = "claude-opus-4-5-20250929"
 MAX_TOKENS = 4096
 
 # 보고서 섹션 한국어 매핑
@@ -355,10 +355,10 @@ def _fallback_result(insights_by_section: dict) -> LLMWriterResult:
 # ──────────────────────────────────────────────
 
 def estimate_cost(input_tokens: int, output_tokens: int) -> dict:
-    """Sonnet 기준 비용 추정 (USD)"""
-    # Claude Sonnet 가격 (2025년 기준)
-    input_price_per_mtok = 3.0    # $3 per 1M input tokens
-    output_price_per_mtok = 15.0  # $15 per 1M output tokens
+    """Claude Opus 4.5 기준 비용 추정 (USD)"""
+    # Claude Opus 4.5 가격 (2025년 기준)
+    input_price_per_mtok = 15.0   # $15 per 1M input tokens
+    output_price_per_mtok = 75.0  # $75 per 1M output tokens
 
     input_cost = (input_tokens / 1_000_000) * input_price_per_mtok
     output_cost = (output_tokens / 1_000_000) * output_price_per_mtok
