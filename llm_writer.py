@@ -211,8 +211,7 @@ def _build_user_prompt(
             prompt += f"- [{type_label}] {ed['text']}\n"
         prompt += "\n"
 
-    # 4. 문체 예시
-    prompt += f"## 참고: 일민미술관 보고서 문체 예시\n{FEW_SHOT_EXAMPLES}\n"
+    # 문체 예시(FEW_SHOT_EXAMPLES)는 system 블록으로 이동하여 캐싱됨
 
     return prompt
 
@@ -227,8 +226,10 @@ class LLMWriterResult:
     sections: dict          # {section_key: 분석 문단 텍스트}
     model_used: str         # 사용된 모델명
     is_fallback: bool       # 룰 기반 폴백 여부
-    input_tokens: int = 0
+    input_tokens: int = 0   # 캐시 미적용 입력 토큰
     output_tokens: int = 0
+    cache_creation_tokens: int = 0  # 캐시 최초 생성 시 기록되는 입력 토큰
+    cache_read_tokens: int = 0      # 캐시 적중 시 재사용된 입력 토큰
     error: str = ""
 
 
@@ -273,10 +274,19 @@ def rewrite_insights(
             exhibition_title, insights_by_section, analysis_data, eval_drafts
         )
 
+        # System 블록을 두 개로 분할하여 정적 부분(규칙 + few-shot 예시)을 캐싱.
+        # cache_control은 마지막 블록에만 표시하고, 그 앞까지 모두 캐시 대상.
         response = client.messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
-            system=SYSTEM_PROMPT,
+            system=[
+                {"type": "text", "text": SYSTEM_PROMPT},
+                {
+                    "type": "text",
+                    "text": f"## 참고: 일민미술관 보고서 문체 예시\n{FEW_SHOT_EXAMPLES}",
+                    "cache_control": {"type": "ephemeral"},
+                },
+            ],
             messages=[{"role": "user", "content": user_prompt}],
         )
 
@@ -301,6 +311,8 @@ def rewrite_insights(
             is_fallback=False,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
+            cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+            cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
         )
 
     except json.JSONDecodeError as e:
@@ -354,24 +366,38 @@ def _fallback_result(insights_by_section: dict) -> LLMWriterResult:
 # 비용 추정 유틸리티
 # ──────────────────────────────────────────────
 
-def estimate_cost(input_tokens: int, output_tokens: int) -> dict:
-    """Claude Opus 4.5 기준 비용 추정 (USD)"""
+def estimate_cost(
+    input_tokens: int,
+    output_tokens: int,
+    cache_creation_tokens: int = 0,
+    cache_read_tokens: int = 0,
+) -> dict:
+    """Claude Opus 4.5 기준 비용 추정 (Prompt Caching 반영, USD)"""
     # Claude Opus 4.5 가격 (2025년 기준)
-    input_price_per_mtok = 15.0   # $15 per 1M input tokens
-    output_price_per_mtok = 75.0  # $75 per 1M output tokens
+    input_price_per_mtok = 15.0          # $15 per 1M input tokens (캐시 미적용)
+    output_price_per_mtok = 75.0         # $75 per 1M output tokens
+    cache_write_price_per_mtok = 18.75   # $18.75 per 1M cache write tokens (=input × 1.25)
+    cache_read_price_per_mtok = 1.50     # $1.50 per 1M cache read tokens (=input × 0.10)
 
     input_cost = (input_tokens / 1_000_000) * input_price_per_mtok
     output_cost = (output_tokens / 1_000_000) * output_price_per_mtok
-    total_cost = input_cost + output_cost
+    cache_write_cost = (cache_creation_tokens / 1_000_000) * cache_write_price_per_mtok
+    cache_read_cost = (cache_read_tokens / 1_000_000) * cache_read_price_per_mtok
+    total_cost = input_cost + output_cost + cache_write_cost + cache_read_cost
 
     # 원화 환산 (대략적)
-    krw_rate = 1350
+    krw_rate = 1380
     total_krw = total_cost * krw_rate
+
+    total_input = input_tokens + cache_creation_tokens + cache_read_tokens
 
     return {
         "input_tokens": input_tokens,
+        "cache_creation_tokens": cache_creation_tokens,
+        "cache_read_tokens": cache_read_tokens,
         "output_tokens": output_tokens,
-        "total_tokens": input_tokens + output_tokens,
+        "total_tokens": total_input + output_tokens,
+        "cache_hit": cache_read_tokens > 0,
         "cost_usd": round(total_cost, 4),
         "cost_krw": round(total_krw, 1),
     }

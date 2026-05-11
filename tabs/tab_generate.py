@@ -250,11 +250,22 @@ def _generate_report(api_key=None):
                     else:
                         st.info("ℹ️ 룰 기반 텍스트를 사용합니다.")
                 else:
-                    cost = estimate_cost(llm_result.input_tokens, llm_result.output_tokens)
+                    cost = estimate_cost(
+                        llm_result.input_tokens,
+                        llm_result.output_tokens,
+                        cache_creation_tokens=llm_result.cache_creation_tokens,
+                        cache_read_tokens=llm_result.cache_read_tokens,
+                    )
+                    cache_note = ""
+                    if cost["cache_hit"]:
+                        cache_note = f" · 🟢 캐시 히트 {cost['cache_read_tokens']:,} 토큰 재사용"
+                    elif cost["cache_creation_tokens"]:
+                        cache_note = f" · 🆕 캐시 생성 {cost['cache_creation_tokens']:,} 토큰 (다음 호출부터 적용)"
                     st.success(
                         f"✅ AI 분석 글쓰기 완료 — "
                         f"{cost['total_tokens']:,} 토큰 사용 "
                         f"(약 {cost['cost_krw']:.0f}원)"
+                        f"{cache_note}"
                     )
 
                 # 결과를 report data에 삽입
