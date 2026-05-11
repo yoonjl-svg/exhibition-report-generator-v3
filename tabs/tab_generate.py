@@ -422,13 +422,16 @@ def _collect_report_data():
                 items.append(d.text)
         return items
 
-    # 유사 전시 비교표
+    # 유사 전시 비교 (그래프로 렌더링됨; 표 데이터는 호환용으로 보존)
     sim_headers = None
     sim_data = None
+    sim_rows = []
     if result and result.similar_comparison_table is not None:
         df = result.similar_comparison_table
         sim_headers = list(df.columns)
         sim_data = df.values.tolist()
+    if result:
+        sim_rows = result.similar_exhibitions or []
 
     data = {
         "exhibition_title": s.exhibition_title,
@@ -513,9 +516,11 @@ def _collect_report_data():
             "improvements": collect_eval("eval_improvement_drafts"),
         },
         "visitor_reviews": [r for r in s.visitor_reviews if r.get("content")],
-        # 유사 전시
+        # 유사 전시 (그래프 입력)
         "similar_comparison_headers": sim_headers,
         "similar_comparison_table": sim_data,
+        "similar_exhibitions": sim_rows,
+        "analysis_data_flat": collect_analysis_data(),
     }
 
     # 입장권별 관객

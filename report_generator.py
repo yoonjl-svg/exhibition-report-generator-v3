@@ -25,6 +25,7 @@ from chart_generator import (
     create_budget_comparison_chart,
     create_visitor_type_chart,
     create_weekly_visitors_chart,
+    create_similar_bar_chart,
 )
 
 
@@ -554,20 +555,24 @@ class ExhibitionReportGenerator:
         # 3. 관객 반응 종합 (LLM, v4 단계 6) — 후기가 있을 때만 자동 표시
         self._insert_audience_response()
 
-        # 4. 유사 전시 비교표 (분석 탭에서 생성된 경우)
-        sim_headers = self.data.get("similar_comparison_headers")
-        sim_data = self.data.get("similar_comparison_table")
-        if sim_headers and sim_data:
-            add_subsection_title(self.doc, "4", "유사 전시 비교")
-            add_paragraph(self.doc, "", space_before=Pt(2))
-            num_rows = len(sim_data)
-            num_cols = len(sim_headers)
-            total_w = 15
-            first_w = 4.5
-            other_w = (total_w - first_w) / max(num_cols - 1, 1)
-            col_widths = [Cm(first_w)] + [Cm(other_w)] * (num_cols - 1)
-            create_table_left_aligned(self.doc, num_rows, num_cols, data=sim_data,
-                                      headers=sim_headers, col_widths=col_widths, first_col_bold=True)
+        # 4. 유사 전시 비교 (그래프) — 분석 탭에서 유사 전시가 도출된 경우
+        sim_rows = self.data.get("similar_exhibitions", [])
+        current_flat = self.data.get("analysis_data_flat", {})
+        if sim_rows and current_flat:
+            chart_path = create_similar_bar_chart(
+                current_flat, sim_rows,
+                title="유사 전시 비교 (정규화 0~1 기준)",
+            )
+            if chart_path:
+                add_subsection_title(self.doc, "4", "유사 전시 비교")
+                add_paragraph(
+                    self.doc,
+                    "(축별 최댓값을 1로 정규화하여 다른 스케일의 지표를 한 그래프에서 비교. 본 전시 막대 위에 실제 수치 표기)",
+                    size=Fonts.CAPTION,
+                    color=Colors.MEDIUM_GRAY,
+                    space_after=Pt(4),
+                )
+                add_image(self.doc, chart_path, is_chart=True)
 
         # 5. 데이터 도출 평가 항목 (자동 산출, 항목 있을 때만 표시)
         evaluation = self.data.get("evaluation", {})
