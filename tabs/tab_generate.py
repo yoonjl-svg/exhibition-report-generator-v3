@@ -262,6 +262,7 @@ def _generate_report(api_key=None):
                     eval_drafts=eval_drafts_for_llm,
                     theme_text=s.get("theme_text", ""),
                     summary_metrics=data.get("summary_metrics", []),
+                    visitor_reviews=data.get("visitor_reviews", []),
                 )
 
                 if llm_result.is_fallback:
@@ -298,7 +299,7 @@ def _generate_report(api_key=None):
             "title": s.exhibition_title or "v3",
         }
         # 재생성 시 이전 편집 클리어
-        for sec in ["composition", "results", "promotion", "evaluation"]:
+        for sec in ["composition", "results", "promotion", "evaluation", "audience_response"]:
             st.session_state.pop(f"preview_edit_{sec}", None)
 
         st.success("✅ 보고서가 준비되었습니다. 아래에서 미리보기·편집·다운로드하세요.")
@@ -344,10 +345,11 @@ def _render_preview_and_edit():
 
     # 편집 가능한 LLM 섹션 (보고서 등장 순서)
     section_order = [
-        ("composition", "III. 전시 구성 — 분석 문단"),
-        ("results",     "IV. 전시 결과 — 분석 문단"),
-        ("promotion",   "V. 홍보 — 분석 문단"),
-        ("evaluation",  "VI. Executive Summary — 종합 문단"),
+        ("composition",       "III. 전시 구성 — 분석 문단"),
+        ("results",           "IV. 전시 결과 — 분석 문단"),
+        ("promotion",         "V. 홍보 — 분석 문단"),
+        ("evaluation",        "VI. Executive Summary — 종합 의견"),
+        ("audience_response", "VI. Executive Summary — 관객 반응 종합"),
     ]
 
     st.markdown("#### ✏️ 분석 문단 편집")

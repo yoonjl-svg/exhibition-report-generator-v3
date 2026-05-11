@@ -544,18 +544,21 @@ class ExhibitionReportGenerator:
     def _section_6_evaluation(self):
         add_section_title(self.doc, "VI", "Executive Summary")
 
-        # v4 단계 2: 핵심 수치 종합표 (디렉터가 이 섹션만 읽어도 충분하도록)
+        # 1. 핵심 수치 종합표 (v4 단계 2)
         self._insert_summary_metrics_table()
 
-        # v3: 교차 분석 인사이트
+        # 2. 종합 의견 (LLM, v4 단계 5a)
+        add_subsection_title(self.doc, "2", "종합 의견")
         self._insert_section_insights("evaluation")
 
-        # 유사 전시 비교표
+        # 3. 관객 반응 종합 (LLM, v4 단계 6) — 후기가 있을 때만 자동 표시
+        self._insert_audience_response()
+
+        # 4. 유사 전시 비교표 (분석 탭에서 생성된 경우)
         sim_headers = self.data.get("similar_comparison_headers")
         sim_data = self.data.get("similar_comparison_table")
         if sim_headers and sim_data:
-            add_paragraph(self.doc, "", space_before=Pt(8))
-            add_bullet_main(self.doc, None, "유사 전시 비교", bold_value=True)
+            add_subsection_title(self.doc, "4", "유사 전시 비교")
             add_paragraph(self.doc, "", space_before=Pt(2))
             num_rows = len(sim_data)
             num_cols = len(sim_headers)
@@ -566,50 +569,75 @@ class ExhibitionReportGenerator:
             create_table_left_aligned(self.doc, num_rows, num_cols, data=sim_data,
                                       headers=sim_headers, col_widths=col_widths, first_col_bold=True)
 
-        # 평가
-        eval_num = "1"
-        add_subsection_title(self.doc, eval_num, "평가")
-
+        # 5. 큐레이터 메모 (단계적 폐지 중, 큐레이터 입력이 있을 때만 표시)
         evaluation = self.data.get("evaluation", {})
         reviews = self.data.get("visitor_reviews", [])
         positive_reviews = [r for r in reviews if r.get("category", "").strip() in ("긍정", "긍정적")]
         negative_reviews = [r for r in reviews if r.get("category", "").strip() in ("부정", "부정적", "건의", "불만")]
 
-        sub_num = 1
-
         positive = evaluation.get("positive", [])
-        if positive or positive_reviews:
-            add_sub2_title(self.doc, sub_num, "긍정 평가")
-            for item in positive:
-                add_bullet_main(self.doc, None, item)
-            if positive_reviews:
-                add_paragraph(self.doc, "", space_before=Pt(4))
-                headers = ["분류", "상세 내용(인용)", "출처"]
-                table_data = [[r.get("category", "긍정"), r.get("content", ""), r.get("source", "")]
-                              for r in positive_reviews]
-                create_table(self.doc, len(table_data), 3, data=table_data, headers=headers,
-                             col_widths=[Cm(1.25), Cm(11.75), Cm(2)])
-            sub_num += 1
-
         negative = evaluation.get("negative", [])
-        if negative or negative_reviews:
-            add_sub2_title(self.doc, sub_num, "부정 평가")
-            for item in negative:
-                add_bullet_main(self.doc, None, item)
-            if negative_reviews:
-                add_paragraph(self.doc, "", space_before=Pt(4))
-                headers = ["분류", "상세 내용(인용)", "출처"]
-                table_data = [[r.get("category", "부정"), r.get("content", ""), r.get("source", "")]
-                              for r in negative_reviews]
-                create_table(self.doc, len(table_data), 3, data=table_data, headers=headers,
-                             col_widths=[Cm(1.25), Cm(11.75), Cm(2)])
-            sub_num += 1
-
         improvements = evaluation.get("improvements", [])
-        if improvements:
-            add_sub2_title(self.doc, sub_num, "개선 방안")
-            for item in improvements:
-                add_bullet_main(self.doc, None, item)
+
+        if positive or negative or improvements or positive_reviews or negative_reviews:
+            add_subsection_title(self.doc, "5", "큐레이터 메모")
+
+            sub_num = 1
+            if positive or positive_reviews:
+                add_sub2_title(self.doc, sub_num, "긍정 평가")
+                for item in positive:
+                    add_bullet_main(self.doc, None, item)
+                if positive_reviews:
+                    add_paragraph(self.doc, "", space_before=Pt(4))
+                    headers = ["분류", "상세 내용(인용)", "출처"]
+                    table_data = [[r.get("category", "긍정"), r.get("content", ""), r.get("source", "")]
+                                  for r in positive_reviews]
+                    create_table(self.doc, len(table_data), 3, data=table_data, headers=headers,
+                                 col_widths=[Cm(1.25), Cm(11.75), Cm(2)])
+                sub_num += 1
+
+            if negative or negative_reviews:
+                add_sub2_title(self.doc, sub_num, "부정 평가")
+                for item in negative:
+                    add_bullet_main(self.doc, None, item)
+                if negative_reviews:
+                    add_paragraph(self.doc, "", space_before=Pt(4))
+                    headers = ["분류", "상세 내용(인용)", "출처"]
+                    table_data = [[r.get("category", "부정"), r.get("content", ""), r.get("source", "")]
+                                  for r in negative_reviews]
+                    create_table(self.doc, len(table_data), 3, data=table_data, headers=headers,
+                                 col_widths=[Cm(1.25), Cm(11.75), Cm(2)])
+                sub_num += 1
+
+            if improvements:
+                add_sub2_title(self.doc, sub_num, "개선 방안")
+                for item in improvements:
+                    add_bullet_main(self.doc, None, item)
+
+    def _insert_audience_response(self):
+        """관객 반응 종합 — LLM이 큐레이터 선별 후기에서 추출한 테마 분석.
+
+        후기가 없거나 LLM이 빈 결과를 반환하면 섹션 자체를 생략.
+        통계적 대표성이 없음을 명시 (큐레이터 선별 표본).
+        """
+        llm_audience = (self.llm_sections.get("audience_response") or "").strip()
+        if not llm_audience:
+            return
+
+        add_subsection_title(self.doc, "3", "관객 반응 종합")
+        add_paragraph(
+            self.doc,
+            "(큐레이터가 SNS·방명록·설문에서 선별 수집한 후기 기반. 통계적 대표성 없음.)",
+            size=Fonts.CAPTION,
+            color=Colors.MEDIUM_GRAY,
+            space_after=Pt(4),
+        )
+        for para_text in llm_audience.split("\n\n"):
+            para_text = para_text.strip()
+            if para_text:
+                add_paragraph(self.doc, para_text, size=Fonts.BODY,
+                              space_after=Pt(6), line_spacing=1.5,
+                              first_line_indent=Cm(0.5))
 
 
 # ──────────────────────────────────────────────

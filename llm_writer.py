@@ -28,7 +28,8 @@ SECTION_NAMES = {
     "results": "IV. 전시 결과",
     "composition": "III. 전시 구성",
     "promotion": "V. 홍보 방식 및 언론 보도",
-    "evaluation": "VI. Executive Summary",
+    "evaluation": "VI. Executive Summary — 종합 의견",
+    "audience_response": "VI. Executive Summary — 관객 반응 종합",
 }
 
 
@@ -154,7 +155,8 @@ SYSTEM_PROMPT = """당신은 일민미술관의 전시보고서 분석 문단을
   "results": "IV. 전시 결과 섹션에 삽입할 분석 문단",
   "composition": "III. 전시 구성 섹션에 삽입할 분석 문단",
   "promotion": "V. 홍보 섹션에 삽입할 분석 문단",
-  "evaluation": "VI. Executive Summary 섹션 — 본문 II~V의 핵심 사실을 신문 기사 톤으로 중립적 종합. 평가어·단정 금지. 디렉터의 판단 영역을 침범하지 말 것"
+  "evaluation": "VI. Executive Summary '종합 의견' 하위 항목 — 본문 II~V의 핵심 사실을 신문 기사 톤으로 중립적 종합. 평가어·단정 금지. 디렉터의 판단 영역을 침범하지 말 것",
+  "audience_response": "VI. Executive Summary '관객 반응 종합' 하위 항목 — 관객 후기에서 발견된 반복 테마 3~5개를 신문 기사 톤으로 정리. ⚠️ 빈도·% 산출 절대 금지(표본 편향). 각 테마에 대표 인용 1개 첨부 가능. 후기가 없으면 빈 문자열"
 }
 ```
 
@@ -173,6 +175,7 @@ def _build_user_prompt(
     eval_drafts: list = None,
     theme_text: str = "",
     summary_metrics: list = None,
+    visitor_reviews: list = None,
 ) -> str:
     """API에 보낼 사용자 프롬프트를 구성"""
 
@@ -250,14 +253,37 @@ def _build_user_prompt(
             prompt += f"- [{type_label}] {ed['text']}\n"
         prompt += "\n"
 
-    # 7. VI장 작성 지침 (강조)
+    # 7. 관객 후기 (정성 데이터, 표본 편향 안내 필수)
+    real_reviews = [r for r in (visitor_reviews or []) if r.get("content", "").strip()]
+    if real_reviews:
+        prompt += "## 관객 후기 (정성 데이터)\n"
+        prompt += (
+            "⚠️ **표본 편향 안내**: 아래 후기는 큐레이터가 SNS·방명록·설문에서 "
+            "통찰력 있는 발언을 **선별 수집**한 표본임. 통계적 대표성 없음. "
+            "**빈도·비율 산출 절대 금지** ('X%가 긍정 표현' 같은 정량화 금지).\n\n"
+        )
+        for r in real_reviews:
+            cat = r.get("category", "").strip() or "—"
+            src = r.get("source", "").strip() or "—"
+            content = r.get("content", "").strip()
+            prompt += f"- [{cat}/{src}] \"{content}\"\n"
+        prompt += (
+            "\n**audience_response 작성 지침**: 위 후기에서 반복 등장하는 테마 3~5개를 식별, "
+            "각 테마를 한 문장으로 신문 기사 톤으로 정리. 필요 시 대표 인용 1개 첨부 (큰따옴표로). "
+            "빈도·% 절대 사용 금지. 표본 편향을 인지하되 본문에서 명시할 필요는 없음 "
+            "(테마 식별 자체가 큐레이터의 선별을 반영함을 전제).\n\n"
+        )
+
+    # 8. VI장 작성 지침 (강조)
     prompt += (
         "## VI. Executive Summary 종합 작성 지침\n"
         "VI 섹션은 다른 섹션과 달리 **전시 전체를 종합하는 문단**입니다. "
-        "위에 제공된 (a) 전시 주제, (b) 핵심 수치 종합표, (c) 섹션별 인사이트, (d) 담당자 메모(있을 시)를 모두 통합해 "
+        "위에 제공된 (a) 전시 주제, (b) 핵심 수치 종합표, (c) 섹션별 인사이트, "
+        "(d) 담당자 메모(있을 시), (e) 관객 후기(있을 시)를 모두 통합해 "
         "신문 기사 톤의 중립적 종합 2~4문장을 작성하세요. "
         "다른 섹션의 단순 요약이 금지됨. 전시 전체의 narrative arc(주제 → 결과 → 의의)를 정렬. "
-        "평가어·단정 금지. 디렉터의 판단 영역 침범 금지.\n\n"
+        "평가어·단정 금지. 디렉터의 판단 영역 침범 금지.\n"
+        "관객 반응 종합(audience_response)은 후기가 있을 때만 별도 작성. 없으면 빈 문자열.\n\n"
     )
 
     # 문체 예시(FEW_SHOT_EXAMPLES)는 system 블록으로 이동하여 캐싱됨
@@ -290,6 +316,7 @@ def rewrite_insights(
     eval_drafts: list = None,
     theme_text: str = "",
     summary_metrics: list = None,
+    visitor_reviews: list = None,
 ) -> LLMWriterResult:
     """
     선택된 인사이트를 보고서 문체로 재작성
@@ -326,6 +353,7 @@ def rewrite_insights(
         user_prompt = _build_user_prompt(
             exhibition_title, insights_by_section, analysis_data, eval_drafts,
             theme_text=theme_text, summary_metrics=summary_metrics,
+            visitor_reviews=visitor_reviews,
         )
 
         # System 블록을 두 개로 분할하여 정적 부분(규칙 + few-shot 예시)을 캐싱.

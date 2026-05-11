@@ -188,7 +188,7 @@ def init_session():
         data = st.session_state.pop("_pending_json")
         # 이전 보고서 미리보기 상태 무효화 (전시 데이터가 교체되었으므로)
         st.session_state.pop("report_state", None)
-        for _sec in ("composition", "results", "promotion", "evaluation"):
+        for _sec in ("composition", "results", "promotion", "evaluation", "audience_response"):
             st.session_state.pop(f"preview_edit_{_sec}", None)
 
         # 중첩 리스트 안의 날짜 문자열 → date 객체 변환
