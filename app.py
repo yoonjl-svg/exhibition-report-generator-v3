@@ -11,6 +11,9 @@ import pandas as pd
 from tabs import tab_base, tab_data, tab_analysis, tab_generate
 import reference_data as rd
 
+# ── 샘플 데이터 토글 (공식 배포 시 False) ─────────────
+ENABLE_SAMPLE_DATA = True
+
 # ──────────────────────────────────────────────
 # 페이지 설정
 # ──────────────────────────────────────────────
@@ -246,6 +249,11 @@ with st.sidebar:
 
     st.divider()
     st.caption("© 일민미술관")
+
+# ── 샘플 데이터 버튼 (테스트 전용) ─────────────
+if ENABLE_SAMPLE_DATA:
+    from sample_data import render_sample_button
+    render_sample_button()
 
 
 # ──────────────────────────────────────────────
