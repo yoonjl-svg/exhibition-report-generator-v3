@@ -20,7 +20,7 @@ except ImportError:
 # 설정
 # ──────────────────────────────────────────────
 
-MODEL = "claude-opus-4-5"  # alias → claude-opus-4-5-20251101로 해석됨
+MODEL = "claude-opus-4-7"  # Anthropic 권장 최신 모델 (Opus 4.5와 동일 가격, 성능 향상)
 MAX_TOKENS = 4096
 
 # 보고서 섹션 한국어 매핑
@@ -372,8 +372,8 @@ def estimate_cost(
     cache_creation_tokens: int = 0,
     cache_read_tokens: int = 0,
 ) -> dict:
-    """Claude Opus 4.5 기준 비용 추정 (Prompt Caching 반영, USD)"""
-    # Claude Opus 4.5 가격 (출처: Anthropic 공식 문서)
+    """Claude Opus 4.7 기준 비용 추정 (Prompt Caching 반영, USD)"""
+    # Claude Opus 4.7 가격 (출처: Anthropic 공식 문서, Opus 4.5와 동일)
     input_price_per_mtok = 5.0           # $5 per 1M input tokens (캐시 미적용)
     output_price_per_mtok = 25.0         # $25 per 1M output tokens
     cache_write_price_per_mtok = 6.25    # $6.25 per 1M cache write tokens (=input × 1.25)
