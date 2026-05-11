@@ -32,6 +32,8 @@ def render(tab, load_reference_data):
                 exhibition_type = valid_types[idx - 1] if idx > 0 else None
             else:
                 exhibition_type = None
+            # 다른 탭(보고서 생성)에서 동일한 비교 기준 사용
+            st.session_state["exhibition_type"] = exhibition_type
 
         with col2:
             st.write("")

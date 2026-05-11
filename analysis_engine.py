@@ -735,3 +735,113 @@ def get_insights_by_section(result):
     for ins in result.insights:
         grouped.setdefault(ins.section, []).append(ins)
     return grouped
+
+
+# ──────────────────────────────────────────────
+# 핵심 수치 종합표 (VI. Executive Summary 상단)
+# ──────────────────────────────────────────────
+
+def _fmt_summary_value(v, unit: str) -> str:
+    """종합표용 숫자 포매팅. 평가어 없이 사실만."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "—"
+    if unit == "원":
+        v = int(v)
+        if v >= 100_000_000:
+            eok = v // 100_000_000
+            man = (v % 100_000_000) // 10_000
+            return f"약 {eok}억 {man:,}만 원" if man > 0 else f"약 {eok}억 원"
+        if v >= 10_000_000:
+            return f"약 {v // 10_000:,}만 원"
+        return f"{v:,}원"
+    return f"{v:,.0f}{unit}"
+
+
+def compute_summary_metrics(
+    analysis_data: dict,
+    ref_df: pd.DataFrame,
+    exhibition_type=None,
+) -> list:
+    """VI. Executive Summary 상단 핵심 수치 종합표 데이터 생성.
+
+    6개 지표(총 관객 수, 일평균 관객, 총 사용 예산, 관객당 비용,
+    언론 보도 건수, 프로그램 참여 인원)에 대해
+    본 전시 수치 + 비교 기준 평균 + 차이를 사실 기반으로 산출.
+    평가어·해석 없이 디렉터의 사실 판독을 위한 데이터만 제공.
+
+    Returns:
+        list of dict: [
+            {
+                "label": str,
+                "current_fmt": str,           # "15,200명"
+                "reference_label": str,       # "기존 기획전" 등
+                "reference_avg_fmt": str,     # "12,500명"
+                "diff_fmt": str,              # "+21.6%" 또는 "—"
+            }, ...
+        ]
+        비교 평균이 없는 지표는 결과에서 제외됨 (사실 결여 노출 방지).
+    """
+    df_full = compute_derived_metrics(exclude_type_zero(ref_df))
+    df_typed = filter_by_type(df_full, exhibition_type)
+    is_filtered = len(df_typed) < len(df_full)
+    reference_label = get_type_label(exhibition_type) if is_filtered else "역대 전시"
+
+    # (라벨, analysis_data 키, ref_df 컬럼, 단위)
+    # ref_df 컬럼이 None인 경우 파생 계산 사용
+    metric_defs = [
+        ("총 관객 수",        "총 관객수",         "총 관객수",         "명"),
+        ("일평균 관객",       "일평균 관객수",      None,              "명"),
+        ("총 사용 예산",      "총 사용 예산",       "총 사용 예산",      "원"),
+        ("관객당 비용",       None,               "관객당_비용",       "원"),
+        ("언론 보도 건수",    "언론 보도 건수",     "언론 보도 건수",    "건"),
+        ("프로그램 참여 인원", "프로그램 참여 인원", "프로그램 참여 인원", "명"),
+    ]
+
+    results = []
+    for label, ad_key, ref_col, unit in metric_defs:
+        # 본 전시 값
+        if label == "관객당 비용":
+            budget = analysis_data.get("총 사용 예산")
+            visitors = analysis_data.get("총 관객수")
+            current = (budget / visitors) if (budget and visitors and visitors > 0) else None
+        else:
+            current = analysis_data.get(ad_key) if ad_key else None
+
+        if current is None or (isinstance(current, float) and pd.isna(current)):
+            continue
+
+        # 비교 평균
+        ref_avg = None
+        if ref_col and ref_col in df_typed.columns:
+            series = pd.to_numeric(df_typed[ref_col], errors="coerce").dropna()
+            if len(series) >= 2:
+                ref_avg = float(series.mean())
+        elif label == "일평균 관객":
+            # 파생 계산: 총 관객수 ÷ 전시 일수
+            if "총 관객수" in df_typed.columns and "전시 일수" in df_typed.columns:
+                v_series = pd.to_numeric(df_typed["총 관객수"], errors="coerce")
+                d_series = pd.to_numeric(df_typed["전시 일수"], errors="coerce")
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    daily = (v_series / d_series).replace([np.inf, -np.inf], np.nan).dropna()
+                if len(daily) >= 2:
+                    ref_avg = float(daily.mean())
+
+        # 차이 (사실 기반: 부호와 % 만, 평가어 없음)
+        if ref_avg is not None and ref_avg > 0:
+            diff_pct = ((current - ref_avg) / ref_avg) * 100
+            sign = "+" if diff_pct >= 0 else ""
+            diff_fmt = f"{sign}{diff_pct:.1f}%"
+        else:
+            diff_fmt = "—"
+
+        results.append({
+            "label": label,
+            "current": current,
+            "current_fmt": _fmt_summary_value(current, unit),
+            "reference_label": reference_label,
+            "reference_avg": ref_avg,
+            "reference_avg_fmt": _fmt_summary_value(ref_avg, unit),
+            "diff_fmt": diff_fmt,
+        })
+
+    return results

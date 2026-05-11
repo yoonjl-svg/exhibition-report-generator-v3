@@ -76,6 +76,43 @@ class ExhibitionReportGenerator:
 
     # ─── 인라인 분석 삽입 헬퍼 ───
 
+    def _insert_summary_metrics_table(self):
+        """VI. Executive Summary 상단 핵심 수치 종합표.
+
+        디렉터가 이 섹션만 읽어도 핵심 사실 파악이 가능하도록
+        본문 II~V장의 주요 정량 지표를 4열 표로 압축.
+        평가어 없이 사실만 제시.
+        """
+        metrics = self.data.get("summary_metrics", [])
+        if not metrics:
+            return
+
+        reference_label = metrics[0].get("reference_label", "역대 전시")
+
+        add_subsection_title(self.doc, "1", "핵심 수치 종합")
+        add_paragraph(
+            self.doc,
+            f"(비교 기준: {reference_label} 평균)",
+            size=Fonts.CAPTION,
+            color=Colors.MEDIUM_GRAY,
+            space_after=Pt(4),
+        )
+
+        headers = ["지표", "본 전시", "비교 평균", "차이"]
+        rows = [
+            [m["label"], m["current_fmt"], m["reference_avg_fmt"], m["diff_fmt"]]
+            for m in metrics
+        ]
+        create_table_left_aligned(
+            self.doc,
+            rows=len(rows),
+            cols=4,
+            data=rows,
+            headers=headers,
+            first_col_bold=True,
+        )
+        add_paragraph(self.doc, "", space_after=Pt(6))
+
     def _insert_section_insights(self, section_key):
         """해당 섹션에 분석 문단 삽입 — LLM 결과 우선, 없으면 룰 기반 폴백"""
 
@@ -506,6 +543,9 @@ class ExhibitionReportGenerator:
 
     def _section_6_evaluation(self):
         add_section_title(self.doc, "VI", "Executive Summary")
+
+        # v4 단계 2: 핵심 수치 종합표 (디렉터가 이 섹션만 읽어도 충분하도록)
+        self._insert_summary_metrics_table()
 
         # v3: 교차 분석 인사이트
         self._insert_section_insights("evaluation")

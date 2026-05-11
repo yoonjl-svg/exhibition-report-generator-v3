@@ -271,6 +271,18 @@ def _generate_report(api_key=None):
                 # 결과를 report data에 삽입
                 data["llm_sections"] = llm_result.sections
 
+        # ── 핵심 수치 종합표 (VI. Executive Summary 상단) ──
+        # LLM 사용 여부와 무관하게 항상 계산
+        try:
+            ref_df_for_summary = load_reference_data()
+            summary_analysis_data = collect_analysis_data()
+            exhibition_type_val = s.get("exhibition_type", None)
+            data["summary_metrics"] = ae.compute_summary_metrics(
+                summary_analysis_data, ref_df_for_summary, exhibition_type_val
+            )
+        except Exception as _e:
+            data["summary_metrics"] = []
+
         # ── Word 보고서 생성 ──
         output_path = os.path.join(tempfile.gettempdir(), "exhibition_report_v3.docx")
         generate_report(data, output_path)
