@@ -186,6 +186,10 @@ def init_session():
     # ── pending JSON 적용 (위젯 렌더링 전에 실행) ──
     if "_pending_json" in st.session_state:
         data = st.session_state.pop("_pending_json")
+        # 이전 보고서 미리보기 상태 무효화 (전시 데이터가 교체되었으므로)
+        st.session_state.pop("report_state", None)
+        for _sec in ("composition", "results", "promotion", "evaluation"):
+            st.session_state.pop(f"preview_edit_{_sec}", None)
 
         # 중첩 리스트 안의 날짜 문자열 → date 객체 변환
         for list_key in ("related_programs", "press_print", "press_online"):

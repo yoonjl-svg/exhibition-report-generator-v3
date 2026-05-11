@@ -4,6 +4,7 @@ import os
 import json
 import tempfile
 import streamlit as st
+import pandas as pd
 from datetime import date
 
 from utils import fmt_money, fmt_number, collect_analysis_data
@@ -62,12 +63,16 @@ def render(tab, load_reference_data):
 
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("📄 Word 보고서 생성", type="primary", use_container_width=True):
+            if st.button("📄 보고서 생성", type="primary", use_container_width=True,
+                         help="LLM이 분석 문단을 작성하고, 아래에 미리보기·편집 영역이 나타납니다."):
                 _generate_report(api_key=api_key if use_llm else None)
 
         with col2:
             if st.button("💾 데이터 JSON 저장", use_container_width=True):
                 _save_json()
+
+        # ── 미리보기 & 편집 & 다운로드 ──
+        _render_preview_and_edit()
 
         # JSON 불러오기
         st.divider()
@@ -211,10 +216,11 @@ def _show_eval_items(eval_type):
 
 
 def _generate_report(api_key=None):
-    """Word 보고서 생성 — LLM 글쓰기 통합"""
-    try:
-        from report_generator import generate_report
+    """보고서 데이터 준비 (LLM 글쓰기 + 종합표 계산) → session_state 저장.
 
+    Word 생성은 미리보기·편집 UI(_render_preview_and_edit)에서 즉시 수행.
+    """
+    try:
         data = _collect_report_data()
         s = st.session_state
 
@@ -283,23 +289,123 @@ def _generate_report(api_key=None):
         except Exception as _e:
             data["summary_metrics"] = []
 
-        # ── Word 보고서 생성 ──
-        output_path = os.path.join(tempfile.gettempdir(), "exhibition_report_v3.docx")
-        generate_report(data, output_path)
+        # ── 세션 상태에 저장 (미리보기·편집 UI에서 사용) ──
+        st.session_state["report_state"] = {
+            "data": data,
+            "llm_sections_original": dict(data.get("llm_sections", {})),
+            "title": s.exhibition_title or "v3",
+        }
+        # 재생성 시 이전 편집 클리어
+        for sec in ["composition", "results", "promotion", "evaluation"]:
+            st.session_state.pop(f"preview_edit_{sec}", None)
 
-        with open(output_path, "rb") as f:
-            st.download_button(
-                "📥 보고서 다운로드",
-                f.read(),
-                file_name=f"전시보고서_{s.exhibition_title or 'v3'}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            )
-        st.success("✅ 보고서가 생성되었습니다!")
+        st.success("✅ 보고서가 준비되었습니다. 아래에서 미리보기·편집·다운로드하세요.")
 
     except Exception as e:
         st.error(f"보고서 생성 오류: {e}")
         import traceback
         st.code(traceback.format_exc())
+
+
+def _render_preview_and_edit():
+    """보고서 미리보기 + 인라인 편집 + Word 다운로드.
+
+    Streamlit text_area 기반. 편집 시 자동 반영되어 다운로드는 항상 최신 상태.
+    LLM 미생성 시에도 표시(편집은 불가, 다운로드만 가능).
+    """
+    state = st.session_state.get("report_state")
+    if not state:
+        return
+
+    data = state["data"]
+    original_sections = state["llm_sections_original"]
+
+    st.markdown("---")
+    st.markdown('<div class="section-header">📝 보고서 미리보기 & 편집</div>', unsafe_allow_html=True)
+    st.caption("LLM이 생성한 분석 문단을 검토·수정한 뒤 Word로 다운로드하세요. 텍스트 수정은 자동으로 다운로드에 반영됩니다.")
+
+    # 핵심 수치 종합표 (자동 계산, 편집 불가)
+    summary = data.get("summary_metrics", [])
+    if summary:
+        with st.expander("📊 VI. 핵심 수치 종합표 (자동 계산)", expanded=False):
+            ref_label = summary[0].get("reference_label", "역대 전시")
+            st.caption(f"비교 기준: {ref_label} 평균")
+            df_summary = pd.DataFrame([
+                {
+                    "지표": m["label"],
+                    "본 전시": m["current_fmt"],
+                    "비교 평균": m["reference_avg_fmt"],
+                    "차이": m["diff_fmt"],
+                } for m in summary
+            ])
+            st.dataframe(df_summary, hide_index=True, use_container_width=True)
+
+    # 편집 가능한 LLM 섹션 (보고서 등장 순서)
+    section_order = [
+        ("composition", "III. 전시 구성 — 분석 문단"),
+        ("results",     "IV. 전시 결과 — 분석 문단"),
+        ("promotion",   "V. 홍보 — 분석 문단"),
+        ("evaluation",  "VI. Executive Summary — 종합 문단"),
+    ]
+
+    st.markdown("#### ✏️ 분석 문단 편집")
+    has_editable = False
+    for key, label in section_order:
+        original = (original_sections.get(key) or "").strip()
+        if not original:
+            continue
+        has_editable = True
+        st.text_area(
+            label,
+            value=st.session_state.get(f"preview_edit_{key}", original),
+            key=f"preview_edit_{key}",
+            height=180,
+        )
+
+    if not has_editable:
+        st.info("ℹ️ 편집 가능한 LLM 생성 문단이 없습니다 (LLM 비활성화 또는 인사이트 없음). 본문은 룰 기반 텍스트로 채워집니다.")
+
+    # ── 액션 영역: Word 다운로드(자동 갱신) + 원본 복원 ──
+    st.markdown("---")
+    col_dl, col_reset = st.columns([3, 1])
+
+    with col_dl:
+        try:
+            from report_generator import generate_report
+
+            # 현재 편집 상태를 반영한 data 구성
+            edited_sections = dict(original_sections)
+            for key, _label in section_order:
+                edit_key = f"preview_edit_{key}"
+                if edit_key in st.session_state:
+                    edited_sections[key] = st.session_state[edit_key]
+
+            final_data = dict(data)
+            final_data["llm_sections"] = edited_sections
+
+            output_path = os.path.join(tempfile.gettempdir(), "exhibition_report_v3.docx")
+            generate_report(final_data, output_path)
+            with open(output_path, "rb") as f:
+                report_bytes = f.read()
+
+            st.download_button(
+                "📥 편집 적용 Word 다운로드",
+                report_bytes,
+                file_name=f"전시보고서_{state['title']}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary",
+                use_container_width=True,
+            )
+        except Exception as e:
+            st.error(f"Word 생성 오류: {e}")
+            import traceback
+            st.code(traceback.format_exc())
+
+    with col_reset:
+        if st.button("↻ 원본 복원", use_container_width=True, help="편집 사항을 모두 되돌립니다."):
+            for key, _label in section_order:
+                st.session_state.pop(f"preview_edit_{key}", None)
+            st.rerun()
 
 
 def _collect_report_data():
@@ -497,6 +603,7 @@ def _load_json(uploaded):
         data = json.loads(uploaded.read())
         # 위젯이 이미 렌더링된 상태이므로 직접 대입 불가.
         # _pending_json에 저장 후 rerun → app.py의 init_session에서 적용
+        # (init_session이 report_state 등 미리보기 상태도 함께 무효화함)
         st.session_state["_pending_json"] = data
         st.rerun()
     except Exception as e:
