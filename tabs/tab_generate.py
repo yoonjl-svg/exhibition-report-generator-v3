@@ -166,16 +166,10 @@ def _show_preview():
             st.markdown(f"- SNS 게시: {s.sns_posts}건")
         _show_section_insights("promotion")
 
-    # VI. Executive Summary (교차 분석 + 큐레이터 메모)
+    # VI. Executive Summary (교차 분석 + 자동 도출 평가 항목)
     with st.expander("**VI. Executive Summary**", expanded=True):
         _show_section_insights("evaluation")
-
-        st.markdown("**긍정 평가:**")
-        _show_eval_items("positive")
-        st.markdown("**부정 평가:**")
-        _show_eval_items("negative")
-        st.markdown("**개선 방안:**")
-        _show_eval_items("improvement")
+        st.caption("📝 보고서 생성 시 LLM이 위 인사이트를 종합하여 신문 기사 톤의 종합 의견을 자동 작성합니다.")
 
 
 def _show_section_insights(section):
@@ -200,19 +194,6 @@ def _show_section_insights(section):
         for ins, text in selected:
             icon = ae.CATEGORY_ICONS.get(ins.category, "")
             st.markdown(f"> {icon} {text}")
-
-
-def _show_eval_items(eval_type):
-    """평가 항목 미리보기 (사용자 메모)"""
-    custom_key = f"eval_{eval_type}_custom"
-
-    customs = st.session_state.get(custom_key, [])
-    for c in customs:
-        if c.strip():
-            st.markdown(f"- {c}")
-
-    if not any(c.strip() for c in customs):
-        st.caption("(항목 없음)")
 
 
 def _generate_report(api_key=None):
@@ -241,25 +222,15 @@ def _generate_report(api_key=None):
             with st.spinner("🤖 Claude가 분석 문단을 작성하고 있습니다..."):
                 # 선택된 인사이트를 LLM에 전달할 형태로 변환
                 insights_for_llm = data.get("section_insights", {})
-
-                # 사용자 평가 메모 수집 (단계적 폐지 중: 입력 유지, 자동 생성 우선)
-                eval_drafts_for_llm = []
-                for eval_type in ["positive", "negative", "improvement"]:
-                    for c in s.get(f"eval_{eval_type}_custom", []):
-                        if c.strip():
-                            eval_drafts_for_llm.append({
-                                "eval_type": eval_type,
-                                "text": c.strip(),
-                            })
-
                 analysis_data = collect_analysis_data()
 
+                # v4 단계 5b: 큐레이터 메모 입력란 제거됨. LLM이 데이터 자체로 종합.
                 llm_result = rewrite_insights(
                     api_key=api_key,
                     exhibition_title=s.exhibition_title,
                     insights_by_section=insights_for_llm,
                     analysis_data=analysis_data,
-                    eval_drafts=eval_drafts_for_llm,
+                    eval_drafts=None,
                     theme_text=s.get("theme_text", ""),
                     summary_metrics=data.get("summary_metrics", []),
                     visitor_reviews=data.get("visitor_reviews", []),
@@ -443,15 +414,12 @@ def _collect_report_data():
                     })
             selected_insights[section_key] = items
 
-    # 평가 수집
-    def collect_eval(drafts_key, custom_key):
+    # 자동 도출 평가 항목 수집 (v4 단계 5b: 큐레이터 직접 입력란 제거됨)
+    def collect_eval(drafts_key):
         items = []
         for d in s.get(drafts_key, []):
             if d.selected:
                 items.append(d.text)
-        for c in s.get(custom_key, []):
-            if c.strip():
-                items.append(c)
         return items
 
     # 유사 전시 비교표
@@ -540,9 +508,9 @@ def _collect_report_data():
         "section_insights": selected_insights,
         # v3: 평가
         "evaluation": {
-            "positive": collect_eval("eval_positive_drafts", "eval_positive_custom"),
-            "negative": collect_eval("eval_negative_drafts", "eval_negative_custom"),
-            "improvements": collect_eval("eval_improvement_drafts", "eval_improvement_custom"),
+            "positive": collect_eval("eval_positive_drafts"),
+            "negative": collect_eval("eval_negative_drafts"),
+            "improvements": collect_eval("eval_improvement_drafts"),
         },
         "visitor_reviews": [r for r in s.visitor_reviews if r.get("content")],
         # 유사 전시

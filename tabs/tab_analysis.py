@@ -136,32 +136,6 @@ def render(tab, load_reference_data):
             # 비교표
             st.dataframe(result.similar_comparison_table, use_container_width=True, hide_index=True)
 
-        # ═══════════════════════════════════════
-        # PART 3: 평가 — 사용자 직접 입력만 남김
-        # (AI 글쓰기가 인사이트를 종합하여 평가 문단을 자동 작성)
-        # ═══════════════════════════════════════
-        st.markdown("---")
-        st.subheader("📝 평가 메모")
-        st.caption("보고서 VI장(평가)에 반영할 사항을 자유롭게 메모하세요. "
-                   "AI 글쓰기가 활성화되면 위 인사이트를 종합하여 평가 문단을 자동 작성하며, "
-                   "아래 메모도 함께 반영합니다.")
-
-        _render_eval_memo("✅ 긍정 평가", "eval_positive_custom")
-        _render_eval_memo("⚠️ 부정 평가 / 한계", "eval_negative_custom")
-        _render_eval_memo("💡 개선 방안", "eval_improvement_custom")
-
-
-def _render_eval_memo(title, custom_key):
-    """평가 메모 섹션 (사용자 직접 입력)"""
-    st.markdown(f"**{title}**")
-
-    if custom_key not in st.session_state:
-        st.session_state[custom_key] = [""]
-    for i, txt in enumerate(st.session_state[custom_key]):
-        st.session_state[custom_key][i] = st.text_input(
-            f"추가 {i+1}", value=txt, key=f"custom_{custom_key}_{i}",
-            label_visibility="collapsed")
-
-    if st.button(f"➕ 항목 추가", key=f"add_{custom_key}"):
-        st.session_state[custom_key].append("")
-        st.rerun()
+        # v4 단계 5b: 큐레이터 평가 메모 입력란 제거
+        # (LLM 자동 생성 종합 의견이 큐레이터 메모를 대체. 데이터 도출 평가
+        #  항목은 인사이트로부터 자동 산출되어 VI장에 그대로 반영됨)

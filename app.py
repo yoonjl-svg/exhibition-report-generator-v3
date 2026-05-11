@@ -163,10 +163,6 @@ def init_session():
         "eval_positive_drafts": [],
         "eval_negative_drafts": [],
         "eval_improvement_drafts": [],
-        # 사용자 추가 평가
-        "eval_positive_custom": [""],
-        "eval_negative_custom": [""],
-        "eval_improvement_custom": [""],
 
         # ── 예산 상세 (보고서용) ──
         "budget_summary": [{"category": "", "planned": "", "actual": "", "note": ""}],

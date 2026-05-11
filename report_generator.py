@@ -569,7 +569,7 @@ class ExhibitionReportGenerator:
             create_table_left_aligned(self.doc, num_rows, num_cols, data=sim_data,
                                       headers=sim_headers, col_widths=col_widths, first_col_bold=True)
 
-        # 5. 큐레이터 메모 (단계적 폐지 중, 큐레이터 입력이 있을 때만 표시)
+        # 5. 데이터 도출 평가 항목 (자동 산출, 항목 있을 때만 표시)
         evaluation = self.data.get("evaluation", {})
         reviews = self.data.get("visitor_reviews", [])
         positive_reviews = [r for r in reviews if r.get("category", "").strip() in ("긍정", "긍정적")]
@@ -580,7 +580,7 @@ class ExhibitionReportGenerator:
         improvements = evaluation.get("improvements", [])
 
         if positive or negative or improvements or positive_reviews or negative_reviews:
-            add_subsection_title(self.doc, "5", "큐레이터 메모")
+            add_subsection_title(self.doc, "5", "데이터 도출 평가 항목")
 
             sub_num = 1
             if positive or positive_reviews:
