@@ -74,7 +74,7 @@ class AnalysisResult:
 # ──────────────────────────────────────────────
 
 def _direction_verb(diff_pct):
-    return "상회합니다" if diff_pct > 0 else "하회합니다"
+    return "높음" if diff_pct > 0 else "낮음"
 
 def _postposition(word, pair=("은", "는")):
     if not word:
@@ -114,7 +114,7 @@ def _quality_word(diff_pct, higher_is_better=True):
 def _make_insight(
     category, section, title, metric_name,
     current_val, stats, unit="",
-    higher_is_better=True, priority=2, group_label="역대"
+    higher_is_better=True, priority=None, group_label="역대"
 ) -> Optional[Insight]:
     if current_val is None or stats is None or stats.count < 3:
         return None
@@ -133,6 +133,9 @@ def _make_insight(
         f"{group_label} 평균({avg_fmt}) 대비 {abs(diff_pct):.1f}% {_direction_verb(diff_pct)} "
         f"({stats.count}개 전시 중 {rank}위)."
     )
+    # priority가 명시되지 않으면 diff_pct 기반 자동 산출
+    if priority is None:
+        priority = _compute_salience(diff_pct, rank, stats.count)
     return Insight(
         category=category, section=section, title=title, text=text,
         metric_name=metric_name, current_value=current_val,
@@ -147,6 +150,53 @@ def _diff_pct(val, stats):
     return (val - stats.mean) / abs(stats.mean) * 100
 
 
+def _compute_salience(diff_pct, rank=None, total=None):
+    """인사이트의 현저성(salience) 점수를 계산하여 priority 결정.
+
+    기준:
+    - diff_pct의 절댓값이 클수록 현저함 (평균에서 크게 벗어난 지표)
+    - 순위가 극단(1~2위 또는 하위 1~2위)이면 추가 가중
+    - 결과: 1(핵심 — 자동 체크), 2(보통 — 자동 체크), 3(참고 — 체크 해제)
+
+    Returns:
+        priority (int): 1, 2, or 3
+    """
+    if diff_pct is None:
+        return 3
+
+    abs_diff = abs(diff_pct)
+    score = 0
+
+    # 차이 폭 기반 점수 (0~50)
+    if abs_diff >= 50:
+        score += 50
+    elif abs_diff >= 30:
+        score += 40
+    elif abs_diff >= 20:
+        score += 30
+    elif abs_diff >= 15:
+        score += 25
+    elif abs_diff >= 10:
+        score += 20
+    else:
+        score += 10
+
+    # 순위 극단성 가산 (0~20)
+    if rank is not None and total is not None and total >= 5:
+        if rank <= 2 or rank >= total - 1:
+            score += 20
+        elif rank <= 3 or rank >= total - 2:
+            score += 10
+
+    # 점수 → priority 매핑
+    if score >= 40:
+        return 1  # 핵심: 확실히 부각되는 차이
+    elif score >= 25:
+        return 2  # 보통: 유의미한 차이
+    else:
+        return 3  # 참고: 평균 근처
+
+
 # ──────────────────────────────────────────────
 # 카테고리별 분석
 # ──────────────────────────────────────────────
@@ -156,13 +206,13 @@ def _analyze_visitors(cur, df, gl="역대"):
     v = cur.get("총 관객수")
     if v:
         ins = _make_insight("관객", "results", "총 관객수", "총 관객수", v,
-                            compute_stats(df, "총 관객수"), "명", priority=1, group_label=gl)
+                            compute_stats(df, "총 관객수"), "명", group_label=gl)
         if ins: insights.append(ins)
 
     v = cur.get("일평균 관객수")
     if v:
         ins = _make_insight("관객", "results", "일평균 관객수", "일평균 관객수", v,
-                            compute_stats(df, "일평균 관객수"), "명", priority=2, group_label=gl)
+                            compute_stats(df, "일평균 관객수"), "명", group_label=gl)
         if ins: insights.append(ins)
 
     # 유료 비율
@@ -176,7 +226,8 @@ def _analyze_visitors(cur, df, gl="역대"):
             insights.append(Insight(
                 category="관객", section="results", title="유료 관객 비율",
                 text=f"유료 관객 비율은 {ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%) 대비 {abs(ratio-avg_r)*100:.1f}%p {'높습니다' if ratio > avg_r else '낮습니다'}.",
-                metric_name="유료 관객 비율", current_value=ratio, reference_avg=avg_r, priority=2,
+                metric_name="유료 관객 비율", current_value=ratio, reference_avg=avg_r,
+                priority=_compute_salience((ratio - avg_r) / abs(avg_r) * 100 if avg_r else None),
             ))
 
     # 학생 관객 비율 (신규)
@@ -185,7 +236,7 @@ def _analyze_visitors(cur, df, gl="역대"):
         s_stats = compute_stats(df, "학생 관객수(만 24세 이하)")
         if s_stats and s_stats.count >= 3:
             ins = _make_insight("관객", "results", "학생 관객수", "학생 관객수", student,
-                                s_stats, "명", priority=3, group_label=gl)
+                                s_stats, "명", group_label=gl)
             if ins: insights.append(ins)
 
     # 예술인패스 (신규)
@@ -194,7 +245,7 @@ def _analyze_visitors(cur, df, gl="역대"):
         a_stats = compute_stats(df, "예술인패스 관객수")
         if a_stats and a_stats.count >= 3:
             ins = _make_insight("관객", "results", "예술인패스 관객", "예술인패스 관객수", artpass,
-                                a_stats, "명", priority=3, group_label=gl)
+                                a_stats, "명", group_label=gl)
             if ins: insights.append(ins)
 
     return insights
@@ -205,7 +256,7 @@ def _analyze_budget(cur, df, gl="역대"):
     v = cur.get("총 사용 예산")
     if v:
         ins = _make_insight("예산", "results", "총 사용 예산", "총 사용 예산", v,
-                            compute_stats(df, "총 사용 예산"), "원", priority=2, group_label=gl)
+                            compute_stats(df, "총 사용 예산"), "원", group_label=gl)
         if ins: insights.append(ins)
 
     # 관객당 비용
@@ -221,7 +272,8 @@ def _analyze_budget(cur, df, gl="역대"):
             insights.append(Insight(
                 category="예산", section="results", title="관객당 비용",
                 text=f"관객당 비용은 {format_number(cost, '원')}으로, {gl} 평균({format_number(avg_c, '원')}) 대비 {abs(diff):.1f}% {_direction_verb(diff)} ({_quality_word(diff, False)} 수준).",
-                metric_name="관객당 비용", current_value=cost, reference_avg=avg_c, priority=1,
+                metric_name="관객당 비용", current_value=cost, reference_avg=avg_c,
+                priority=_compute_salience(diff, rank),
                 rank=rank,
             ))
 
@@ -242,7 +294,8 @@ def _analyze_budget(cur, df, gl="역대"):
                 insights.append(Insight(
                     category="예산", section="results", title="예산 구조",
                     text=f"전시비 비율은 {exh_ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%)과 비교됩니다. {'전시 직접비에 집중 투자한' if exh_ratio > avg_r else '부대 사업에 상대적으로 많이 배분한'} 구조입니다.",
-                    metric_name="전시비 비율", current_value=exh_ratio, reference_avg=avg_r, priority=3,
+                    metric_name="전시비 비율", current_value=exh_ratio, reference_avg=avg_r,
+                    priority=_compute_salience((exh_ratio - avg_r) / abs(avg_r) * 100 if avg_r else None),
                 ))
 
     # 수입/예산 비율
@@ -255,7 +308,8 @@ def _analyze_budget(cur, df, gl="역대"):
             insights.append(Insight(
                 category="예산", section="results", title="예산 회수율",
                 text=f"예산 대비 수입 비율은 {ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%)을 {'상회' if ratio > avg_r else '하회'}합니다.",
-                metric_name="예산 회수율", current_value=ratio, reference_avg=avg_r, priority=1,
+                metric_name="예산 회수율", current_value=ratio, reference_avg=avg_r,
+                priority=_compute_salience((ratio - avg_r) / abs(avg_r) * 100 if avg_r else None),
             ))
 
     return insights
@@ -266,13 +320,13 @@ def _analyze_programs(cur, df, gl="역대"):
     v = cur.get("프로그램 총 수")
     if v:
         ins = _make_insight("프로그램", "composition", "프로그램 수", "프로그램 수", v,
-                            compute_stats(df, "프로그램 총 수"), "개", priority=2, group_label=gl)
+                            compute_stats(df, "프로그램 총 수"), "개", group_label=gl)
         if ins: insights.append(ins)
 
     v = cur.get("프로그램 참여 인원")
     if v:
         ins = _make_insight("프로그램", "composition", "프로그램 참여 인원", "프로그램 참여 인원", v,
-                            compute_stats(df, "프로그램 참여 인원"), "명", priority=2, group_label=gl)
+                            compute_stats(df, "프로그램 참여 인원"), "명", group_label=gl)
         if ins: insights.append(ins)
 
     # 참여율
@@ -286,7 +340,8 @@ def _analyze_programs(cur, df, gl="역대"):
             insights.append(Insight(
                 category="프로그램", section="composition", title="프로그램 참여율",
                 text=f"프로그램 참여율(참여인원/총관객)은 {rate*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%) 대비 {abs(rate-avg_r)*100:.1f}%p {'높습니다' if rate > avg_r else '낮습니다'}.",
-                metric_name="프로그램 참여율", current_value=rate, reference_avg=avg_r, priority=1,
+                metric_name="프로그램 참여율", current_value=rate, reference_avg=avg_r,
+                priority=_compute_salience((rate - avg_r) / abs(avg_r) * 100 if avg_r else None),
             ))
 
     return insights
@@ -299,7 +354,7 @@ def _analyze_artworks(cur, df, gl="역대"):
     total = cur.get("출품 작품 수_총")
     if total:
         ins = _make_insight("작품", "composition", "출품 작품 수", "출품 작품 수", total,
-                            compute_stats(df, "출품 작품 수_총"), "점", priority=2, group_label=gl)
+                            compute_stats(df, "출품 작품 수_총"), "점", group_label=gl)
         if ins: insights.append(ins)
 
     # 매체별 구성 비율 분석
@@ -344,11 +399,12 @@ def _analyze_artworks(cur, df, gl="역대"):
                 if ref_dominant_pct > 0:
                     text += f"{dominant}의 비중({dominant_pct:.0f}%)은 {gl} 평균({ref_dominant_pct:.0f}%)과 비교하여 {'높은' if dominant_pct > ref_dominant_pct else '낮은'} 편입니다."
 
+                media_diff = (dominant_pct - ref_dominant_pct) / abs(ref_dominant_pct) * 100 if ref_dominant_pct else None
                 insights.append(Insight(
                     category="작품", section="composition", title="매체별 작품 구성",
                     text=text, metric_name="매체별 작품 구성",
                     current_value=dominant_pct, reference_avg=ref_dominant_pct,
-                    priority=2,
+                    priority=_compute_salience(media_diff),
                 ))
 
     return insights
@@ -359,7 +415,7 @@ def _analyze_promotion(cur, df, gl="역대"):
     v = cur.get("언론 보도 건수")
     if v:
         ins = _make_insight("홍보", "promotion", "언론 보도", "언론 보도 건수", v,
-                            compute_stats(df, "언론 보도 건수"), "건", priority=2, group_label=gl)
+                            compute_stats(df, "언론 보도 건수"), "건", group_label=gl)
         if ins: insights.append(ins)
 
     # 보도건당 관객
@@ -374,13 +430,14 @@ def _analyze_promotion(cur, df, gl="역대"):
             insights.append(Insight(
                 category="홍보", section="promotion", title="보도건당 관객",
                 text=f"보도 1건당 관객은 {format_number(vpc, '명')}으로, {gl} 평균({format_number(avg, '명')}) 대비 {abs(diff):.1f}% {_direction_verb(diff)}.",
-                metric_name="보도건당 관객", current_value=vpc, reference_avg=avg, priority=1,
+                metric_name="보도건당 관객", current_value=vpc, reference_avg=avg,
+                priority=_compute_salience(diff),
             ))
 
     v = cur.get("SNS 게시 건수")
     if v:
         ins = _make_insight("홍보", "promotion", "SNS 활동", "SNS 게시 건수", v,
-                            compute_stats(df, "SNS 게시 건수"), "건", priority=3, group_label=gl)
+                            compute_stats(df, "SNS 게시 건수"), "건", group_label=gl)
         if ins: insights.append(ins)
 
     return insights
@@ -407,7 +464,8 @@ def _analyze_staff(cur, df, gl="역대"):
                 insights.append(Insight(
                     category="인력", section="composition", title="인력당 관객",
                     text=f"운영인력 1인당 관객은 {format_number(v_per_staff, '명')}으로, {gl} 평균({format_number(avg, '명')}) 대비 {abs(diff):.1f}% {_direction_verb(diff)}.",
-                    metric_name="인력당 관객", current_value=v_per_staff, reference_avg=avg, priority=3,
+                    metric_name="인력당 관객", current_value=v_per_staff, reference_avg=avg,
+                    priority=_compute_salience(diff),
                 ))
 
     return insights
@@ -440,13 +498,15 @@ def _analyze_cross(cur, df, gl="역대"):
                 insights.append(Insight(
                     category="교차분석", section="evaluation", title="예산 대비 관객 효율",
                     text=f"총 사용 예산은 {gl} 평균 대비 {abs(b_diff):.0f}% 낮았으나, 총 관객수는 오히려 {abs(v_diff):.0f}% 높아 관객당 비용 {format_number(cost, '원')}으로 매우 효율적인 운영을 보였습니다 ({c_stats.count}개 전시 중 {c_rank}위).",
-                    metric_name="예산-관객 효율", current_value=cost, priority=1,
+                    metric_name="예산-관객 효율", current_value=cost,
+                    priority=1,  # 교차분석 핵심: 항상 우선
                 ))
             elif b_diff > 10 and v_diff < -5:
                 insights.append(Insight(
                     category="교차분석", section="evaluation", title="예산 대비 관객 효율",
                     text=f"총 사용 예산은 {gl} 평균 대비 {abs(b_diff):.0f}% 높았으나, 총 관객수는 {abs(v_diff):.0f}% 낮아 관객당 비용이 {format_number(cost, '원')}에 달했습니다. 향후 예산 효율 개선이 필요합니다.",
-                    metric_name="예산-관객 비효율", current_value=cost, priority=1,
+                    metric_name="예산-관객 비효율", current_value=cost,
+                    priority=1,  # 교차분석 핵심: 항상 우선
                 ))
 
     # 홍보 vs 관객
@@ -457,7 +517,8 @@ def _analyze_cross(cur, df, gl="역대"):
             insights.append(Insight(
                 category="교차분석", section="evaluation", title="홍보 채널 효과",
                 text=f"언론 보도는 {gl} 평균 대비 {abs(p_diff):.0f}% 적었으나 총 관객수는 {abs(v_diff):.0f}% 높아, 보도 외 채널(SNS, 구전 등)의 홍보 효과가 컸던 것으로 보입니다.",
-                metric_name="보도-관객 관계", priority=2,
+                metric_name="보도-관객 관계",
+                priority=1,  # 교차분석: 항상 우선
             ))
 
     # 수입 vs 예산 회수
@@ -470,7 +531,8 @@ def _analyze_cross(cur, df, gl="역대"):
                 insights.append(Insight(
                     category="교차분석", section="evaluation", title="예산 회수율 초과",
                     text=f"총수입({format_number(revenue, '원')})이 총예산({format_number(budget, '원')})을 초과하여 예산 회수율 {recovery*100:.1f}%를 달성했습니다 ({gl} 평균 {avg_r*100:.1f}%).",
-                    metric_name="예산 회수율", current_value=recovery, reference_avg=avg_r, priority=1,
+                    metric_name="예산 회수율", current_value=recovery, reference_avg=avg_r,
+                    priority=1,  # 교차분석: 예산 초과 회수는 항상 핵심
                 ))
 
     return insights
@@ -648,7 +710,8 @@ def generate_all_insights(current_data, ref_df, exhibition_type=None) -> Analysi
     # 유사 전시
     sim_rows, sim_table = _build_similar(current_data, df_full)
 
-    all_insights.sort(key=lambda x: x.priority)
+    # 보고서 관례 순서 유지 (관객→예산→프로그램→작품→홍보→인력→교차분석)
+    # priority 정렬이 아닌, 분석 함수 호출 순서 그대로 보존
 
     return AnalysisResult(
         insights=all_insights,

@@ -24,6 +24,7 @@ from chart_generator import (
     create_visitor_pie_chart,
     create_budget_comparison_chart,
     create_visitor_type_chart,
+    create_weekly_visitors_chart,
 )
 
 
@@ -33,6 +34,8 @@ class ExhibitionReportGenerator:
         self.data = data
         self.doc = Document()
         self.temp_files = []
+        # LLM이 재작성한 분석 문단 (없으면 룰 기반 폴백)
+        self.llm_sections = data.get("llm_sections", {})
 
     def generate(self, output_path):
         setup_document(self.doc)
@@ -74,14 +77,27 @@ class ExhibitionReportGenerator:
     # ─── 인라인 분석 삽입 헬퍼 ───
 
     def _insert_section_insights(self, section_key):
-        """해당 섹션에 배치된 인사이트를 화살표 노트로 삽입"""
+        """해당 섹션에 분석 문단 삽입 — LLM 결과 우선, 없으면 룰 기반 폴백"""
+
+        # 1) LLM이 재작성한 문단이 있으면 그것을 사용
+        llm_text = self.llm_sections.get(section_key, "")
+        if llm_text and llm_text.strip():
+            add_paragraph(self.doc, "", space_before=Pt(6))
+            for para_text in llm_text.split("\n\n"):
+                para_text = para_text.strip()
+                if para_text:
+                    add_paragraph(self.doc, para_text, size=Fonts.BODY,
+                                  space_after=Pt(6), line_spacing=1.5,
+                                  first_line_indent=Cm(0.5))
+            return
+
+        # 2) 폴백: 룰 기반 인사이트를 화살표 노트로 삽입
         insights = self.data.get("section_insights", {}).get(section_key, [])
         if not insights:
             return
 
         add_paragraph(self.doc, "", space_before=Pt(4))
 
-        # 카테고리별 그룹핑
         grouped = {}
         for ins in insights:
             label = ins.get("category_label", ins.get("category", "분석"))
@@ -91,6 +107,78 @@ class ExhibitionReportGenerator:
             add_bullet_main(self.doc, None, f"[데이터 분석] {label}", bold_value=True)
             for item in items:
                 add_arrow_note(self.doc, item["text"])
+
+    # ─── 전시 구성 서술 문단 생성 ───
+
+    def _build_composition_narrative(self):
+        """실제 보고서의 '전시 구성 > 1. 전시' 서술 개요 문단을 자동 생성.
+
+        예시 출력:
+        "전시는 일민미술관 1, 2, 3전시실 및 프로젝트 룸에서 진행되었다.
+         출품 작품은 회화 14점, 설치 6점, 조각 2점, 영상 2점 총 24점이다.
+         그래픽 디자인은 페이퍼프레스가, 공간 구성은 석운동이 맡았다."
+        """
+        rooms = self.data.get("rooms", [])
+        if not rooms:
+            return ""
+
+        # 1) 전시실 나열
+        room_names = [r.get("name", "") for r in rooms if r.get("name")]
+        if not room_names:
+            return ""
+
+        if len(room_names) == 1:
+            venue_str = f"일민미술관 {room_names[0]}"
+        else:
+            venue_str = "일민미술관 " + ", ".join(room_names[:-1]) + " 및 " + room_names[-1]
+
+        sentences = [f"전시는 {venue_str}에서 진행되었다."]
+
+        # 2) 작품 매체 구성 (전체 합산)
+        artworks = self.data.get("artworks", {})
+        total = artworks.get("total", 0)
+        if total and total > 0:
+            media_order = [
+                ("painting", "회화"), ("sculpture", "조각"), ("photo", "사진"),
+                ("installation", "설치"), ("media", "영상"), ("other", "기타"),
+            ]
+            media_parts = []
+            for key, label in media_order:
+                v = artworks.get(key, 0)
+                if v and v > 0:
+                    media_parts.append(f"{label} {v}점")
+
+            if media_parts:
+                sentences.append(
+                    f"출품 작품은 {', '.join(media_parts)} 총 {total}점이다."
+                )
+
+        # 3) 디자인 크레딧
+        graphic = self.data.get("graphic_designer", "")
+        space = self.data.get("space_designer", "")
+
+        def _subj_particle(name):
+            """이름 뒤에 '이/가' 조사를 적절히 붙임"""
+            if not name:
+                return name
+            last_char = name[-1]
+            code = ord(last_char)
+            if 0xAC00 <= code <= 0xD7A3:
+                return name + ("이" if (code - 0xAC00) % 28 != 0 else "가")
+            # 한글이 아닌 경우 (영문 등) — 그냥 '가' 사용
+            return name + "가"
+
+        if graphic and space:
+            sentences.append(
+                f"그래픽 디자인은 {_subj_particle(graphic)}, "
+                f"공간 구성은 {_subj_particle(space)} 맡았다."
+            )
+        elif graphic:
+            sentences.append(f"그래픽 디자인은 {_subj_particle(graphic)} 맡았다.")
+        elif space:
+            sentences.append(f"공간 구성은 {_subj_particle(space)} 맡았다.")
+
+        return " ".join(sentences)
 
     # ─── 목차 ───
 
@@ -204,6 +292,14 @@ class ExhibitionReportGenerator:
 
     def _sub_rooms(self):
         add_subsection_title(self.doc, "1", "전시")
+
+        # ── 전시 구성 서술 개요 문단 자동 생성 ──
+        overview_para = self._build_composition_narrative()
+        if overview_para:
+            add_paragraph(self.doc, overview_para, size=Fonts.BODY,
+                          space_after=Pt(6), line_spacing=1.5,
+                          first_line_indent=Cm(0.5))
+
         rooms = self.data.get("rooms", [])
         for i, room in enumerate(rooms):
             add_sub2_title(self.doc, i + 1, room.get("name", f"{i+1}전시실"))
@@ -299,6 +395,19 @@ class ExhibitionReportGenerator:
         for note in budget.get("arrow_notes", []):
             add_arrow_note(self.doc, note)
 
+        # 세부 내역 표 (엑셀 업로드로 입력된 상세 예산)
+        details = budget.get("details", [])
+        if details:
+            add_paragraph(self.doc, "", space_before=Pt(8))
+            add_bullet_main(self.doc, None, "예산 세부 내역", bold_value=True)
+            add_paragraph(self.doc, "", space_before=Pt(2))
+            headers = ["사업 구분", "항목", "세부 내용", "금액(원)", "비고"]
+            table_data = [[d.get("category", ""), d.get("subcategory", ""),
+                           d.get("detail", ""), d.get("amount", ""), d.get("note", "")]
+                          for d in details]
+            create_table(self.doc, len(table_data), 5, data=table_data, headers=headers,
+                         col_widths=[Cm(2.5), Cm(3), Cm(4.5), Cm(3), Cm(3)])
+
     def _sub_revenue(self):
         add_subsection_title(self.doc, "2", "총 관객 수 및 수익 결산")
         rev = self.data.get("revenue", {})
@@ -315,6 +424,13 @@ class ExhibitionReportGenerator:
     def _sub_visitor_composition(self):
         add_subsection_title(self.doc, "3", "관객 구성")
         vc = self.data.get("visitor_composition", {})
+
+        # 주차별 관객 추이 차트
+        weekly = vc.get("weekly_visitors", {})
+        if weekly and len(weekly) >= 2:
+            chart_path = create_weekly_visitors_chart(weekly, title="주차별 관객 추이")
+            self.temp_files.append(chart_path)
+            add_image(self.doc, chart_path, is_chart=True)
 
         ticket_type = vc.get("ticket_type", {})
         if ticket_type:

@@ -1,4 +1,4 @@
-"""탭 B: 기반 정보 — 전시의 서술적 정보 입력"""
+"""탭 B: 기본 정보 — 전시의 서술적 정보 입력"""
 
 import streamlit as st
 from datetime import date
@@ -7,7 +7,7 @@ from utils import add_item, remove_item
 
 def render(tab):
     with tab:
-        st.markdown('<div class="section-header">📋 기반 정보</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">📋 기본 정보</div>', unsafe_allow_html=True)
         st.caption("보고서의 뼈대가 되는 서술 정보를 입력합니다. 숫자는 다음 탭에서 입력합니다.")
 
         # ── 전시 기본 ──
@@ -50,6 +50,18 @@ def render(tab):
             height=250,
             placeholder="전시의 주제, 기획 의도, 내용을 서술합니다.\n\n단락 사이에 빈 줄을 넣으면 보고서에서도 단락이 구분됩니다."
         )
+
+        st.divider()
+
+        # ── 전시 디자인 ──
+        st.subheader("전시 디자인")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.text_input("그래픽 디자인", key="graphic_designer",
+                          placeholder="예: 페이퍼프레스")
+        with c2:
+            st.text_input("공간 구성", key="space_designer",
+                          placeholder="예: 석운동")
 
         st.divider()
 
@@ -170,6 +182,14 @@ def render(tab):
         # ── 언론보도 리스트 ──
         st.subheader("언론보도 리스트")
         st.caption("보도 총 건수는 '정량 데이터' 탭에서 자동 집계됩니다.")
+
+        # 엑셀 업로드 안내
+        _has_press_data = any(p.get("outlet") for p in st.session_state.press_print) or \
+                          any(p.get("outlet") for p in st.session_state.press_online)
+        if _has_press_data:
+            st.info("💡 '정량 데이터' 탭에서 엑셀로 업로드한 언론보도 데이터가 있습니다. 아래에서 수정하거나 추가 입력할 수 있습니다.")
+        else:
+            st.info("💡 '정량 데이터' 탭에서 전시 데이터 엑셀을 업로드하면 언론보도 리스트를 일괄 입력할 수 있습니다.")
 
         st.markdown("**일간지 및 월간지**")
         for i, item in enumerate(st.session_state.press_print):

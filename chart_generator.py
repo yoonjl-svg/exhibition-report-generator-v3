@@ -287,6 +287,136 @@ def create_age_distribution_chart(data, title="연령대별 관객 구성", outp
 
 
 # ──────────────────────────────────────────────
+# 유사 전시 비교 그룹 막대 그래프
+# ──────────────────────────────────────────────
+
+def create_similar_bar_chart(current_data, similar_rows, field_labels=None,
+                              title="유사 전시 비교", output_path=None):
+    """현재 전시와 유사 전시들을 그룹 막대 그래프로 비교.
+
+    Parameters:
+        current_data: dict — {field_name: value}
+        similar_rows: list of SimilarExhibitionRow
+        field_labels: dict — {field_name: 표시 라벨} (기본값 제공)
+        title: str
+        output_path: str or None
+
+    Returns:
+        output_path (str) or None
+    """
+    import numpy as np
+
+    if field_labels is None:
+        field_labels = {
+            "총 관객수": "관객수",
+            "총 사용 예산": "예산",
+            "프로그램 총 수": "프로그램",
+            "언론 보도 건수": "언론보도",
+            "출품 작품 수_총": "출품작품",
+            "일평균 관객수": "일평균",
+        }
+
+    font_prop = get_font_prop()
+
+    # 사용 가능한 필드만 필터 (현재 전시에 값이 있는 것)
+    fields = []
+    for f in field_labels:
+        val = current_data.get(f)
+        if val and val > 0:
+            fields.append(f)
+
+    if len(fields) < 2:
+        return None
+
+    labels = [field_labels.get(f, f) for f in fields]
+    n = len(fields)
+
+    # 각 전시의 값 수집
+    all_series = []
+    series_names = []
+
+    # 현재 전시
+    current_vals = [current_data.get(f, 0) or 0 for f in fields]
+    all_series.append(current_vals)
+    series_names.append(current_data.get("전시 제목", "현재 전시"))
+
+    # 유사 전시 (상위 3개만)
+    for row in similar_rows[:3]:
+        vals = [row.metrics.get(f, 0) or 0 for f in fields]
+        if any(v > 0 for v in vals):
+            all_series.append(vals)
+            title_short = row.title[:10] + "…" if len(row.title) > 10 else row.title
+            series_names.append(title_short)
+
+    if len(all_series) < 2:
+        return None
+
+    # 정규화 (각 축의 최댓값 기준 0~1 스케일) — 스케일이 다른 항목 비교를 위해
+    max_vals = [max(s[i] for s in all_series) for i in range(n)]
+    max_vals = [m if m > 0 else 1 for m in max_vals]
+    normalized = [[s[i] / max_vals[i] for i in range(n)] for s in all_series]
+
+    # 그래프 생성
+    num_series = len(all_series)
+    x = np.arange(n)
+    bar_width = 0.7 / num_series
+
+    fig, ax = plt.subplots(figsize=(max(8, n * 1.8), 5))
+
+    colors = ['#1a73e8', '#e8453c', '#f9a825', '#4caf50']
+
+    for idx, (norm_vals, raw_vals, name) in enumerate(
+            zip(normalized, all_series, series_names)):
+        offset = (idx - num_series / 2 + 0.5) * bar_width
+        bars = ax.bar(x + offset, norm_vals, bar_width,
+                      label=name, color=colors[idx % len(colors)],
+                      edgecolor='white', linewidth=0.5, alpha=0.85)
+
+        # 값 라벨 (현재 전시만 실제 값 표시)
+        if idx == 0:
+            for bar, raw_v in zip(bars, raw_vals):
+                if raw_v >= 100_000_000:
+                    display = f"{raw_v/100_000_000:.1f}억"
+                elif raw_v >= 10_000:
+                    display = f"{raw_v/10_000:.0f}만"
+                elif raw_v >= 1_000:
+                    display = f"{raw_v:,.0f}"
+                else:
+                    display = f"{raw_v:,.0f}"
+                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
+                        display, ha='center', va='bottom', fontsize=8,
+                        fontproperties=font_prop, color='#1a73e8', fontweight='bold')
+
+    ax.set_xticks(x)
+    if font_prop:
+        ax.set_xticklabels(labels, fontproperties=font_prop, fontsize=10)
+        ax.set_title(title, fontsize=13, fontweight='bold', fontproperties=font_prop, pad=15)
+        ax.legend(prop=font_prop, fontsize=9, loc='upper right')
+    else:
+        ax.set_xticklabels(labels, fontsize=10)
+        ax.set_title(title, fontsize=13, fontweight='bold', pad=15)
+        ax.legend(fontsize=9, loc='upper right')
+
+    ax.set_ylim(0, 1.3)
+    ax.set_ylabel('')
+    ax.set_yticklabels([])
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.tick_params(left=False)
+    ax.grid(axis='y', alpha=0.2)
+
+    plt.tight_layout()
+
+    if output_path is None:
+        output_path = os.path.join(tempfile.gettempdir(), "similar_bar.png")
+    fig.savefig(output_path, dpi=150, bbox_inches='tight',
+                facecolor='white', edgecolor='none')
+    plt.close(fig)
+    return output_path
+
+
+# ──────────────────────────────────────────────
 # 테스트용
 # ──────────────────────────────────────────────
 

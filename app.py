@@ -1,6 +1,6 @@
 """
 일민미술관 전시보고서 생성기 v3
-B(기반 정보) → A(정량 데이터) → C(자동 분석) → 생성
+B(기본 정보) → A(정량 데이터) → C(자동 분석) → 생성
 """
 
 import os
@@ -74,7 +74,7 @@ st.markdown("""
 def init_session():
     """세션 상태 기본값 설정"""
     defaults = {
-        # ── B: 기반 정보 ──
+        # ── B: 기본 정보 ──
         "exhibition_title": "",
         "period_start": None,
         "period_end": None,
@@ -86,6 +86,8 @@ def init_session():
         "pr_person": "",
         "sponsors": "",
         "theme_text": "",
+        "graphic_designer": "",
+        "space_designer": "",
         "rooms": [{"name": "1전시실", "artists": ""}],
         "related_programs": [{"category": None, "title": "", "date": None, "participants": "", "note": ""}],
         "printed_materials": [{"type": None, "quantity": "", "note": ""}],
@@ -139,6 +141,11 @@ def init_session():
         "press_count": 0,
         "sns_posts": 0,
         "sns_feedback": 0,
+        "sns_followers": 0,
+        "sns_followers_gained": 0,
+        "sns_avg_likes": 0,
+        "sns_best_likes": 0,
+        "sns_best_post": "",
         "web_invitation_count": 0,
         "newsletter_open_rate": 0.0,
         "membership_count": 0,

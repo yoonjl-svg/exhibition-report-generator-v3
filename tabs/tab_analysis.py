@@ -93,8 +93,8 @@ def render(tab, load_reference_data):
 
                     col_check, col_text = st.columns([0.5, 9.5])
                     with col_check:
-                        default = ins.priority <= 2
-                        prev = st.session_state["insight_selections"].get(key, default)
+                        # 기본: 전부 체크 (사용자가 필요 없는 것만 해제)
+                        prev = st.session_state["insight_selections"].get(key, True)
                         selected = st.checkbox("", value=prev, key=f"chk_{key}",
                                                label_visibility="collapsed")
                         st.session_state["insight_selections"][key] = selected
@@ -102,6 +102,9 @@ def render(tab, load_reference_data):
                     with col_text:
                         icon = ae.CATEGORY_ICONS.get(ins.category, "")
                         badges = []
+                        # 🔴 salience 높은 항목 강조 표식
+                        if ins.priority == 1:
+                            badges.append("🔴 핵심")
                         if ins.rank and ins.total_count:
                             badges.append(f"#{ins.rank}/{ins.total_count}")
                         badge_str = " ".join(f"`{b}`" for b in badges)
@@ -118,59 +121,45 @@ def render(tab, load_reference_data):
         # ═══════════════════════════════════════
         if result.similar_comparison_table is not None:
             st.markdown("---")
-            st.subheader("📋 유사 전시 비교표")
+            st.subheader("📋 유사 전시 비교")
+
+            # 그룹 막대 그래프
+            if result.similar_exhibitions:
+                from chart_generator import create_similar_bar_chart
+                current = collect_analysis_data()
+                bar_path = create_similar_bar_chart(current, result.similar_exhibitions)
+                if bar_path:
+                    st.image(bar_path, use_container_width=True)
+
+            # 비교표
             st.dataframe(result.similar_comparison_table, use_container_width=True, hide_index=True)
 
         # ═══════════════════════════════════════
-        # PART 3: 평가 문장 자동 초안
+        # PART 3: 평가 — 사용자 직접 입력만 남김
+        # (AI 글쓰기가 인사이트를 종합하여 평가 문단을 자동 작성)
         # ═══════════════════════════════════════
         st.markdown("---")
-        st.subheader("📝 평가 자동 초안")
-        st.caption("데이터 패턴에서 도출된 평가 문장 초안입니다. 수정하거나 삭제하고, 직접 추가할 수도 있습니다.")
+        st.subheader("📝 평가 메모")
+        st.caption("보고서 VI장(평가)에 반영할 사항을 자유롭게 메모하세요. "
+                   "AI 글쓰기가 활성화되면 위 인사이트를 종합하여 평가 문단을 자동 작성하며, "
+                   "아래 메모도 함께 반영합니다.")
 
-        _render_eval_section("✅ 긍정 평가", "positive",
-                             st.session_state.get("eval_positive_drafts", []),
-                             "eval_positive_custom")
-
-        _render_eval_section("⚠️ 부정 평가", "negative",
-                             st.session_state.get("eval_negative_drafts", []),
-                             "eval_negative_custom")
-
-        _render_eval_section("💡 개선 방안", "improvement",
-                             st.session_state.get("eval_improvement_drafts", []),
-                             "eval_improvement_custom")
+        _render_eval_memo("✅ 긍정 평가", "eval_positive_custom")
+        _render_eval_memo("⚠️ 부정 평가 / 한계", "eval_negative_custom")
+        _render_eval_memo("💡 개선 방안", "eval_improvement_custom")
 
 
-def _render_eval_section(title, eval_type, drafts, custom_key):
-    """평가 초안 섹션 렌더링"""
+def _render_eval_memo(title, custom_key):
+    """평가 메모 섹션 (사용자 직접 입력)"""
     st.markdown(f"**{title}**")
 
-    if not drafts:
-        st.caption("자동 생성된 항목이 없습니다.")
-    else:
-        for i, draft in enumerate(drafts):
-            key = f"eval_{eval_type}_{i}"
-            col_check, col_text = st.columns([0.5, 9.5])
-            with col_check:
-                prev = getattr(draft, 'selected', True)
-                selected = st.checkbox("", value=prev, key=f"echk_{key}",
-                                       label_visibility="collapsed")
-                drafts[i].selected = selected
-            with col_text:
-                st.markdown(f'<div class="eval-draft">{draft.text}</div>', unsafe_allow_html=True)
-                edited = st.text_area("", value=draft.text, key=f"etxt_{key}",
-                                      height=60, label_visibility="collapsed")
-                drafts[i].text = edited
-
-    # 사용자 직접 추가
-    st.caption("직접 추가:")
     if custom_key not in st.session_state:
         st.session_state[custom_key] = [""]
     for i, txt in enumerate(st.session_state[custom_key]):
         st.session_state[custom_key][i] = st.text_input(
-            f"추가 {i+1}", value=txt, key=f"custom_{eval_type}_{i}",
+            f"추가 {i+1}", value=txt, key=f"custom_{custom_key}_{i}",
             label_visibility="collapsed")
 
-    if st.button(f"➕ 항목 추가", key=f"add_custom_{eval_type}"):
+    if st.button(f"➕ 항목 추가", key=f"add_{custom_key}"):
         st.session_state[custom_key].append("")
         st.rerun()

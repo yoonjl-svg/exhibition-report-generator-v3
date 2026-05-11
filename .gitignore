@@ -8,3 +8,8 @@ venv/
 dist/
 build/
 .streamlit/secrets.toml
+
+# 로컬 작업 파일 (저장소 제외)
+.claude/
+report_data_*.json
+sample_*.xlsx

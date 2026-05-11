@@ -198,21 +198,15 @@ def _show_section_insights(section):
 
 
 def _show_eval_items(eval_type):
-    """평가 항목 미리보기 (자동 초안 + 사용자 추가분)"""
-    drafts_key = f"eval_{eval_type}_drafts"
+    """평가 항목 미리보기 (사용자 메모)"""
     custom_key = f"eval_{eval_type}_custom"
-
-    drafts = st.session_state.get(drafts_key, [])
-    for d in drafts:
-        if d.selected:
-            st.markdown(f"- {d.text}")
 
     customs = st.session_state.get(custom_key, [])
     for c in customs:
         if c.strip():
             st.markdown(f"- {c}")
 
-    if not any(d.selected for d in drafts) and not any(c.strip() for c in customs):
+    if not any(c.strip() for c in customs):
         st.caption("(항목 없음)")
 
 
@@ -230,14 +224,14 @@ def _generate_report(api_key=None):
                 # 선택된 인사이트를 LLM에 전달할 형태로 변환
                 insights_for_llm = data.get("section_insights", {})
 
-                # 선택된 평가 초안 수집
+                # 사용자 평가 메모 수집
                 eval_drafts_for_llm = []
                 for eval_type in ["positive", "negative", "improvement"]:
-                    for d in s.get(f"eval_{eval_type}_drafts", []):
-                        if d.selected:
+                    for c in s.get(f"eval_{eval_type}_custom", []):
+                        if c.strip():
                             eval_drafts_for_llm.append({
                                 "eval_type": eval_type,
-                                "text": d.text,
+                                "text": c.strip(),
                             })
 
                 analysis_data = collect_analysis_data()
@@ -356,6 +350,8 @@ def _collect_report_data():
             "exhibition_days": str(days) + "일" if days else "",
         },
         "theme_text": s.theme_text,
+        "graphic_designer": s.get("graphic_designer", ""),
+        "space_designer": s.get("space_designer", ""),
         "rooms": [],
         "related_programs": [p for p in s.related_programs if p.get("title")],
         "program_photos": [],
