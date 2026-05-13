@@ -15,19 +15,11 @@ def eyebrow(text: str) -> None:
 
 
 def section_header(eyebrow_text: str, title: str, subtitle: str = "") -> None:
-    """미술관 톤 섹션 헤더 — eyebrow + 큰 타이틀 + 옵션 부제.
+    """[v5.3.17] No-op. 탭 명칭이 이미 동일 정보를 전달하므로 제거.
 
-    Examples:
-        section_header("EXHIBITION WORKSPACE", "전시 워크스페이스",
-                       "저장된 전시를 선택하거나 새로 만드세요.")
+    호출부 호환을 위해 함수는 유지하되 아무것도 렌더하지 않음.
     """
-    html = (
-        f'<div class="eyebrow">{eyebrow_text}</div>'
-        f'<div class="section-header">{title}</div>'
-    )
-    if subtitle:
-        html += f'<p class="main-subtitle">{subtitle}</p>'
-    st.markdown(html, unsafe_allow_html=True)
+    return None
 
 
 def subsection(eyebrow_text: str, title: str) -> None:
