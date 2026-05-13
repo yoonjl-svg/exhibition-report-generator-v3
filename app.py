@@ -425,9 +425,10 @@ st.markdown("""
     section[data-testid="stSidebar"] [class*="block-container"] {
         padding-top: 0.5rem !important;
     }
-    /* 사이드바 브랜드(전시 워크스페이스) — 본문 첫 텍스트와 수직 정렬 */
+    /* 사이드바 브랜드(전시 워크스페이스) — 본문 첫 텍스트와 수직 정렬.
+       수동 보정: negative margin-top으로 추가 끌어올림. */
     .sidebar-brand {
-        margin-top: 0 !important;
+        margin-top: -2.5rem !important;
         font-size: 20px !important;
         margin-bottom: 16px !important;
         line-height: 1.2;
