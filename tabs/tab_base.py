@@ -14,39 +14,37 @@ def render(tab):
             "보고서의 뼈대가 되는 서술 정보를 입력합니다. 숫자는 다음 탭에서 입력합니다.",
         )
 
-        # ── 전시 기본 ──
-        subsection("BASIC", "전시 기본")
-        # 제목 + 시작일 + 종료일 한 줄 [2.5 : 1 : 1]
-        col_title, col_start, col_end = st.columns([2.5, 1, 1])
-        with col_title:
+        # ── 본문 영역 2단 레이아웃: 전시 기본 (좌) + 기획진 (우) ──
+        col_left, col_right = st.columns(2, gap="large")
+
+        with col_left:
+            subsection("BASIC", "전시 기본")
             st.text_input("전시 제목", key="exhibition_title")
-        with col_start:
-            st.date_input("전시 시작일", key="period_start", value=None)
-        with col_end:
-            st.date_input("전시 종료일", key="period_end", value=None)
-        # 참여 작가 — 길어질 수 있으므로 단독 행 전체 폭
-        st.text_input("참여 작가 (쉼표 구분)", key="artists",
-                      placeholder="구정연, 이미래, 장서영")
+            # 시작일 + 종료일은 내부에서 2열
+            c1, c2 = st.columns(2)
+            with c1:
+                st.date_input("전시 시작일", key="period_start", value=None)
+            with c2:
+                st.date_input("전시 종료일", key="period_end", value=None)
+            st.text_input("참여 작가 (쉼표 구분)", key="artists",
+                          placeholder="구정연, 이미래, 장서영")
+            # 자동 전시 일수 표시
+            if st.session_state.period_start and st.session_state.period_end:
+                days = (st.session_state.period_end - st.session_state.period_start).days + 1
+                st.info(f"📅 전시 일수: **{days}일**")
 
-        # 자동 전시 일수 표시
-        if st.session_state.period_start and st.session_state.period_end:
-            days = (st.session_state.period_end - st.session_state.period_start).days + 1
-            st.info(f"📅 전시 일수: **{days}일**")
-
-        st.divider()
-
-        # ── 기획진 ── (6개 필드 → 3컬럼 × 2행)
-        subsection("CURATORIAL TEAM", "기획진")
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.text_input("책임기획", key="chief_curator")
-            st.text_input("기획", key="curators")
-        with c2:
-            st.text_input("학예팀", key="curatorial_team")
-            st.text_input("홍보", key="pr_person")
-        with c3:
-            st.text_input("진행", key="coordinators")
-            st.text_input("후원", key="sponsors")
+        with col_right:
+            subsection("CURATORIAL TEAM", "기획진")
+            # 6개 필드를 2열×3행 (외부 컬럼이 좁아 6열은 무리)
+            c1, c2 = st.columns(2)
+            with c1:
+                st.text_input("책임기획", key="chief_curator")
+                st.text_input("기획", key="curators")
+                st.text_input("진행", key="coordinators")
+            with c2:
+                st.text_input("학예팀", key="curatorial_team")
+                st.text_input("홍보", key="pr_person")
+                st.text_input("후원", key="sponsors")
 
         st.divider()
 

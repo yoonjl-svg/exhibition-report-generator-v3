@@ -306,6 +306,39 @@ st.markdown("""
         min-height: 34px !important;
         padding: 0 14px !important;
     }
+
+    /* ═══════════════════════════════════════════════
+       v5.2.2 배경 통일 + 입력창 흰색 분리
+       사이드바·본문 모두 크림(#f7f8f5).
+       입력 위젯은 흰색으로 명시적 분리하여 대비 확보.
+       ═══════════════════════════════════════════════ */
+
+    /* 입력 필드 (text, number, date, textarea) 배경 흰색 */
+    .stTextInput input,
+    .stNumberInput input,
+    .stDateInput input,
+    .stTextArea textarea {
+        background: var(--surface) !important;
+        border: 1px solid var(--line) !important;
+    }
+    .stTextInput input:focus,
+    .stNumberInput input:focus,
+    .stDateInput input:focus,
+    .stTextArea textarea:focus {
+        border-color: var(--accent) !important;
+    }
+
+    /* selectbox 배경 흰색 */
+    .stSelectbox > div > div {
+        background: var(--surface) !important;
+        border: 1px solid var(--line) !important;
+    }
+
+    /* file_uploader 영역 흰색 */
+    [data-testid="stFileUploader"] section {
+        background: var(--surface) !important;
+        border: 1px dashed var(--line) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 

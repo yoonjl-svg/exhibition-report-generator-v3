@@ -8,8 +8,9 @@ primaryColor = "#255c4a"
 # 배경색 — 따뜻한 크림 (미술관 벽 느낌)
 backgroundColor = "#f7f8f5"
 
-# 사이드바·카드 배경 — 연한 녹빛 크림
-secondaryBackgroundColor = "#eef2ea"
+# 사이드바도 메인과 동일 크림 톤 (배경 통일)
+# 입력창은 별도 CSS로 화이트 분리하여 깨끗한 대비
+secondaryBackgroundColor = "#f7f8f5"
 
 # 본문 텍스트 — 근접 검정
 textColor = "#20231f"
