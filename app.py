@@ -406,12 +406,21 @@ st.markdown("""
         width: 240px !important;
     }
 
-    /* 사이드바 상단 정렬 — 본문(.block-container padding-top: 3rem)과 단차 제거 */
+    /* 사이드바 상단 정렬 — 본문 첫 텍스트("일민미술관의 전시…")와 사이드바
+       첫 텍스트("IMA Exhibition Workspace")의 baseline을 시각적으로 일치.
+       사이드바 내부 «(접기) 토글이 약 40-50px의 헤더 영역을 차지하고,
+       본문은 Streamlit 상단 헤더가 약 60px. 양쪽 모두 동일한 padding-top을
+       두면 사이드바 콘텐츠가 본문보다 아래로 밀리므로, 사이드바의 추가
+       padding을 0으로 두어 toggle 영역만으로 정렬되도록 함. */
     section[data-testid="stSidebar"] > div:first-child {
-        padding-top: 3rem !important;
+        padding-top: 0 !important;
     }
     [data-testid="stSidebarContent"] {
-        padding-top: 3rem !important;
+        padding-top: 0 !important;
+    }
+    [data-testid="stSidebarUserContent"] {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
     }
 
     /* 사이드바 버튼 — L5 (본문보다 살짝 작게) */
