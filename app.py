@@ -49,16 +49,20 @@ st.markdown("""
         --soft: #eef2ea;        /* 메트릭 카드 등 미세 강조 영역 */
         --warn: #8a4b15;
 
-        /* ─── 타이포그래피 위계 (v5.3.1) ───
+        /* ─── 타이포그래피 위계 (v5.3.2) ───
            L5: eyebrow/chip/caption/label · L4: 본문
            L3: subsection · L2: section · L1: page title · Display: metric value
-           v5.3에서 L0(10px)을 L5(11px)로 통합하여 6단계로 단순화 */
-        --font-l5: 11px;
+           L5 11 → 12px로 키워 가독성 ↑ */
+        --font-l5: 12px;
         --font-l4: 13px;
         --font-l3: 14px;
         --font-l2: 16px;
         --font-l1: 22px;
         --font-display: 19px;
+
+        /* L5 텍스트 색상 — 기존 --muted(연한 회색)는 너무 옅음.
+           버튼 강조 녹색(--accent)으로 통일하여 가독성·일관성 ↑ */
+        --l5-color: var(--accent);
     }
 
     /* === L5 — Eyebrow 라벨 (모든 섹션 위에, 11px로 가독성 ↑) === */
@@ -82,7 +86,7 @@ st.markdown("""
     }
     /* === L5 — 페이지 부제 / 캡션 === */
     .main-subtitle {
-        color: var(--muted);
+        color: var(--l5-color);
         font-size: var(--font-l5);
         margin: 0 0 14px 0;
         line-height: 1.45;
@@ -113,7 +117,7 @@ st.markdown("""
         background: var(--soft);
     }
     .metric-card .metric-label {
-        color: var(--muted);
+        color: var(--l5-color);
         font-size: var(--font-l5);       /* L5 */
         margin-bottom: 6px;
         line-height: 1.3;
@@ -125,7 +129,7 @@ st.markdown("""
         line-height: 1.1;
     }
     .metric-card .metric-context {
-        color: var(--muted);
+        color: var(--l5-color);
         font-size: var(--font-l5);       /* L5 */
         margin-top: 4px;
     }
@@ -160,7 +164,7 @@ st.markdown("""
     }
     /* === L5 — Card 메타 === */
     .exhibition-card-meta {
-        color: var(--muted);
+        color: var(--l5-color);
         font-size: var(--font-l5);
         margin-bottom: 8px;
     }
@@ -215,7 +219,7 @@ st.markdown("""
         letter-spacing: -0.2px;
     }
     .year-header .year-count {
-        color: var(--muted);
+        color: var(--l5-color);
         font-size: var(--font-l5);       /* L5 */
         font-weight: 500;
         margin-left: 8px;
@@ -308,7 +312,7 @@ st.markdown("""
     [data-testid="stWidgetLabel"] p {
         font-size: var(--font-l5) !important;
         margin-bottom: 4px !important;
-        color: var(--muted) !important;
+        color: var(--l5-color) !important;
         font-weight: 500 !important;
     }
 
@@ -352,7 +356,7 @@ st.markdown("""
     [data-testid="stCaptionContainer"],
     .stCaption {
         font-size: var(--font-l5) !important;
-        color: var(--muted) !important;
+        color: var(--l5-color) !important;
     }
 
     /* 탭 패널 상단 패딩 축소 */

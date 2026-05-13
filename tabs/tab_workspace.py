@@ -188,18 +188,23 @@ def _render_action_bar():
 
 
 def _render_import_dialog():
-    """통합 가져오기 다이얼로그 — Excel 템플릿과 JSON 파일을 탭으로 분리."""
+    """통합 가져오기 다이얼로그 — Excel 템플릿과 JSON 파일을 탭으로 분리.
+
+    좌측 50% 폭으로 제한 (다이얼로그가 본문 전체를 점유하지 않도록).
+    """
     if not st.session_state.get("ws_show_import"):
         return
 
     import excel_template
 
-    with st.expander("가져오기", expanded=True):
-        tabs = st.tabs(["Excel 템플릿", "JSON 파일"])
-        with tabs[0]:
-            _render_excel_section(excel_template)
-        with tabs[1]:
-            _render_json_section()
+    dialog_col, _ = st.columns([1, 1])
+    with dialog_col:
+        with st.expander("가져오기", expanded=True):
+            tabs = st.tabs(["Excel 템플릿", "JSON 파일"])
+            with tabs[0]:
+                _render_excel_section(excel_template)
+            with tabs[1]:
+                _render_json_section()
 
 
 def _render_excel_section(excel_template):
