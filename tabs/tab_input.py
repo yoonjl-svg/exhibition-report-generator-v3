@@ -197,8 +197,10 @@ def render(tab):
         # 1. 전시 기본 (기획진·전시 디자인을 하위 항목으로 통합)
         # ════════════════════════════════════════
         subsection("", "전시 기본")
-        # 4단: 기본 정보 / 기획진 / 디자인 / 인력 (스태프·봉사자)
-        c_basic, c_team, c_design, c_staff = st.columns([1, 1, 1, 1], gap="large")
+        # 4단 + 미세 spacer: 기본(25%) / 기획진(28.75% = 1×1.15) /
+        # 디자인(20% = 1×0.80) / 인력(25%) / spacer(1.25%)
+        c_basic, c_team, c_design, c_staff, _sp = st.columns(
+            [1, 1.15, 0.80, 1, 0.05], gap="large")
 
         with c_basic:
             st.text_input("전시 제목", key="exhibition_title")
