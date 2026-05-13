@@ -71,18 +71,20 @@ st.markdown("""
     }
     .main-subtitle {
         color: var(--muted);
-        font-size: 14px;
-        margin: 0 0 24px 0;
+        font-size: 13px;
+        margin: 0 0 14px 0;
+        line-height: 1.45;
     }
 
     /* === 섹션 헤더 (구버전 .section-header 갱신) === */
     .section-header {
-        font-size: 18px;
+        font-size: 20px;
         font-weight: 700;
         color: var(--ink);
-        margin: 4px 0 16px 0;
+        margin: 2px 0 8px 0;
         padding-bottom: 0;
         border-bottom: none;
+        line-height: 1.25;
     }
 
     /* === Metric Strip (워크스페이스 상단 KPI) === */
@@ -203,6 +205,85 @@ st.markdown("""
     /* === Streamlit 기본 alert 색 미술관 톤 === */
     div[data-testid="stAlert"] {
         border-radius: 6px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       v5.2 컴팩트 레이아웃 — 광역 모니터 가독성
+       ═══════════════════════════════════════════════ */
+
+    /* 메인 콘텐츠 최대 너비 제한 (1920px 모니터 대응)
+       GPT v4.1의 max-width 1320px 차용, 약간 더 타이트하게 1280px */
+    .block-container,
+    [data-testid="stMainBlockContainer"],
+    [data-testid="block-container"] {
+        max-width: 1280px !important;
+        padding-top: 1.5rem !important;
+        padding-bottom: 3rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+
+    /* 위젯 간 수직 간격 축소 (Streamlit 기본 1rem → 0.6rem) */
+    [data-testid="stVerticalBlock"] {
+        gap: 0.6rem;
+    }
+
+    /* 입력 위젯 라벨 — 작게, 뮤트 톤 */
+    label[data-testid="stWidgetLabel"],
+    [data-testid="stWidgetLabel"] p {
+        font-size: 12px !important;
+        margin-bottom: 4px !important;
+        color: var(--muted) !important;
+        font-weight: 500 !important;
+    }
+
+    /* 입력 필드 자체의 vertical padding 축소 */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stDateInput > div > div > input {
+        padding-top: 6px !important;
+        padding-bottom: 6px !important;
+    }
+
+    /* textarea 라인 높이 정리 */
+    .stTextArea textarea {
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+        line-height: 1.5 !important;
+    }
+
+    /* selectbox 컴팩트 */
+    .stSelectbox > div > div {
+        min-height: 32px !important;
+    }
+
+    /* 캡션 / help 텍스트 작게 */
+    [data-testid="stCaptionContainer"],
+    .stCaption {
+        font-size: 12px !important;
+        color: var(--muted) !important;
+    }
+
+    /* 탭 패널 상단 패딩 축소 */
+    .stTabs [data-baseweb="tab-panel"] {
+        padding-top: 0.5rem !important;
+    }
+
+    /* 탭 자체 헤더 — 본문에 더 가깝게 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px;
+    }
+
+    /* st.divider — 마진 축소 */
+    [data-testid="stMarkdownContainer"] hr,
+    hr {
+        margin: 1rem 0 !important;
+    }
+
+    /* 버튼 컴팩트 */
+    .stButton button {
+        min-height: 34px !important;
+        padding: 0 14px !important;
     }
 </style>
 """, unsafe_allow_html=True)
