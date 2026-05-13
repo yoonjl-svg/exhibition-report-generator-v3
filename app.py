@@ -60,10 +60,9 @@ st.markdown("""
         --font-l1: 22px;
         --font-display: 19px;
 
-        /* L5 텍스트 색상 — 진한 회색.
-           이전 muted(#646b61)는 너무 연하고, accent 녹색은 페이지 전반에 분산되어
-           시각 부담. 진한 중성 회색이 최적. */
-        --l5-color: #4a5450;
+        /* L5 텍스트 색상 — 매우 진한 회색 (검정과 #4a5450 중간).
+           가독성을 최우선으로 끌어올림. */
+        --l5-color: #252a28;
     }
 
     /* === L5 — Eyebrow 라벨 (모든 섹션 위에, 11px로 가독성 ↑) === */
@@ -276,7 +275,7 @@ st.markdown("""
     [data-testid="stMainBlockContainer"],
     [data-testid="block-container"] {
         max-width: 1600px !important;
-        padding-top: 2.5rem !important;   /* Streamlit 헤더(60px) 여유 + 자체 마진 */
+        padding-top: 3rem !important;     /* Streamlit 헤더(60px) + 안전 여유 */
         padding-bottom: 3rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;

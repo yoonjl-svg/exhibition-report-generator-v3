@@ -42,11 +42,13 @@ def _show_import_modal():
 
 def render(tab, load_reference_data):
     with tab:
-        section_header(
-            "EXHIBITION WORKSPACE",
-            "전시 워크스페이스",
-            "일민미술관의 전시 데이터를 누적·관리하는 공간입니다. "
-            "저장된 전시를 선택해 편집하거나 새 전시를 생성하세요.",
+        # 상단 eyebrow + H1 제거. 부제만 남김 (사용자 요청)
+        st.markdown(
+            '<p class="main-subtitle">'
+            '일민미술관의 전시 데이터를 누적·관리하는 공간입니다. '
+            '저장된 전시를 선택해 편집하거나 새 전시를 생성하세요.'
+            '</p>',
+            unsafe_allow_html=True,
         )
 
         records = _safe_list()
@@ -189,7 +191,7 @@ def _render_action_bar():
     # [1.5, 1, 1, 7.5] = 신규 13.6% / 가져오기 9.1% / 새로고침 9.1% / 빈 68.2%
     col1, col2, col3, _col4 = st.columns([1.5, 1, 1, 7.5])
     with col1:
-        if st.button("신규 전시 만들기", type="primary", use_container_width=True,
+        if st.button("새 전시 데이터 생성", type="primary", use_container_width=True,
                      key="ws_new_exhibition"):
             kb_session.enter_detail_mode(record=None)
             st.rerun()
