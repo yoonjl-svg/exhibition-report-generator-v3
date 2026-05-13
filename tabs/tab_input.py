@@ -483,7 +483,7 @@ def render(tab):
                     "일자", value=date_val, key=f"prog_date_{i}")
             with cols[3]:
                 st.session_state.related_programs[i]["participants"] = st.text_input(
-                    "참여", value=prog.get("participants", ""), key=f"prog_part_{i}")
+                    "참여 인원", value=prog.get("participants", ""), key=f"prog_part_{i}")
             with cols[4]:
                 st.session_state.related_programs[i]["note"] = st.text_input(
                     "비고", value=prog.get("note", ""), key=f"prog_note_{i}")
@@ -513,37 +513,41 @@ def render(tab):
         _section_divider()
 
         # ════════════════════════════════════════
-        # 인쇄물 및 굿즈 + 홍보 방식 (각 50%)
+        # 인쇄물 및 굿즈 (단독 섹션)
         # ════════════════════════════════════════
-        col_mat, col_promo = st.columns(2, gap="large")
+        subsection("", "인쇄물 및 굿즈")
+        # col_mat이 사라졌으므로 컬럼은 풀폭 기준 — 우측 큰 여백으로 박스 좁게
+        for i, mat in enumerate(st.session_state.printed_materials):
+            cols = st.columns([0.6, 0.4, 1.5, 7.5])
+            with cols[0]:
+                mat_options = ["포스터", "리플렛", "초대장", "굿즈", "기타"]
+                mat_val = mat.get("type")
+                mat_idx = mat_options.index(mat_val) if mat_val in mat_options else None
+                st.session_state.printed_materials[i]["type"] = st.selectbox(
+                    "종류", options=mat_options, index=mat_idx, key=f"mat_type_{i}",
+                    placeholder="선택")
+            with cols[1]:
+                st.session_state.printed_materials[i]["quantity"] = st.text_input(
+                    "수량", value=mat.get("quantity", ""), key=f"mat_qty_{i}")
+            with cols[2]:
+                st.session_state.printed_materials[i]["note"] = st.text_input(
+                    "비고", value=mat.get("note", ""), key=f"mat_note_{i}")
 
-        with col_mat:
-            subsection("", "인쇄물 및 굿즈")
-            for i, mat in enumerate(st.session_state.printed_materials):
-                cols = st.columns([1.0, 0.6, 2.0, 1.9])
-                with cols[0]:
-                    mat_options = ["포스터", "리플렛", "초대장", "굿즈", "기타"]
-                    mat_val = mat.get("type")
-                    mat_idx = mat_options.index(mat_val) if mat_val in mat_options else None
-                    st.session_state.printed_materials[i]["type"] = st.selectbox(
-                        "종류", options=mat_options, index=mat_idx, key=f"mat_type_{i}",
-                        placeholder="선택")
-                with cols[1]:
-                    st.session_state.printed_materials[i]["quantity"] = st.text_input(
-                        "수량", value=mat.get("quantity", ""), key=f"mat_qty_{i}")
-                with cols[2]:
-                    st.session_state.printed_materials[i]["note"] = st.text_input(
-                        "비고", value=mat.get("note", ""), key=f"mat_note_{i}")
+        _add_remove_buttons(
+            "➕ 인쇄물 추가", "➖ 마지막 제거",
+            "add_mat", "rm_mat",
+            "printed_materials", {"type": None, "quantity": "", "note": ""},
+        )
 
-            _add_remove_buttons(
-                "➕ 인쇄물 추가", "➖ 마지막 제거",
-                "add_mat", "rm_mat",
-                "printed_materials", {"type": None, "quantity": "", "note": ""},
-                page_full=False,
-            )
+        _section_divider()
 
-        with col_promo:
-            subsection("", "홍보 방식")
+        # ════════════════════════════════════════
+        # 홍보 방식 (단독 섹션)
+        # ════════════════════════════════════════
+        subsection("", "홍보 방식")
+        # 풀폭에서 좌측 50%만 사용
+        promo_l, _ = st.columns([1, 1])
+        with promo_l:
             st.text_area("광고", key="promo_advertising", height=80)
             st.text_area("보도자료", key="promo_press_release", height=80)
             pc1, pc2 = st.columns(2)
