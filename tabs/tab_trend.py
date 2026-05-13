@@ -40,7 +40,7 @@ def render(records: List[Dict]):
         st.info("📭 시계열·비교 분석은 최소 2건의 전시가 필요합니다. (분석 제외 전시는 집계에서 빠짐)")
         return
 
-    tabs = st.tabs(["📈 시계열 트렌드", "📋 다중 전시 비교"])
+    tabs = st.tabs(["📈 누적 흐름", "📋 다중 전시 비교"])
 
     with tabs[0]:
         _render_trend(analyzable)
@@ -288,7 +288,7 @@ def _render_compare(records: List[Dict]):
         options.append(label)
         id_to_record[label] = r
 
-    st.caption("비교할 전시를 선택하세요. 막대 길이는 선택된 전시들 중 지표별 최소값을 100%로 한 비율입니다.")
+    st.caption("최소 2개의 전시를 선택하세요. 막대 길이는 선택된 전시들 중 지표별 최소값을 100%로 한 비율입니다.")
     # multiselect 너비 30% 제한 (이전 60% → 절반)
     ms_col, _ = st.columns([3, 7])
     with ms_col:
@@ -300,7 +300,6 @@ def _render_compare(records: List[Dict]):
         )
 
     if len(selected_labels) < 2:
-        st.caption("ℹ️ 최소 2개의 전시를 선택하세요.")
         return
 
     selected = [id_to_record[lbl] for lbl in selected_labels]
