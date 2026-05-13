@@ -93,10 +93,14 @@ def render(tab):
             )
         with col_design:
             subsection("", "전시 디자인")
-            st.text_input("그래픽 디자인", key="graphic_designer",
-                          placeholder="예: 페이퍼프레스")
-            st.text_input("공간 구성", key="space_designer",
-                          placeholder="예: 석운동")
+            # v5.3.22: 디자이너 이름은 짧으므로 col_design(50% 페이지)의 절반만
+            # 사용. 좌측 50% 안에 두 필드, 우측 50% 여백.
+            dc, _ = st.columns([1, 1])
+            with dc:
+                st.text_input("그래픽 디자인", key="graphic_designer",
+                              placeholder="예: 페이퍼프레스")
+                st.text_input("공간 구성", key="space_designer",
+                              placeholder="예: 석운동")
 
         st.divider()
 
@@ -190,8 +194,9 @@ def render(tab):
         with col_mat:
             subsection("", "인쇄물 및 굿즈")
             for i, mat in enumerate(st.session_state.printed_materials):
-                # v5.3.21: 종류 컬럼 50% 축소 ([2,1.5,3] → [1.0,1.5,3])
-                cols = st.columns([1.0, 1.5, 3])
+                # v5.3.22: 수량/비고도 추가 축소. 종류 1.0, 수량 0.6(약 87px),
+                # 비고 2.0, 우측 1.9 여백. col_mat(50%페이지) 안에서 정렬.
+                cols = st.columns([1.0, 0.6, 2.0, 1.9])
                 with cols[0]:
                     mat_options = ["포스터", "리플렛", "초대장", "굿즈", "기타"]
                     mat_val = mat.get("type")

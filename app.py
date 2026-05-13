@@ -323,13 +323,17 @@ st.markdown("""
         line-height: 1.5 !important;
     }
 
-    /* 입력값(text·number·date·textarea) — L4 */
+    /* 입력값(text·number·date·textarea·selectbox) — L3 통일 (v5.3.22)
+       이전엔 text/number/date/selectbox는 L4(13px), textarea는 L3(14px)로
+       제각각이라 한 줄에서 글자 크기가 다르게 보이는 문제. 모두 L3로 통일. */
     .stTextInput input,
     .stNumberInput input,
     .stDateInput input,
     .stTextArea textarea,
-    .stSelectbox > div > div {
-        font-size: var(--font-l4) !important;
+    .stSelectbox > div > div,
+    .stSelectbox div[data-baseweb="select"] > div,
+    .stSelectbox div[data-baseweb="select"] input {
+        font-size: var(--font-l3) !important;
     }
 
     /* selectbox / multiselect 드롭다운 옵션 메뉴 — L4
@@ -354,9 +358,8 @@ st.markdown("""
         padding-bottom: 6px !important;
     }
 
-    /* textarea — 본문 입력값 가독성 강화 (L3 14px) */
+    /* textarea — 패딩·라인 높이 정리 (font-size는 위 통일 규칙에서 처리) */
     .stTextArea textarea {
-        font-size: var(--font-l3) !important;
         padding-top: 8px !important;
         padding-bottom: 8px !important;
         line-height: 1.5 !important;
