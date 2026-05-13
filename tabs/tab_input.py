@@ -197,8 +197,8 @@ def render(tab):
         # 1. 전시 기본 (기획진·전시 디자인을 하위 항목으로 통합)
         # ════════════════════════════════════════
         subsection("", "전시 기본")
-        # 4단: 기본 정보 / 기획진 / 전시 디자인 / 여백 — subsection 라벨은 단일
-        c_basic, c_team, c_design, _sp = st.columns([1, 1, 1, 1], gap="large")
+        # 4단: 기본 정보 / 기획진 / 디자인 / 인력 (스태프·봉사자)
+        c_basic, c_team, c_design, c_staff = st.columns([1, 1, 1, 1], gap="large")
 
         with c_basic:
             st.text_input("전시 제목", key="exhibition_title")
@@ -234,17 +234,14 @@ def render(tab):
             st.text_input("공간 구성", key="space_designer",
                           placeholder="예: 석운동")
 
-        # ── 운영 (인력 + 예산) — '전시 기본' 헤더 아래 통합 ──
-        # 인력 (3 narrow)
-        st.markdown('<div style="margin-top: 14px;"></div>', unsafe_allow_html=True)
-        cols = st.columns([1, 1, 1, 7])
-        with cols[0]:
-            st.number_input("운영 인력 총원", min_value=0, key="staff_total", format="%d")
-        with cols[1]:
+        with c_staff:
+            # 인력: 유급 스태프 + 봉사자 (운영 인력 총원은 자동 합산)
             st.number_input("유급 스태프", min_value=0, key="staff_paid", format="%d")
-        with cols[2]:
             st.number_input("봉사자", min_value=0, key="staff_volunteer", format="%d")
+        # staff_total은 자동 합산 (KB 저장·분석 호환)
+        st.session_state.staff_total = st.session_state.staff_paid + st.session_state.staff_volunteer
 
+        # ── 예산 — '전시 기본' 헤더 아래 통합 ──
         # 예산 — 2행
         cols = st.columns([1.3, 1.3, 7.4])
         with cols[0]:
