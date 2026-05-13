@@ -506,7 +506,12 @@ def init_session():
         "theme_text": "",
         "graphic_designer": "",
         "space_designer": "",
-        "rooms": [{"name": "1전시실", "artists": ""}],
+        "rooms": [
+            {"name": "1전시실", "artists": ""},
+            {"name": "2전시실", "artists": ""},
+            {"name": "3전시실", "artists": ""},
+            {"name": "프로젝트 룸", "artists": ""},
+        ],
         "related_programs": [{"category": None, "title": "", "date": None, "participants": "", "note": ""}],
         "printed_materials": [{"type": None, "quantity": "", "note": ""}],
         # 홍보 방식 (B — 서술)

@@ -316,8 +316,16 @@ def render(tab):
 
         with col_rooms:
             subsection("", "전시실 구성")
-            for i, room in enumerate(st.session_state.rooms):
-                _render_room(i, room)
+            # 2x2 그리드: 1줄에 2개씩 배치 (기본 4개 = 1·2·3·프로젝트 룸)
+            rooms = st.session_state.rooms
+            for start in range(0, len(rooms), 2):
+                cols = st.columns(2, gap="medium")
+                for offset, col in enumerate(cols):
+                    idx = start + offset
+                    if idx >= len(rooms):
+                        break
+                    with col:
+                        _render_room(idx, rooms[idx])
             _add_remove_buttons(
                 "➕ 전시실 추가", "➖ 마지막 제거",
                 "add_room", "rm_room",
