@@ -5,12 +5,11 @@
 # 메인 강조색 (액션 버튼, 링크) — 깊은 녹색
 primaryColor = "#255c4a"
 
-# 배경색 — 따뜻한 크림 (미술관 벽 느낌)
-backgroundColor = "#f7f8f5"
+# 배경색 — 순백 통일 (메인·사이드바 동일)
+backgroundColor = "#ffffff"
 
-# 사이드바도 메인과 동일 크림 톤 (배경 통일)
-# 입력창은 별도 CSS로 화이트 분리하여 깨끗한 대비
-secondaryBackgroundColor = "#f7f8f5"
+# 사이드바도 동일한 순백
+secondaryBackgroundColor = "#ffffff"
 
 # 본문 텍스트 — 근접 검정
 textColor = "#20231f"

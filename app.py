@@ -38,15 +38,15 @@ st.markdown("""
        ═══════════════════════════════════════════════ */
 
     :root {
-        --bg: #f7f8f5;
-        --surface: #ffffff;
+        --bg: #ffffff;          /* 페이지·사이드바 통일 순백 */
+        --surface: #ffffff;     /* 입력창·카드 표면 */
         --ink: #20231f;
         --muted: #646b61;
-        --line: #d9ddd4;
-        --accent: #255c4a;
-        --accent-2: #b4512a;
-        --accent-3: #3f5e99;
-        --soft: #eef2ea;
+        --line: #d9ddd4;        /* 경계선·테두리 (입력창 구분용) */
+        --accent: #255c4a;      /* 메인 강조 (녹색) */
+        --accent-2: #b4512a;    /* 보조 강조 (테라코타) */
+        --accent-3: #3f5e99;    /* 추가 강조 (블루) */
+        --soft: #eef2ea;        /* 메트릭 카드 등 미세 강조 영역 */
         --warn: #8a4b15;
     }
 
