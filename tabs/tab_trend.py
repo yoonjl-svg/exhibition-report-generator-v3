@@ -270,11 +270,14 @@ def _fmt_value(v: float, unit: str) -> str:
 # ──────────────────────────────────────────────
 
 def _render_compare(records: List[Dict]):
-    """전시들을 선택해 정규화 그룹 막대 차트로 비교.
+    """전시들을 선택해 절대 비율(KB 평균 = 100%) 막대 차트로 비교.
 
     카드 대신 차트 기반이므로 다수 전시 비교 시에도 화면 폭 부담 없음.
-    선택 개수에 비례해 막대가 늘어남.
+    정규화 기준이 KB 전체 평균이라 선택 변경에 영향받지 않음 (안정).
     """
+    # KB 전체 평균 계산 (모든 분석 대상)
+    averages = _compute_kb_averages(records)
+
     # 선택용 라벨
     options = []
     id_to_record = {}
@@ -287,7 +290,7 @@ def _render_compare(records: List[Dict]):
         options.append(label)
         id_to_record[label] = r
 
-    st.caption("비교할 전시를 선택하세요. 막대 차트는 선택 개수만큼 자동 확장됩니다.")
+    st.caption("비교할 전시를 선택하세요. 막대 길이는 KB 전체 평균을 100%로 한 절대 비율입니다.")
     selected_labels = st.multiselect(
         "비교할 전시 선택",
         options=options,
@@ -300,19 +303,36 @@ def _render_compare(records: List[Dict]):
         return
 
     selected = [id_to_record[lbl] for lbl in selected_labels]
-    _render_compare_chart(selected)
+    _render_compare_chart(selected, averages)
+
+
+def _compute_kb_averages(records: List[Dict]) -> Dict[str, float]:
+    """KB 분석 대상 전시들의 지표별 평균.
+
+    각 지표마다 유효값(>0)만 평균. 데이터 없는 지표는 None.
+    """
+    averages = {}
+    for label, key, _unit in COMPARE_METRICS:
+        values = []
+        for r in records:
+            v = _extract_metric(r.get("data", {}), key)
+            if v is not None and v > 0:
+                values.append(v)
+        averages[label] = (sum(values) / len(values)) if values else None
+    return averages
 
 
 # 비교 차트에 표시할 핵심 지표 (모두 "클수록 큼"이라 정규화 비교에 적합)
+# 정규화 기준: KB 전체 분석 대상(type≠0) 전시의 평균 = 100%
 COMPARE_METRICS = [
     # (라벨, key 또는 derived flag, 단위)
     ("총 관객", "total_visitors", "명"),
     ("일평균 관객", "_daily_avg", "명"),
     ("총 예산", "total_budget", "원"),
     ("총 수입", "total_revenue", "원"),
-    ("보도 건수", "press_count", "건"),
     ("프로그램 참여", "program_participants", "명"),
-    ("출품 작품", "_artwork_total", "점"),
+    ("보도 건수", "press_count", "건"),
+    ("SNS 피드백", "sns_feedback", "건"),
 ]
 
 
@@ -343,11 +363,11 @@ def _extract_metric(data: dict, key: str) -> Optional[float]:
     return v if v else None
 
 
-def _build_compare_long_df(records: List[Dict]) -> pd.DataFrame:
+def _build_compare_long_df(records: List[Dict], averages: Dict[str, float]) -> pd.DataFrame:
     """선택된 전시들의 비교용 long-format DataFrame.
 
-    한 행 = (전시, 지표, 실제값, 정규화값, 포맷된 값).
-    정규화는 지표별 max를 기준으로 0~1.
+    한 행 = (전시, 지표, 실제값, 평균 대비 비율, 포맷된 값).
+    정규화 기준: KB 전체 평균을 1.0(=100%)으로.
     """
     rows = []
     for r in records:
@@ -361,32 +381,30 @@ def _build_compare_long_df(records: List[Dict]) -> pd.DataFrame:
         for label, key, unit in COMPARE_METRICS:
             v = _extract_metric(data, key)
             v_actual = v if v is not None else 0
+            avg = averages.get(label)
+            if avg and avg > 0:
+                normalized = v_actual / avg
+            else:
+                normalized = 0.0
+            avg_fmt = _fmt_value(avg, unit) if avg else "—"
             rows.append({
                 "exhibition": full_title,
                 "exhibition_short": short,
                 "metric": label,
                 "value": v_actual,
                 "formatted": _fmt_value(v_actual, unit) if v_actual else "—",
+                "normalized": normalized,
+                "average_fmt": avg_fmt,
                 "period": f"{ps} ~ {pe}",
                 "type_label": type_lbl,
             })
 
-    df = pd.DataFrame(rows)
-
-    # 정규화: 각 metric별 max를 1로
-    df["normalized"] = 0.0
-    for metric in df["metric"].unique():
-        mask = df["metric"] == metric
-        max_v = df.loc[mask, "value"].max()
-        if max_v > 0:
-            df.loc[mask, "normalized"] = df.loc[mask, "value"] / max_v
-
-    return df
+    return pd.DataFrame(rows)
 
 
-def _render_compare_chart(records: List[Dict]):
-    """Altair 정규화 그룹 막대 차트."""
-    df = _build_compare_long_df(records)
+def _render_compare_chart(records: List[Dict], averages: Dict[str, float]):
+    """Altair 절대 비율(KB 평균=100%) 그룹 막대 차트."""
+    df = _build_compare_long_df(records, averages)
 
     # 색 팔레트 (미술관 톤 + 추가 색)
     palette = [
@@ -404,7 +422,11 @@ def _render_compare_chart(records: List[Dict]):
     # 막대 순서를 보존하기 위해 metric 순서 명시
     metric_order = [m[0] for m in COMPARE_METRICS]
 
-    chart = alt.Chart(df).mark_bar(
+    # Y축 도메인: 0 ~ 데이터 최대값 + 여유 (100% 초과 표시 가능)
+    y_max = max(df["normalized"].max() if not df.empty else 1.0, 1.0)
+    y_domain_max = max(y_max * 1.1, 1.2)  # 최소 120% 표시 (평균선 위 공간 확보)
+
+    bars = alt.Chart(df).mark_bar(
         cornerRadiusTopLeft=2,
         cornerRadiusTopRight=2,
     ).encode(
@@ -426,7 +448,7 @@ def _render_compare_chart(records: List[Dict]):
         y=alt.Y(
             "normalized:Q",
             title=None,
-            scale=alt.Scale(domain=[0, 1.05]),
+            scale=alt.Scale(domain=[0, y_domain_max]),
             axis=alt.Axis(
                 grid=True,
                 gridColor=COLOR_LINE,
@@ -455,10 +477,21 @@ def _render_compare_chart(records: List[Dict]):
             alt.Tooltip("type_label:N", title="유형"),
             alt.Tooltip("metric:N", title="지표"),
             alt.Tooltip("formatted:N", title="실제 값"),
-            alt.Tooltip("normalized:Q", title="비교 비율", format=".0%"),
+            alt.Tooltip("average_fmt:N", title="KB 평균"),
+            alt.Tooltip("normalized:Q", title="평균 대비", format=".0%"),
             alt.Tooltip("period:N", title="기간"),
         ],
-    ).properties(
+    )
+
+    # 100% 기준선 (KB 평균)
+    avg_rule = alt.Chart(pd.DataFrame({"y": [1.0]})).mark_rule(
+        color=COLOR_ACCENT_2,
+        strokeDash=[5, 4],
+        strokeWidth=1.4,
+        opacity=0.8,
+    ).encode(y="y:Q")
+
+    chart = (bars + avg_rule).properties(
         height=340,
         padding={"left": 6, "right": 12, "top": 8, "bottom": 8},
     ).configure_view(strokeWidth=0)
@@ -466,7 +499,8 @@ def _render_compare_chart(records: List[Dict]):
     st.altair_chart(chart, use_container_width=True)
 
     st.caption(
-        "막대 길이는 **선택된 전시들 중 지표별 최대값을 100%로 한 상대 비율**. "
-        "실제 값과 기간은 마우스를 올려 툴팁으로 확인하세요. "
+        "막대 길이는 **KB 분석 대상 전시의 평균을 100%로 한 절대 비율**. "
+        "테라코타 점선이 평균선(100%). 막대가 점선 위면 평균 초과, 아래면 평균 미달. "
+        "실제 값·평균값은 마우스 호버로 확인. "
         "‘총 예산’은 클수록 좋다는 의미가 아니라 규모 비교용입니다."
     )
