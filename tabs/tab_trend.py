@@ -1,0 +1,288 @@
+"""
+탭 T: 트렌드 + 다중 비교 — 미술관 전체 누적 데이터의 시간축·횡단 비교.
+
+워크스페이스 안에 expander로 포함되며, 두 가지 뷰 제공:
+  1. 📈 시계열 트렌드: 전시별 핵심 지표를 시간 축에 따라 라인 차트
+  2. 📋 다중 비교: 2~4개 전시를 선택해 카드 형태로 side-by-side 표시
+
+데이터는 KB에서 로드된 records 리스트를 받음 (워크스페이스가 전달).
+"""
+
+from datetime import date
+from typing import List, Dict, Optional
+
+import streamlit as st
+import pandas as pd
+
+from ui_helpers import (
+    subsection, chip, status_chip, type_chip,
+    metric_card, metric_strip,
+    TYPE_LABELS,
+)
+
+
+# ──────────────────────────────────────────────
+# 메인 진입점
+# ──────────────────────────────────────────────
+
+def render(records: List[Dict]):
+    """워크스페이스에서 호출. records: 전체 전시 레코드 목록."""
+    analyzable = [r for r in records if r.get("type") != 0]
+    if len(analyzable) < 2:
+        st.info("📭 시계열·비교 분석은 최소 2건의 전시가 필요합니다. (분석 제외 전시는 집계에서 빠짐)")
+        return
+
+    tabs = st.tabs(["📈 시계열 트렌드", "📋 다중 전시 비교"])
+
+    with tabs[0]:
+        _render_trend(analyzable)
+
+    with tabs[1]:
+        _render_compare(analyzable)
+
+
+# ──────────────────────────────────────────────
+# 시계열 트렌드
+# ──────────────────────────────────────────────
+
+# 추적할 핵심 지표 정의
+TREND_METRICS = [
+    # (라벨, data 키, 단위, 파생 여부, higher_is_better)
+    ("총 관객 수", "total_visitors", "명", False, True),
+    ("일평균 관객", "_daily_avg", "명", True, True),
+    ("총 사용 예산", "total_budget", "원", False, None),
+    ("관객당 비용", "_cost_per_visitor", "원", True, False),
+    ("언론 보도 건수", "press_count", "건", False, True),
+    ("프로그램 참여 인원", "program_participants", "명", False, True),
+]
+
+
+def _build_trend_df(records: List[Dict]) -> pd.DataFrame:
+    """records → DataFrame (시간 축 = period_start, 컬럼 = 지표·메타)."""
+    rows = []
+    for r in records:
+        data = r.get("data", {})
+        ps = data.get("period_start")
+        if not ps:
+            continue
+
+        tv = data.get("total_visitors") or 0
+        tb = data.get("total_budget") or 0
+
+        # 일평균 관객 (파생)
+        daily_avg = None
+        pe = data.get("period_end")
+        if ps and pe:
+            try:
+                s = date.fromisoformat(ps)
+                e = date.fromisoformat(pe)
+                days = (e - s).days + 1
+                if days > 0 and tv > 0:
+                    daily_avg = tv / days
+            except (ValueError, TypeError):
+                pass
+
+        # 관객당 비용 (파생)
+        cost_per_visitor = None
+        if tv > 0 and tb > 0:
+            cost_per_visitor = tb / tv
+
+        rows.append({
+            "id": r.get("id"),
+            "title": data.get("exhibition_title") or "(제목없음)",
+            "type": r.get("type"),
+            "type_label": TYPE_LABELS.get(r.get("type"), "미분류"),
+            "period_start": ps,
+            "total_visitors": tv or None,
+            "_daily_avg": daily_avg,
+            "total_budget": tb or None,
+            "_cost_per_visitor": cost_per_visitor,
+            "press_count": data.get("press_count") or None,
+            "program_participants": data.get("program_participants") or None,
+        })
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+    df["period_start_dt"] = pd.to_datetime(df["period_start"], errors="coerce")
+    df = df.dropna(subset=["period_start_dt"]).sort_values("period_start_dt")
+    return df
+
+
+def _render_trend(records: List[Dict]):
+    """시계열 라인 차트들 렌더."""
+    df = _build_trend_df(records)
+    if df.empty:
+        st.info("시계열 데이터가 부족합니다.")
+        return
+
+    # 유형 필터
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        type_options = ["전체"] + [TYPE_LABELS[k] for k in (1, 2, 3) if k in TYPE_LABELS]
+        type_filter = st.selectbox("유형 필터", type_options, key="trend_type_filter")
+
+    type_to_num = {v: k for k, v in TYPE_LABELS.items()}
+    if type_filter != "전체":
+        target = type_to_num.get(type_filter)
+        df = df[df["type"] == target]
+
+    if df.empty:
+        st.info("해당 유형의 전시가 없습니다.")
+        return
+
+    st.caption(f"📊 {len(df)}건 전시의 시간축 추이 (시작일 기준)")
+
+    # 6개 지표를 2행 x 3열 그리드로
+    rows = [TREND_METRICS[i:i+3] for i in range(0, len(TREND_METRICS), 3)]
+    for row in rows:
+        cols = st.columns(len(row))
+        for col, (label, key, unit, _is_derived, _hib) in zip(cols, row):
+            with col:
+                _render_metric_trend(df, label, key, unit)
+
+
+def _render_metric_trend(df: pd.DataFrame, label: str, key: str, unit: str):
+    """단일 지표의 시계열 차트 + 통계 표시."""
+    # 결측 제거
+    sub = df[["period_start_dt", "title", key]].dropna(subset=[key])
+    if sub.empty:
+        st.markdown(f"**{label}**")
+        st.caption("데이터 없음")
+        return
+
+    # 통계 요약
+    mean_v = sub[key].mean()
+    latest = sub.iloc[-1][key]
+    latest_title = sub.iloc[-1]["title"]
+    delta_pct = ((latest - mean_v) / mean_v * 100) if mean_v else 0
+
+    # 라벨 + 평균 + 최신 (간략)
+    st.markdown(f"**{label}**")
+    st.caption(
+        f"평균 {_fmt_value(mean_v, unit)} · "
+        f"최근 《{latest_title[:12]}{'…' if len(latest_title) > 12 else ''}》 "
+        f"{_fmt_value(latest, unit)} ({'+' if delta_pct >= 0 else ''}{delta_pct:.1f}%)"
+    )
+
+    # 차트 데이터 (index = 날짜, value = 지표)
+    chart_data = sub.set_index("period_start_dt")[[key]]
+    chart_data.columns = [label]
+    st.line_chart(chart_data, height=180)
+
+
+def _fmt_value(v: float, unit: str) -> str:
+    if v is None or pd.isna(v):
+        return "—"
+    if unit == "원":
+        if v >= 100_000_000:
+            return f"{v / 100_000_000:.2f}억"
+        if v >= 10_000_000:
+            return f"{v / 10_000:,.0f}만"
+        return f"{v:,.0f}원"
+    return f"{v:,.0f}{unit}"
+
+
+# ──────────────────────────────────────────────
+# 다중 전시 비교
+# ──────────────────────────────────────────────
+
+def _render_compare(records: List[Dict]):
+    """2~4개 전시를 선택해 카드 형식 side-by-side 비교."""
+    # 선택용 라벨: "2025-하이퍼 옐로우 (정기 기획전)"
+    options = []
+    id_to_record = {}
+    for r in records:
+        data = r.get("data", {})
+        title = data.get("exhibition_title") or "(제목없음)"
+        year = (data.get("period_start") or "")[:4] or "—"
+        type_lbl = TYPE_LABELS.get(r.get("type"), "미분류")
+        label = f"{year} · {title} · {type_lbl}"
+        options.append(label)
+        id_to_record[label] = r
+
+    st.caption("최대 4개까지 선택. 카드 형태로 나란히 표시합니다.")
+    selected_labels = st.multiselect(
+        "비교할 전시 선택",
+        options=options,
+        max_selections=4,
+        key="compare_select",
+        label_visibility="collapsed",
+    )
+
+    if len(selected_labels) < 2:
+        st.info("최소 2개의 전시를 선택하세요.")
+        return
+
+    selected = [id_to_record[lbl] for lbl in selected_labels]
+    _render_compare_cards(selected)
+
+
+def _render_compare_cards(records: List[Dict]):
+    """선택된 전시들을 카드 그리드로 표시."""
+    n = len(records)
+    cols = st.columns(n, gap="medium")
+    for col, rec in zip(cols, records):
+        with col:
+            _render_compare_card(rec)
+
+
+def _render_compare_card(rec: Dict):
+    """단일 전시의 비교용 카드 — 핵심 수치 강조."""
+    data = rec.get("data", {})
+    title = data.get("exhibition_title") or "(제목없음)"
+    ps = data.get("period_start") or "—"
+    pe = data.get("period_end") or "—"
+    type_num = rec.get("type")
+    status = rec.get("status", "draft")
+
+    # 핵심 수치
+    tv = data.get("total_visitors") or 0
+    tb = data.get("total_budget") or 0
+    pc = data.get("press_count") or 0
+    pp = data.get("program_participants") or 0
+    aw = data.get("artwork_painting", 0) + data.get("artwork_sculpture", 0) + \
+         data.get("artwork_photo", 0) + data.get("artwork_installation", 0) + \
+         data.get("artwork_media", 0) + data.get("artwork_other", 0)
+
+    # 일평균
+    daily = None
+    if ps and pe:
+        try:
+            s = date.fromisoformat(ps); e = date.fromisoformat(pe)
+            days = (e - s).days + 1
+            if days > 0 and tv > 0:
+                daily = int(tv / days)
+        except (ValueError, TypeError):
+            pass
+
+    with st.container(border=True):
+        # 헤더
+        st.markdown(
+            f'<div class="eyebrow">{ps[:4]} · {TYPE_LABELS.get(type_num, "미분류")}</div>'
+            f'<div class="exhibition-card-title" style="margin-bottom:6px;">《{title}》</div>'
+            f'<div class="exhibition-card-meta">{ps} ~ {pe}</div>',
+            unsafe_allow_html=True,
+        )
+        chips_html = status_chip(status) + " " + type_chip(type_num)
+        st.markdown(chips_html, unsafe_allow_html=True)
+
+        st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+
+        # 메트릭 카드 4개 (반복)
+        items = [
+            {"label": "총 관객", "value": f"{tv:,}명" if tv else "—",
+             "context": (f"일평균 {daily:,}명" if daily else "")},
+            {"label": "총 예산",
+             "value": f"{tb / 100_000_000:.2f}억" if tb >= 100_000_000 else
+                      (f"{tb / 10_000:,.0f}만" if tb >= 10_000 else
+                       (f"{tb:,}원" if tb else "—")),
+             "context": (f"관객당 {int(tb/tv):,}원" if (tv and tb) else "")},
+            {"label": "보도 건수", "value": f"{pc}건" if pc else "—",
+             "context": ""},
+            {"label": "프로그램 참여", "value": f"{pp:,}명" if pp else "—",
+             "context": ""},
+            {"label": "출품 작품", "value": f"{aw}점" if aw else "—",
+             "context": ""},
+        ]
+        metric_strip(items)

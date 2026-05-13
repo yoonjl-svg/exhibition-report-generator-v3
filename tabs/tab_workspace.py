@@ -39,11 +39,17 @@ def render(tab, load_reference_data):
             _render_metric_strip(records)
 
         _render_action_bar()
+        _render_excel_dialog()
         _render_import_dialog()
 
         if not records:
             st.info("📭 저장된 전시가 없습니다. 위에서 '신규 전시 만들기'를 클릭하세요.")
             return
+
+        # ── 트렌드·비교 (확장 가능) ──
+        with st.expander("📊 시계열 트렌드 & 다중 전시 비교", expanded=False):
+            from tabs import tab_trend
+            tab_trend.render(records)
 
         st.divider()
         eyebrow(f"DATA · {len(records)}개 전시 · KB 모드: {kb_store.get_mode()}")
@@ -143,18 +149,25 @@ def _render_metric_strip(records):
 # ──────────────────────────────────────────────
 
 def _render_action_bar():
-    col1, col2, col3 = st.columns([2, 2, 1])
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
     with col1:
         if st.button("➕ 신규 전시 만들기", type="primary", use_container_width=True,
                      key="ws_new_exhibition"):
             kb_session.enter_detail_mode(record=None)
             st.rerun()
     with col2:
+        if st.button("📊 Excel 가져오기", use_container_width=True,
+                     key="ws_open_excel",
+                     help="Excel 템플릿에 작성한 데이터를 일괄 가져옵니다."):
+            st.session_state["ws_show_excel"] = not st.session_state.get("ws_show_excel", False)
+            st.session_state["ws_show_import"] = False  # 다른 다이얼로그는 닫기
+    with col3:
         if st.button("📥 JSON 파일 가져오기", use_container_width=True,
                      key="ws_open_import",
                      help="이전에 저장한 v3 또는 v5 JSON 파일에서 데이터를 복원합니다."):
             st.session_state["ws_show_import"] = not st.session_state.get("ws_show_import", False)
-    with col3:
+            st.session_state["ws_show_excel"] = False
+    with col4:
         if st.button("🔄 새로고침", use_container_width=True, key="ws_refresh",
                      help="KB 캐시를 비우고 다시 로드합니다."):
             kb_store._cache_clear()
@@ -188,6 +201,72 @@ def _render_import_dialog():
             if st.button("취소", use_container_width=True, key="ws_cancel_import"):
                 st.session_state["ws_show_import"] = False
                 st.rerun()
+
+
+def _render_excel_dialog():
+    """Excel 템플릿 다운로드 + 업로드 다이얼로그."""
+    if not st.session_state.get("ws_show_excel"):
+        return
+    import excel_template
+
+    with st.expander("📊 Excel 일괄 가져오기", expanded=True):
+        st.markdown(
+            "큐레이터가 외부에서 데이터를 정리한 뒤 한 번에 업로드할 수 있는 표준 템플릿입니다. "
+            "폼 입력의 대체가 아니라 **보조 경로**이며, 업로드 후에도 검수·수정이 가능합니다."
+        )
+
+        col_dl, col_ul = st.columns([1, 2])
+        with col_dl:
+            try:
+                tpl_bytes = excel_template.generate_template_xlsx()
+                st.download_button(
+                    "📥 템플릿 다운로드",
+                    data=tpl_bytes,
+                    file_name="ilmin_exhibition_template.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="ws_dl_template",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                st.error(f"템플릿 생성 실패: {e}")
+
+        with col_ul:
+            uploaded = st.file_uploader(
+                "작성 완료된 템플릿 업로드", type=["xlsx", "xls"], key="ws_xlsx_upload",
+            )
+
+        if uploaded:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                if st.button("📂 가져와서 편집 시작", type="primary",
+                             use_container_width=True, key="ws_do_xlsx_import"):
+                    try:
+                        result = excel_template.parse_template_xlsx(uploaded)
+                        record = {
+                            "id": None,
+                            "data": result["data"],
+                            "status": "draft",
+                            "type": result["type"],
+                            "source": "excel",
+                        }
+                        kb_session.enter_detail_mode(record=record)
+                        st.session_state["current_exhibition_id"] = None
+                        # 유형 별도 적용 (record["type"]은 enter_detail_mode에서 처리됨)
+                        if result["type"] is not None:
+                            st.session_state["current_exhibition_type"] = result["type"]
+                        st.session_state["ws_show_excel"] = False
+                        # 경고 메시지 저장
+                        if result["warnings"]:
+                            st.session_state["_excel_import_warnings"] = result["warnings"]
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"가져오기 실패: {e}")
+                        import traceback
+                        st.code(traceback.format_exc())
+            with col2:
+                if st.button("취소", use_container_width=True, key="ws_cancel_excel"):
+                    st.session_state["ws_show_excel"] = False
+                    st.rerun()
 
 
 def _normalize_imported(raw: dict) -> dict:
