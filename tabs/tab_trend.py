@@ -234,14 +234,24 @@ def _render_metric_trend(df: pd.DataFrame, label: str, key: str, unit: str):
         strokeWidth=1.5,
     )
 
-    # 평균 기준선 (가로 점선)
-    mean_df = pd.DataFrame({"y": [mean_v], "label": [f"평균 {_fmt_value(mean_v, unit)}"]})
+    # 평균 기준선 (가로 점선) — 호버 시 포맷된 평균값 표시
+    mean_df = pd.DataFrame({
+        "y": [mean_v],
+        "mean_label": [_fmt_value(mean_v, unit)],
+        "kind": ["평균"],
+    })
     mean_rule = alt.Chart(mean_df).mark_rule(
         color=COLOR_ACCENT_2,
         strokeDash=[5, 4],
         strokeWidth=1.2,
         opacity=0.7,
-    ).encode(y="y:Q")
+    ).encode(
+        y="y:Q",
+        tooltip=[
+            alt.Tooltip("kind:N", title="기준선"),
+            alt.Tooltip("mean_label:N", title=f"{label} 평균"),
+        ],
+    )
 
     chart = (line + points + mean_rule).properties(
         height=200,
@@ -486,13 +496,23 @@ def _render_compare_chart(records: List[Dict]):
         ],
     )
 
-    # 100% 기준선 (선택 내 최소값)
-    base_rule = alt.Chart(pd.DataFrame({"y": [1.0]})).mark_rule(
+    # 100% 기준선 (선택 내 최소값) — 호버 시 명확한 라벨
+    base_rule = alt.Chart(pd.DataFrame({
+        "y": [1.0],
+        "label": ["100% (선택 내 최소값)"],
+        "kind": ["기준선"],
+    })).mark_rule(
         color=COLOR_ACCENT_2,
         strokeDash=[5, 4],
         strokeWidth=1.4,
         opacity=0.8,
-    ).encode(y="y:Q")
+    ).encode(
+        y="y:Q",
+        tooltip=[
+            alt.Tooltip("kind:N", title="구분"),
+            alt.Tooltip("label:N", title="값"),
+        ],
+    )
 
     chart = (bars + base_rule).properties(
         height=340,
