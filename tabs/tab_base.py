@@ -19,14 +19,16 @@ from ui_helpers import subsection
 
 
 def _render_room(i: int, room: dict):
-    """단일 전시실 입력 — 컬럼 안에서 세로 스택. 좁은 컬럼에서도 동작."""
+    """단일 전시실 입력 — 컬럼 안에서 세로 스택. 좁은 컬럼에서도 동작.
+
+    v5.3.18: 헤더가 이미 전시실명을 표시하므로 '전시실명' 입력 필드는 제거.
+    name은 기본값(예: "1전시실" / "프로젝트 룸") 유지.
+    """
     st.markdown(
         f'<div style="font-size: 13px; font-weight: 700; color: #20231f; '
         f'margin: 6px 0 4px 0;">{room.get("name", f"{i+1}전시실")}</div>',
         unsafe_allow_html=True,
     )
-    st.session_state.rooms[i]["name"] = st.text_input(
-        "전시실명", value=room.get("name", ""), key=f"room_name_{i}")
     st.session_state.rooms[i]["artists"] = st.text_input(
         "참여 작가", value=room.get("artists", ""), key=f"room_artists_{i}")
     st.session_state.rooms[i]["floor_plan_file"] = st.file_uploader(
