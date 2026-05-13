@@ -217,10 +217,31 @@ st.markdown("""
     [data-testid="stMainBlockContainer"],
     [data-testid="block-container"] {
         max-width: 1280px !important;
-        padding-top: 1.5rem !important;
+        padding-top: 2.5rem !important;   /* Streamlit 헤더(60px) 여유 + 자체 마진 */
         padding-bottom: 3rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
+    }
+
+    /* === Sticky Tab Bar === */
+    /* 상세 모드에서 4탭이 스크롤 후에도 계속 보이도록 */
+    .stTabs > div:first-child,
+    .stTabs [data-baseweb="tab-list"] {
+        position: sticky;
+        top: 3.5rem;            /* Streamlit 기본 헤더 아래 */
+        z-index: 50;
+        background: var(--bg);
+        border-bottom: 1px solid var(--line);
+        padding-top: 4px;
+        padding-bottom: 0;
+        margin-bottom: 12px;
+        gap: 4px;
+        box-shadow: 0 4px 8px -6px rgba(32, 35, 31, 0.1);
+    }
+
+    /* 메트릭 카드 padding 미세조정 (v5.2) */
+    .metric-card {
+        padding: 12px 14px !important;
     }
 
     /* 위젯 간 수직 간격 축소 (Streamlit 기본 1rem → 0.6rem) */

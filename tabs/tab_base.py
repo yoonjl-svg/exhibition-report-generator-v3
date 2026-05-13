@@ -16,14 +16,17 @@ def render(tab):
 
         # ── 전시 기본 ──
         subsection("BASIC", "전시 기본")
-        col1, col2 = st.columns(2)
-        with col1:
+        # 제목 + 시작일 + 종료일 한 줄 [2.5 : 1 : 1]
+        col_title, col_start, col_end = st.columns([2.5, 1, 1])
+        with col_title:
             st.text_input("전시 제목", key="exhibition_title")
-            st.text_input("참여 작가 (쉼표 구분)", key="artists",
-                          placeholder="구정연, 이미래, 장서영")
-        with col2:
+        with col_start:
             st.date_input("전시 시작일", key="period_start", value=None)
+        with col_end:
             st.date_input("전시 종료일", key="period_end", value=None)
+        # 참여 작가 — 길어질 수 있으므로 단독 행 전체 폭
+        st.text_input("참여 작가 (쉼표 구분)", key="artists",
+                      placeholder="구정연, 이미래, 장서영")
 
         # 자동 전시 일수 표시
         if st.session_state.period_start and st.session_state.period_end:
@@ -32,16 +35,17 @@ def render(tab):
 
         st.divider()
 
-        # ── 기획진 ──
+        # ── 기획진 ── (6개 필드 → 3컬럼 × 2행)
         subsection("CURATORIAL TEAM", "기획진")
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
         with c1:
             st.text_input("책임기획", key="chief_curator")
             st.text_input("기획", key="curators")
-            st.text_input("진행", key="coordinators")
         with c2:
             st.text_input("학예팀", key="curatorial_team")
             st.text_input("홍보", key="pr_person")
+        with c3:
+            st.text_input("진행", key="coordinators")
             st.text_input("후원", key="sponsors")
 
         st.divider()
