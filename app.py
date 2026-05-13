@@ -406,6 +406,14 @@ st.markdown("""
         width: 240px !important;
     }
 
+    /* 사이드바 상단 정렬 — 본문(.block-container padding-top: 3rem)과 단차 제거 */
+    section[data-testid="stSidebar"] > div:first-child {
+        padding-top: 3rem !important;
+    }
+    [data-testid="stSidebarContent"] {
+        padding-top: 3rem !important;
+    }
+
     /* 사이드바 버튼 — L5 (본문보다 살짝 작게) */
     section[data-testid="stSidebar"] .stButton button {
         font-size: var(--font-l5) !important;
@@ -645,7 +653,7 @@ def load_reference_data():
 
 with st.sidebar:
     st.markdown(
-        '<div class="eyebrow">ILMIN EXHIBITION WORKSPACE</div>'
+        '<div class="eyebrow" style="text-transform: none;">IMA Exhibition Workspace</div>'
         '<div class="main-title" style="font-size: 20px;">전시 워크스페이스</div>'
         '<p class="main-subtitle" style="font-size: 12px; margin-bottom: 16px;">v5.1 — KB 통합형</p>',
         unsafe_allow_html=True,
