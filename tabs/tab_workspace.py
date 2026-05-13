@@ -437,11 +437,11 @@ def _render_card(rec):
     chips_html = status_chip(status) + " " + type_chip(rec.get("type"))
 
     metrics_html = (
-        '<div class="card-metrics-v">'
-        f'<div class="row"><span class="label">👥 총 관객</span><strong>{visitor_str}</strong></div>'
-        f'<div class="row"><span class="label">📊 일평균 관객</span><strong>{daily_str}</strong></div>'
-        f'<div class="row"><span class="label">💰 총 예산</span><strong>{budget_str}</strong></div>'
-        f'<div class="row"><span class="label">💵 총 수입</span><strong>{revenue_str}</strong></div>'
+        '<div class="exhibition-card-metrics">'
+        f'<span class="metric-item">👥 <strong>{visitor_str}</strong></span>'
+        f'<span class="metric-item">📊 <strong>{daily_str}</strong></span>'
+        f'<span class="metric-item">💰 <strong>{budget_str}</strong></span>'
+        f'<span class="metric-item">💵 <strong>{revenue_str}</strong></span>'
         '</div>'
     )
 
