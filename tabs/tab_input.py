@@ -188,19 +188,19 @@ def render(tab):
         ib, _ = st.columns([1, 9])
         with ib:
             if st.button("가져오기", key="data_import_btn",
-                         use_container_width=True):
+                         type="primary", use_container_width=True):
                 _show_data_import_modal()
 
         _section_divider()
 
         # ════════════════════════════════════════
-        # 1. 전시 기본
+        # 1. 전시 기본 (기획진·전시 디자인을 하위 항목으로 통합)
         # ════════════════════════════════════════
-        # 4단: 전시 기본 + 기획진 + 전시 디자인 + 여백 (각 25%)
+        subsection("", "전시 기본")
+        # 4단: 기본 정보 / 기획진 / 전시 디자인 / 여백 — subsection 라벨은 단일
         c_basic, c_team, c_design, _sp = st.columns([1, 1, 1, 1], gap="large")
 
         with c_basic:
-            subsection("", "전시 기본")
             st.text_input("전시 제목", key="exhibition_title")
             d1, d2 = st.columns(2)
             with d1:
@@ -214,7 +214,6 @@ def render(tab):
                 st.info(f"📅 전시 일수: **{days}일**")
 
         with c_team:
-            subsection("", "기획진")
             r1c1, r1c2 = st.columns(2)
             with r1c1:
                 st.text_input("책임기획", key="chief_curator")
@@ -229,7 +228,6 @@ def render(tab):
             st.text_input("후원", key="sponsors")
 
         with c_design:
-            subsection("", "전시 디자인")
             st.text_input("그래픽 디자인", key="graphic_designer",
                           placeholder="예: 페이퍼프레스")
             st.text_input("공간 구성", key="space_designer",
@@ -353,23 +351,20 @@ def render(tab):
         _section_divider()
 
         # ════════════════════════════════════════
-        # 6. 운영 인력
+        # 6. 운영 (운영 인력 + 예산 및 수입을 하위 항목으로 통합)
         # ════════════════════════════════════════
-        subsection("", "운영 인력")
+        subsection("", "운영")
+
+        # 인력 (3 narrow)
         cols = st.columns([1, 1, 1, 7])
         with cols[0]:
-            st.number_input("총원", min_value=0, key="staff_total", format="%d")
+            st.number_input("운영 인력 총원", min_value=0, key="staff_total", format="%d")
         with cols[1]:
-            st.number_input("유급", min_value=0, key="staff_paid", format="%d")
+            st.number_input("유급 스태프", min_value=0, key="staff_paid", format="%d")
         with cols[2]:
             st.number_input("봉사자", min_value=0, key="staff_volunteer", format="%d")
 
-        _section_divider()
-
-        # ════════════════════════════════════════
-        # 7. 예산 및 수입
-        # ════════════════════════════════════════
-        subsection("", "예산 및 수입")
+        # 예산 — 2행
         cols = st.columns([1.3, 1.3, 7.4])
         with cols[0]:
             st.number_input("전시 사용 예산 (원)", min_value=0, step=1_000_000,
