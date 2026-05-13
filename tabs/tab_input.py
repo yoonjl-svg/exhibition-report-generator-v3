@@ -236,8 +236,11 @@ def render(tab):
 
         with c_staff:
             # 인력: 유급 스태프 + 봉사자 (운영 인력 총원은 자동 합산)
-            st.number_input("유급 스태프", min_value=0, key="staff_paid", format="%d")
-            st.number_input("봉사자", min_value=0, key="staff_volunteer", format="%d")
+            # 박스 너비 50% (사람 수는 작은 숫자라 좁아도 충분) — 우측 50% 여백
+            sc, _ = st.columns([1, 1])
+            with sc:
+                st.number_input("유급 스태프", min_value=0, key="staff_paid", format="%d")
+                st.number_input("봉사자", min_value=0, key="staff_volunteer", format="%d")
         # staff_total은 자동 합산 (KB 저장·분석 호환)
         st.session_state.staff_total = st.session_state.staff_paid + st.session_state.staff_volunteer
 
