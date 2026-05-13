@@ -129,8 +129,13 @@ def render_sample_button():
         st.divider()
         st.caption("🧪 테스트 도구")
         if st.button("샘플 데이터 채우기", use_container_width=True,
-                     help="(가)하이퍼 옐로우 데이터로 모든 필드를 채웁니다."):
+                     help="(가)하이퍼 옐로우 데이터로 모든 필드를 채웁니다. 자동으로 상세 작업 모드로 진입합니다."):
             # 기존 JSON 로드와 동일한 메커니즘 사용 (위젯 키 충돌 회피)
             st.session_state["_pending_json"] = {k: v for k, v in SAMPLE_DATA.items()}
+            # v5: 워크스페이스 모드에서 호출되어도 자동으로 상세 모드로 전환
+            st.session_state["app_mode"] = "detail"
+            st.session_state["current_exhibition_id"] = None  # 신규로 처리
+            st.session_state["current_exhibition_status"] = "draft"
+            st.session_state["current_exhibition_type"] = 1   # 정기 기획전 기본
             st.rerun()
         st.caption("⚠️ 공식 배포 시 제거")

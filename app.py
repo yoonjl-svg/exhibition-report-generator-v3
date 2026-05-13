@@ -1,6 +1,6 @@
 """
-일민미술관 전시보고서 생성기 v3
-B(기본 정보) → A(정량 데이터) → C(자동 분석) → 생성
+일민미술관 전시 워크스페이스 (v5)
+워크스페이스 모드: 전시 목록 / 상세 모드: B → A → C → D
 """
 
 import os
@@ -8,8 +8,9 @@ from datetime import date
 import streamlit as st
 import pandas as pd
 
-from tabs import tab_base, tab_data, tab_analysis, tab_generate
+from tabs import tab_base, tab_data, tab_analysis, tab_generate, tab_workspace
 import reference_data as rd
+import kb_session
 
 # ── 샘플 데이터 토글 (공식 배포 시 False) ─────────────
 ENABLE_SAMPLE_DATA = True
@@ -19,7 +20,7 @@ ENABLE_SAMPLE_DATA = True
 # ──────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="전시보고서 생성기 v3",
+    page_title="일민미술관 전시 워크스페이스",
     page_icon="🎨",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -173,6 +174,13 @@ def init_session():
         "visitor_ticket_analysis": [""],
         "visitor_analysis_text": "",
         "weekly_visitors": {},
+
+        # ── v5: 워크스페이스 모드 ──
+        "app_mode": "workspace",            # "workspace" | "detail"
+        "current_exhibition_id": None,      # 편집 중인 전시 slug (None = 신규)
+        "current_exhibition_status": "draft",
+        "current_exhibition_type": None,
+        "current_exhibition_meta": {},
     }
 
     for key, val in defaults.items():
@@ -256,15 +264,45 @@ def load_reference_data():
 # ──────────────────────────────────────────────
 
 with st.sidebar:
-    st.title("🎨 전시보고서 생성기")
-    st.caption("v3.0 — 분석 통합형")
+    st.title("🎨 전시 워크스페이스")
+    st.caption("v5.0 — KB 통합형")
     st.divider()
 
-    title = st.session_state.exhibition_title
-    if title:
-        st.markdown(f"**《{title}》**")
+    # 모드 표시 + 워크스페이스 복귀 버튼
+    app_mode = st.session_state.get("app_mode", "workspace")
+    if app_mode == "detail":
+        current_id = st.session_state.get("current_exhibition_id")
+        title = st.session_state.get("exhibition_title", "")
+        if title:
+            st.markdown(f"**작업 중**\n\n《{title}》")
+        else:
+            st.markdown("**신규 전시 작업 중**")
+        if current_id:
+            st.caption(f"id: `{current_id}`")
+        else:
+            st.caption("⚠️ 미저장 (신규)")
+
+        st.divider()
+
+        # 워크스페이스에 저장
+        if st.button("💾 워크스페이스에 저장", type="primary", use_container_width=True,
+                     help="현재 작업 중인 전시 데이터를 KB에 영구 저장합니다."):
+            try:
+                saved = kb_session.save_current_to_kb()
+                st.success(f"✅ 저장됨\n\n`{saved['id']}`\n\n{saved['modified_at']}")
+            except Exception as e:
+                st.error(f"저장 오류: {e}")
+                import traceback
+                st.code(traceback.format_exc())
+
+        # 목록으로 돌아가기
+        if st.button("📚 워크스페이스 목록", use_container_width=True,
+                     help="목록 화면으로 돌아갑니다. 저장하지 않은 변경은 메모리에 유지됩니다."):
+            kb_session.enter_workspace_mode()
+            st.rerun()
     else:
-        st.markdown("*전시 제목을 입력해주세요*")
+        st.markdown("**📚 워크스페이스 모드**")
+        st.caption("저장된 전시를 선택해 편집하거나 새로 만드세요.")
 
     st.divider()
     st.caption("© 일민미술관")
@@ -276,17 +314,24 @@ if ENABLE_SAMPLE_DATA:
 
 
 # ──────────────────────────────────────────────
-# 탭 구조: B → A → C → 생성
+# 라우팅: 워크스페이스 모드 / 상세 모드
 # ──────────────────────────────────────────────
 
-tab_b, tab_a, tab_c, tab_d = st.tabs([
-    "📋 기본 정보",
-    "📊 정량 데이터",
-    "🔍 분석 & 평가",
-    "📄 보고서 생성",
-])
+app_mode = st.session_state.get("app_mode", "workspace")
 
-tab_base.render(tab_b)
-tab_data.render(tab_a)
-tab_analysis.render(tab_c, load_reference_data)
-tab_generate.render(tab_d, load_reference_data)
+if app_mode == "workspace":
+    # 워크스페이스만 단독 렌더 (전시 목록 + 신규)
+    tab_workspace.render(st.container(), load_reference_data)
+else:
+    # 상세 모드: 기존 4탭 (B/A/C/D)
+    tab_b, tab_a, tab_c, tab_d = st.tabs([
+        "📋 기본 정보",
+        "📊 정량 데이터",
+        "🔍 분석 & 평가",
+        "📄 보고서 생성",
+    ])
+
+    tab_base.render(tab_b)
+    tab_data.render(tab_a)
+    tab_analysis.render(tab_c, load_reference_data)
+    tab_generate.render(tab_d, load_reference_data)
