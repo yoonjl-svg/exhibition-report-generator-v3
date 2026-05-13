@@ -91,6 +91,11 @@ def _render_metric_strip(records):
     budget_vals = [v for v in budget_vals if v > 0]
     avg_budget = int(sum(budget_vals) / len(budget_vals)) if budget_vals else 0
 
+    # 평균 수입
+    revenue_vals = [r["data"].get("total_revenue") or 0 for r in analyzable]
+    revenue_vals = [v for v in revenue_vals if v > 0]
+    avg_revenue = int(sum(revenue_vals) / len(revenue_vals)) if revenue_vals else 0
+
     # 평균 일수
     days_vals = []
     for r in analyzable:
@@ -108,6 +113,15 @@ def _render_metric_strip(records):
     press_vals = [r["data"].get("press_count") or 0 for r in analyzable]
     press_vals = [v for v in press_vals if v > 0]
     avg_press = int(sum(press_vals) / len(press_vals)) if press_vals else 0
+
+    def _fmt_money_compact(v):
+        if not v:
+            return "—"
+        if v >= 100_000_000:
+            return f"{v / 100_000_000:.2f}억"
+        if v >= 10_000_000:
+            return f"{v / 10_000:,.0f}만"
+        return f"{v:,}원"
 
     metrics = [
         {
@@ -127,8 +141,13 @@ def _render_metric_strip(records):
         },
         {
             "label": "평균 예산",
-            "value": f"{avg_budget / 100_000_000:.2f}억" if avg_budget else "—",
+            "value": _fmt_money_compact(avg_budget),
             "context": f"표본 {len(budget_vals)}건",
+        },
+        {
+            "label": "평균 수입",
+            "value": _fmt_money_compact(avg_revenue),
+            "context": f"표본 {len(revenue_vals)}건",
         },
         {
             "label": "평균 운영일수",
