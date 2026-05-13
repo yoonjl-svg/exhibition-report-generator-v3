@@ -438,7 +438,6 @@ def render(tab):
         # 5. 전시 연계 프로그램
         # ════════════════════════════════════════
         subsection("", "전시 연계 프로그램")
-        st.caption("프로그램 총 수·회차·참여 인원 요약은 본 섹션 하단의 숫자 칸에 입력합니다.")
 
         # 상세 행 (반복)
         for i, prog in enumerate(st.session_state.related_programs):
