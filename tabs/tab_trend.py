@@ -289,8 +289,8 @@ def _render_compare(records: List[Dict]):
         id_to_record[label] = r
 
     st.caption("비교할 전시를 선택하세요. 막대 길이는 선택된 전시들 중 지표별 최소값을 100%로 한 비율입니다.")
-    # multiselect는 본문 전폭을 점유하므로 좁은 컬럼으로 감싸 너비 제한 (60%)
-    ms_col, _ = st.columns([3, 2])
+    # multiselect 너비 30% 제한 (이전 60% → 절반)
+    ms_col, _ = st.columns([3, 7])
     with ms_col:
         selected_labels = st.multiselect(
             "비교할 전시 선택",

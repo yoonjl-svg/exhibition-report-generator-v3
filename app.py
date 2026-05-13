@@ -48,12 +48,23 @@ st.markdown("""
         --accent-3: #3f5e99;    /* 추가 강조 (블루) */
         --soft: #eef2ea;        /* 메트릭 카드 등 미세 강조 영역 */
         --warn: #8a4b15;
+
+        /* ─── 타이포그래피 위계 (v5.3) ───
+           L0: eyebrow/chip · L5: caption/label · L4: 본문
+           L3: subsection · L2: section · L1: page title · Display: metric value */
+        --font-l0: 10px;
+        --font-l5: 11px;
+        --font-l4: 13px;
+        --font-l3: 14px;
+        --font-l2: 16px;
+        --font-l1: 22px;
+        --font-display: 19px;
     }
 
-    /* === Eyebrow 라벨 (모든 섹션 위에) === */
+    /* === L0 — Eyebrow 라벨 (모든 섹션 위에) === */
     .eyebrow {
         color: var(--accent);
-        font-size: 11px;
+        font-size: var(--font-l0);
         font-weight: 700;
         letter-spacing: 0.8px;
         text-transform: uppercase;
@@ -61,24 +72,25 @@ st.markdown("""
         line-height: 1.3;
     }
 
-    /* === 메인 타이틀 (페이지 헤더) === */
+    /* === L1 — 페이지 메인 타이틀 === */
     .main-title {
-        font-size: 26px;
+        font-size: var(--font-l1);
         font-weight: 700;
         color: var(--ink);
         margin: 0 0 4px 0;
         letter-spacing: -0.2px;
     }
+    /* === L5 — 페이지 부제 / 캡션 === */
     .main-subtitle {
         color: var(--muted);
-        font-size: 13px;
+        font-size: var(--font-l5);
         margin: 0 0 14px 0;
         line-height: 1.45;
     }
 
-    /* === 섹션 헤더 (구버전 .section-header 갱신) === */
+    /* === L2 — 섹션 헤더 === */
     .section-header {
-        font-size: 20px;
+        font-size: var(--font-l2);
         font-weight: 700;
         color: var(--ink);
         margin: 2px 0 8px 0;
@@ -102,32 +114,32 @@ st.markdown("""
     }
     .metric-card .metric-label {
         color: var(--muted);
-        font-size: 12px;
+        font-size: var(--font-l5);       /* L5 */
         margin-bottom: 6px;
         line-height: 1.3;
     }
     .metric-card .metric-value {
         color: var(--ink);
-        font-size: 22px;
+        font-size: var(--font-display);  /* Display */
         font-weight: 700;
         line-height: 1.1;
     }
     .metric-card .metric-context {
         color: var(--muted);
-        font-size: 11px;
+        font-size: var(--font-l0);       /* L0 (작은 디테일) */
         margin-top: 4px;
     }
 
-    /* === Chips (분류·상태·중요도) === */
+    /* === L0 — Chips (분류·상태·중요도) === */
     .chip {
         display: inline-flex;
         align-items: center;
-        height: 22px;
+        height: 20px;
         border-radius: 999px;
-        padding: 0 10px;
+        padding: 0 9px;
         background: var(--soft);
         color: var(--muted);
-        font-size: 11px;
+        font-size: var(--font-l0);
         font-weight: 500;
         margin-right: 5px;
         white-space: nowrap;
@@ -138,27 +150,29 @@ st.markdown("""
     .chip.low, .chip.draft { background: #eef1f6; color: var(--accent-3); }
     .chip.archived { background: #ececea; color: var(--muted); }
 
-    /* === Exhibition Card (워크스페이스 목록) === */
+    /* === L3 — Exhibition Card 제목 === */
     .exhibition-card-title {
-        font-size: 17px;
+        font-size: var(--font-l3);
         font-weight: 700;
         color: var(--ink);
         margin: 6px 0 4px 0;
         line-height: 1.3;
     }
+    /* === L5 — Card 메타 === */
     .exhibition-card-meta {
         color: var(--muted);
-        font-size: 12px;
+        font-size: var(--font-l5);
         margin-bottom: 8px;
     }
+    /* === L4 — Card 메트릭 인라인 === */
     .exhibition-card-metrics {
         display: flex;
         column-gap: 14px;
-        row-gap: 0.3em;            /* 줄바꿈 시 간격: 제목 line-height 1.3(=130%)과 동일 비율 */
+        row-gap: 0.3em;
         flex-wrap: wrap;
         color: var(--ink);
-        font-size: 13px;
-        line-height: 1.3;          /* 제목과 동일 130% */
+        font-size: var(--font-l4);
+        line-height: 1.3;
         margin-top: 4px;
     }
     .exhibition-card-metrics .metric-item {
@@ -195,14 +209,14 @@ st.markdown("""
         border-bottom: 1px solid var(--line);
     }
     .year-header .year-label {
-        font-size: 18px;
+        font-size: var(--font-l2);       /* L2 */
         font-weight: 700;
         color: var(--ink);
         letter-spacing: -0.2px;
     }
     .year-header .year-count {
         color: var(--muted);
-        font-size: 12px;
+        font-size: var(--font-l5);       /* L5 */
         font-weight: 500;
         margin-left: 8px;
     }
@@ -237,7 +251,7 @@ st.markdown("""
 
     /* === Streamlit 위젯 미세 조정 === */
     div[data-testid="stTabs"] button[data-baseweb="tab"] {
-        font-size: 14px;
+        font-size: var(--font-l4);
         font-weight: 600;
     }
     .stNumberInput > div > div > input { text-align: right; }
@@ -289,13 +303,29 @@ st.markdown("""
         gap: 0.6rem;
     }
 
-    /* 입력 위젯 라벨 — 작게, 뮤트 톤 */
+    /* 입력 위젯 라벨 — L5 */
     label[data-testid="stWidgetLabel"],
     [data-testid="stWidgetLabel"] p {
-        font-size: 12px !important;
+        font-size: var(--font-l5) !important;
         margin-bottom: 4px !important;
         color: var(--muted) !important;
         font-weight: 500 !important;
+    }
+
+    /* 본문 마크다운 텍스트 — L4 */
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li {
+        font-size: var(--font-l4) !important;
+        line-height: 1.5 !important;
+    }
+
+    /* 입력값(text·number·date·textarea) — L4 */
+    .stTextInput input,
+    .stNumberInput input,
+    .stDateInput input,
+    .stTextArea textarea,
+    .stSelectbox > div > div {
+        font-size: var(--font-l4) !important;
     }
 
     /* 입력 필드 자체의 vertical padding 축소 */
@@ -318,10 +348,10 @@ st.markdown("""
         min-height: 32px !important;
     }
 
-    /* 캡션 / help 텍스트 작게 */
+    /* 캡션 / help 텍스트 — L5 */
     [data-testid="stCaptionContainer"],
     .stCaption {
-        font-size: 12px !important;
+        font-size: var(--font-l5) !important;
         color: var(--muted) !important;
     }
 
@@ -341,10 +371,11 @@ st.markdown("""
         margin: 1rem 0 !important;
     }
 
-    /* 버튼 컴팩트 */
+    /* 버튼 — L4 본문과 동일 크기 */
     .stButton button {
-        min-height: 34px !important;
+        min-height: 32px !important;
         padding: 0 14px !important;
+        font-size: var(--font-l4) !important;
     }
 
     /* 사이드바 폭 고정 — 240px (사용자 요청) */
@@ -357,9 +388,9 @@ st.markdown("""
         width: 240px !important;
     }
 
-    /* 사이드바 버튼 살짝 컴팩트 (좁아진 폭에 맞춤) */
+    /* 사이드바 버튼 — L5 (본문보다 살짝 작게) */
     section[data-testid="stSidebar"] .stButton button {
-        font-size: 12.5px !important;
+        font-size: var(--font-l5) !important;
     }
 
     /* ═══════════════════════════════════════════════

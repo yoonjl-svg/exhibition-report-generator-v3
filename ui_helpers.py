@@ -31,17 +31,17 @@ def section_header(eyebrow_text: str, title: str, subtitle: str = "") -> None:
 
 
 def subsection(eyebrow_text: str, title: str) -> None:
-    """탭 내 하위 섹션 헤더 — eyebrow + 타이틀.
+    """탭 내 하위 섹션 헤더 — eyebrow + 타이틀 (L3).
 
-    상위 section_header보다 작고, 같은 탭 안의 그룹화 용도.
+    상위 section_header(L2)보다 작고, 같은 탭 안의 그룹화 용도.
 
     Examples:
         subsection("BUDGET", "예산 및 수입")
     """
     st.markdown(
-        f'<div style="margin: 18px 0 8px 0;">'
+        f'<div style="margin: 18px 0 6px 0;">'
         f'<div class="eyebrow">{eyebrow_text}</div>'
-        f'<div style="font-size: 15px; font-weight: 700; color: #20231f; '
+        f'<div style="font-size: 14px; font-weight: 700; color: #20231f; '
         f'line-height: 1.3;">{title}</div>'
         f'</div>',
         unsafe_allow_html=True,
