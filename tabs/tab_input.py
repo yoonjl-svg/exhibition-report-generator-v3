@@ -325,7 +325,8 @@ def render(tab):
                 st.caption("일평균: 기간 입력 시 자동")
 
         st.markdown("**입장권별 구성**")
-        cols = st.columns([1.2, 1.2, 1.2, 1.4, 1.7, 1.4, 1.9])
+        # 8개 칸을 1줄에 (일반·학생·초대권·예술인패스·디스커버서울패스·기타 할인·단체 관객·오프닝 참석)
+        cols = st.columns([1.0, 1.0, 1.0, 1.2, 1.5, 1.1, 1.1, 1.2, 0.9])
         with cols[0]:
             st.number_input("일반", min_value=0, key="visitor_general", format="%d")
         with cols[1]:
@@ -338,6 +339,10 @@ def render(tab):
             st.number_input("디스커버서울패스", min_value=0, key="visitor_discover", format="%d")
         with cols[5]:
             st.number_input("기타 할인", min_value=0, key="visitor_discount", format="%d")
+        with cols[6]:
+            st.number_input("단체 관객", min_value=0, key="visitor_group", format="%d")
+        with cols[7]:
+            st.number_input("오프닝 참석", min_value=0, key="opening_attendance", format="%d")
 
         ticket_sum = (st.session_state.visitor_general + st.session_state.visitor_student +
                       st.session_state.visitor_invitation + st.session_state.visitor_artpass +
@@ -348,19 +353,12 @@ def render(tab):
             else:
                 st.success(f"✅ 입장권별 합계 일치: {ticket_sum:,}명")
 
-        cols = st.columns([1.2, 1.2, 7.6])
-        with cols[0]:
-            st.number_input("단체 관객", min_value=0, key="visitor_group", format="%d")
-        with cols[1]:
-            st.number_input("오프닝 참석", min_value=0, key="opening_attendance", format="%d")
-
-        # 주차별 관객
+        # 주차별 관객 — 11주차, 1줄 배치
         st.markdown("**주차별 관객 수**")
-        st.caption("보고서 차트용. 빈 칸은 무시됩니다.")
-        week_cols = st.columns([1, 1, 1, 1, 1, 1, 4])
+        week_cols = st.columns(11)
         weekly = st.session_state.get("weekly_visitors", {})
         new_weekly = {}
-        for i in range(6):
+        for i in range(11):
             with week_cols[i]:
                 label = f"{i+1}주"
                 val = weekly.get(label, 0)
