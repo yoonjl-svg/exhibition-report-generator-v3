@@ -332,6 +332,20 @@ st.markdown("""
         font-size: var(--font-l4) !important;
     }
 
+    /* selectbox / multiselect 드롭다운 옵션 메뉴 — L4
+       Streamlit BaseWeb popover에 별도 렌더되므로 별도 셀렉터 필요 */
+    [data-baseweb="popover"] [role="option"],
+    [data-baseweb="popover"] li,
+    [data-baseweb="menu"] li,
+    ul[role="listbox"] li {
+        font-size: var(--font-l4) !important;
+    }
+
+    /* multiselect 선택된 항목 chips 텍스트 — L5 */
+    [data-baseweb="tag"] {
+        font-size: var(--font-l5) !important;
+    }
+
     /* 입력 필드 자체의 vertical padding 축소 */
     .stTextInput > div > div > input,
     .stNumberInput > div > div > input,
