@@ -312,13 +312,7 @@ def render(tab):
 
         with col_theme:
             subsection("", "전시 주제와 내용")
-            st.text_area(
-                "전시 에세이", key="theme_text", height=300,
-                placeholder=(
-                    "전시의 주제, 기획 의도, 내용을 서술합니다.\n\n"
-                    "단락 사이에 빈 줄을 넣으면 보고서에서도 단락이 구분됩니다."
-                ),
-            )
+            st.text_area("전시 서문", key="theme_text", height=300)
 
         with col_rooms:
             subsection("", "전시실 구성")
