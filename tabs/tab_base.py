@@ -59,15 +59,18 @@ def render(tab):
 
         st.divider()
 
-        # ── 전시 디자인 ──
-        subsection("DESIGN", "전시 디자인")
-        c1, c2 = st.columns(2)
-        with c1:
+        # ── 전시 디자인 + 멤버십 (2단 페어링) ──
+        col_design, col_membership = st.columns(2, gap="large")
+        with col_design:
+            subsection("DESIGN", "전시 디자인")
             st.text_input("그래픽 디자인", key="graphic_designer",
                           placeholder="예: 페이퍼프레스")
-        with c2:
             st.text_input("공간 구성", key="space_designer",
                           placeholder="예: 석운동")
+        with col_membership:
+            subsection("MEMBERSHIP", "멤버십 커뮤니케이션")
+            st.text_area("멤버십 관련 내용", key="membership_text", height=100,
+                         label_visibility="collapsed")
 
         st.divider()
 
@@ -257,11 +260,7 @@ def render(tab):
 
         st.divider()
 
-        # ── 멤버십 ──
-        subsection("MEMBERSHIP", "멤버십 커뮤니케이션")
-        st.text_area("멤버십 관련 내용", key="membership_text", height=100)
-
-        st.divider()
+        # MEMBERSHIP은 DESIGN과 함께 상단 2단 페어로 이동 (v5.2.3)
 
         # ── 관객 후기 ──
         subsection("AUDIENCE REVIEWS", "관객 후기")
