@@ -345,6 +345,16 @@ st.markdown("""
         padding: 0 14px !important;
     }
 
+    /* 사이드바 폭 고정 — Streamlit 기본 ~290px에서 10% 축소 = 261px */
+    section[data-testid="stSidebar"] {
+        min-width: 261px !important;
+        max-width: 261px !important;
+        width: 261px !important;
+    }
+    section[data-testid="stSidebar"] > div:first-child {
+        width: 261px !important;
+    }
+
     /* ═══════════════════════════════════════════════
        v5.2.2 배경 통일 + 입력창 흰색 분리
        사이드바·본문 모두 크림(#f7f8f5).
