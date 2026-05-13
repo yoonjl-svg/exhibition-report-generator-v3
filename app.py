@@ -219,9 +219,28 @@ init_session()
 # 레퍼런스 데이터 로드
 # ──────────────────────────────────────────────
 
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_reference_data():
-    """레퍼런스 Excel 로드 (캐싱)"""
+    """레퍼런스 데이터 로드.
+
+    v5 전환: KB(v5 저장소) 우선, 실패 시 xlsx 폴백.
+      1. kb_store에서 모든 전시 레코드 로드
+      2. analysis_engine 호환 DataFrame으로 변환
+      3. KB 비어 있거나 오류 시 xlsx 폴백
+    """
+    # 1. KB 시도
+    try:
+        import kb_store
+        records = kb_store.list_exhibitions()
+        if records:
+            df = rd.kb_records_to_reference_df(records)
+            if len(df) > 0:
+                return df
+    except Exception as e:
+        # KB 사용 불가 시 조용히 xlsx 폴백 (개발 환경 호환)
+        st.caption(f"⚠️ KB 로드 실패 — xlsx 폴백 사용 ({type(e).__name__})")
+
+    # 2. xlsx 폴백
     xlsx_path = os.path.join(os.path.dirname(__file__), "exhibition_reference_data.xlsx")
     if not os.path.exists(xlsx_path):
         return None

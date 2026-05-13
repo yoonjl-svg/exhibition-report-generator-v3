@@ -102,6 +102,138 @@ def load_reference(xlsx_path: str) -> pd.DataFrame:
 
 
 # ──────────────────────────────────────────────
+# v5 KB 레코드 → 레퍼런스 DataFrame 변환
+# ──────────────────────────────────────────────
+
+# session_state 필드 → xlsx 컬럼명 (역매핑)
+KB_FIELD_TO_XLSX = {
+    "exhibition_title": "전시 제목",
+    "total_budget": "총 사용 예산",
+    "budget_exhibition": "전시 사용 예산",
+    "budget_supplementary": "부대 사용 예산",
+    "budget_planned": "예산 계획액",
+    "total_revenue": "총수입",
+    "ticket_revenue": "입장 수입",
+    "total_visitors": "총 관객수",
+    "visitor_invitation": "무료/초대 관객수",
+    "visitor_student": "학생 관객수(만 24세 이하)",
+    "visitor_group": "단체 관객수",
+    "visitor_discover": "디스커버서울패스 관객수",
+    "visitor_artpass": "예술인패스 관객수",
+    "staff_total": "운영 인력_총",
+    "staff_paid": "스태프 수",
+    "staff_volunteer": "봉사자 수",
+    "program_count": "프로그램 총 수",
+    "program_sessions": "프로그램 총 회차",
+    "program_participants": "프로그램 참여 인원",
+    "docent_total": "도슨트 참여 인원",
+    "docent_regular": "정기 도슨트 참여 인원",
+    "docent_special": "특별 도슨트 참여 인원",
+    "opening_attendance": "오프닝 참석 인원",
+    "artwork_total": "출품 작품 수_총",
+    "artwork_painting": "출품 작품 수_회화",
+    "artwork_sculpture": "출품 작품 수_조각",
+    "artwork_photo": "출품 작품 수_사진",
+    "artwork_installation": "출품 작품 수_설치",
+    "artwork_media": "출품 작품 수_미디어",
+    "artwork_other": "출품 작품 수_기타",
+    "press_count": "언론 보도 건수",
+    "web_invitation_count": "웹 초청장 발송 수",
+    "sns_posts": "SNS 게시 건수",
+    "sns_feedback": "SNS 피드백 합계",
+    "membership_count": "멤버십 회원수",
+}
+
+
+def kb_records_to_reference_df(records: list[dict]) -> pd.DataFrame:
+    """v5 KB 레코드 리스트 → 기존 xlsx 형식과 호환되는 DataFrame.
+
+    analysis_engine은 xlsx 스타일 한국어 컬럼명을 가정하므로 변환 필수.
+
+    빠진 필드는 NaN. 파생 필드(전시 일수, 일평균, 뉴스레터 오픈율 등)는 계산.
+    type 0 (분석 제외)도 그대로 포함 (필터링은 exclude_type_zero 호출 측 책임).
+    """
+    rows = []
+    for rec in records:
+        data = rec.get("data", {})
+        row = {}
+
+        # 직접 매핑
+        for kb_field, xlsx_col in KB_FIELD_TO_XLSX.items():
+            v = data.get(kb_field)
+            if v is None or v == 0:
+                # 0과 None은 NaN으로 통일 (xlsx 로더와 일관성 유지)
+                # 단, 일부 필드는 0이 유효값일 수 있음 → 일단 보수적으로 0 유지
+                if kb_field == "exhibition_title":
+                    row[xlsx_col] = v
+                else:
+                    row[xlsx_col] = v if v else np.nan
+            else:
+                row[xlsx_col] = v
+
+        # 전시 유형
+        row["전시 유형"] = rec.get("type")
+
+        # 전시 기간 (xlsx에서는 datetime이 아닌 문자열도 허용)
+        row["전시 기간_시작"] = data.get("period_start")
+        row["전시 기간_종료"] = data.get("period_end")
+
+        # 파생: 전시 일수
+        ps, pe = data.get("period_start"), data.get("period_end")
+        if ps and pe:
+            try:
+                from datetime import date as _date
+                s = _date.fromisoformat(ps)
+                e = _date.fromisoformat(pe)
+                row["전시 일수"] = (e - s).days + 1
+            except (ValueError, TypeError):
+                row["전시 일수"] = np.nan
+        else:
+            row["전시 일수"] = np.nan
+
+        # 파생: 일평균 관객수
+        tv = data.get("total_visitors") or 0
+        days = row.get("전시 일수")
+        if tv and days and days > 0:
+            row["일평균 관객수"] = tv / days
+        else:
+            row["일평균 관객수"] = np.nan
+
+        # 파생: 유료 관객수 = 총 관객 - 무료/초대 (대략)
+        invitation = data.get("visitor_invitation") or 0
+        if tv and tv > 0:
+            row["유료 관객수"] = max(0, tv - invitation) if invitation else np.nan
+        else:
+            row["유료 관객수"] = np.nan
+
+        # 뉴스레터 오픈율: KB는 percent (32.4), xlsx 로더는 소수(0.324)를 기대
+        # NUMERIC_COLUMNS 처리 시 일관성을 위해 percent 단위 유지 (analysis_engine은 어차피 양쪽 모두 처리 가능)
+        nl = data.get("newsletter_open_rate")
+        if nl:
+            row["뉴스레터 오픈율"] = nl / 100 if nl > 1 else nl
+        else:
+            row["뉴스레터 오픈율"] = np.nan
+
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+
+    # 빈 컬럼 추가 (analysis_engine이 기대할 수 있는)
+    expected_cols = set(NUMERIC_COLUMNS) | {"전시 제목", "전시 유형", "전시 기간_시작", "전시 기간_종료"}
+    for col in expected_cols:
+        if col not in df.columns:
+            df[col] = np.nan
+
+    # 숫자 컬럼 변환
+    for col in NUMERIC_COLUMNS:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df = df.reset_index(drop=True)
+    return df
+
+
+# ──────────────────────────────────────────────
 # 통계 계산
 # ──────────────────────────────────────────────
 
