@@ -477,6 +477,14 @@ st.markdown("""
         background: var(--surface) !important;
         border: 1px dashed var(--line) !important;
     }
+
+    /* file_uploader 내부의 'Limit 200MB per file • PNG, JPG' 안내 텍스트 숨김
+       (v5.3.41) — 다수 업로더가 같은 메시지를 반복해 노이즈가 됨. 한 번만
+       헤더 옆에 표시. */
+    [data-testid="stFileUploaderDropzoneInstructions"] small,
+    [data-testid="stFileUploaderDropzone"] small {
+        display: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 

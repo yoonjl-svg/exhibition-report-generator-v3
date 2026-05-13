@@ -396,7 +396,17 @@ def render(tab):
             st.text_area("전시 서문", key="theme_text", height=300)
 
         with col_rooms:
-            subsection("", "전시실 구성")
+            # 헤더 + 업로더 안내 한 번만 (각 dropzone의 중복 안내는 CSS로 숨김)
+            st.markdown(
+                '<div style="margin: 18px 0 6px 0; display: flex; '
+                'align-items: baseline; gap: 12px;">'
+                '<div style="font-size: 14px; font-weight: 700; '
+                'color: #20231f; line-height: 1.3;">전시실 구성</div>'
+                '<div style="font-size: 12px; color: #646b61;">'
+                '※ 업로드: 200MB 이하 · PNG · JPG · JPEG</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
             # 2x2 그리드: 1줄에 2개씩 배치 (기본 4개 = 1·2·3·프로젝트 룸)
             rooms = st.session_state.rooms
             for start in range(0, len(rooms), 2):
