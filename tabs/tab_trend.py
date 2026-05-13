@@ -13,12 +13,20 @@ from typing import List, Dict, Optional
 
 import streamlit as st
 import pandas as pd
+import altair as alt
 
 from ui_helpers import (
     subsection, chip, status_chip, type_chip,
     metric_card, metric_strip,
     TYPE_LABELS,
 )
+
+
+# 미술관 톤 색상 (Altair용)
+COLOR_ACCENT = "#255c4a"      # 메인 라인·점 (녹색)
+COLOR_ACCENT_2 = "#b4512a"    # 평균 기준선 (테라코타)
+COLOR_LINE = "#d9ddd4"        # 격자
+COLOR_MUTED = "#646b61"       # 축 라벨
 
 
 # ──────────────────────────────────────────────
@@ -143,32 +151,106 @@ def _render_trend(records: List[Dict]):
 
 
 def _render_metric_trend(df: pd.DataFrame, label: str, key: str, unit: str):
-    """단일 지표의 시계열 차트 + 통계 표시."""
+    """단일 지표의 시계열 차트 + 통계 표시.
+
+    Altair 기반:
+      - 라인: 시간순 추세
+      - 점(circle): 각 전시 위치, 호버 시 툴팁
+      - 평균 기준선: 가로 점선 (테라코타 색)
+      - 툴팁: 전시명·시작일·값·유형
+    """
     # 결측 제거
-    sub = df[["period_start_dt", "title", key]].dropna(subset=[key])
+    sub = df[["period_start_dt", "title", "type_label", key]].dropna(subset=[key]).copy()
     if sub.empty:
         st.markdown(f"**{label}**")
         st.caption("데이터 없음")
         return
 
     # 통계 요약
-    mean_v = sub[key].mean()
-    latest = sub.iloc[-1][key]
-    latest_title = sub.iloc[-1]["title"]
+    mean_v = float(sub[key].mean())
+    latest_row = sub.iloc[-1]
+    latest = float(latest_row[key])
+    latest_title = str(latest_row["title"])
     delta_pct = ((latest - mean_v) / mean_v * 100) if mean_v else 0
 
-    # 라벨 + 평균 + 최신 (간략)
+    # 헤더 + 캡션
     st.markdown(f"**{label}**")
     st.caption(
         f"평균 {_fmt_value(mean_v, unit)} · "
-        f"최근 《{latest_title[:12]}{'…' if len(latest_title) > 12 else ''}》 "
+        f"최근 《{latest_title[:14]}{'…' if len(latest_title) > 14 else ''}》 "
         f"{_fmt_value(latest, unit)} ({'+' if delta_pct >= 0 else ''}{delta_pct:.1f}%)"
     )
 
-    # 차트 데이터 (index = 날짜, value = 지표)
-    chart_data = sub.set_index("period_start_dt")[[key]]
-    chart_data.columns = [label]
-    st.line_chart(chart_data, height=180)
+    # 포맷된 값 컬럼 (툴팁 표시용)
+    sub["_formatted"] = sub[key].apply(lambda v: _fmt_value(v, unit))
+
+    # 베이스 인코딩
+    base = alt.Chart(sub).encode(
+        x=alt.X(
+            "period_start_dt:T",
+            title=None,
+            axis=alt.Axis(
+                format="%Y-%m",
+                grid=False,
+                labelColor=COLOR_MUTED,
+                labelFontSize=10,
+                tickColor=COLOR_LINE,
+            ),
+        ),
+        y=alt.Y(
+            f"{key}:Q",
+            title=None,
+            axis=alt.Axis(
+                grid=True,
+                gridColor=COLOR_LINE,
+                gridOpacity=0.6,
+                labelColor=COLOR_MUTED,
+                labelFontSize=10,
+                tickCount=4,
+            ),
+            scale=alt.Scale(zero=False, nice=True),
+        ),
+        tooltip=[
+            alt.Tooltip("title:N", title="전시"),
+            alt.Tooltip("type_label:N", title="유형"),
+            alt.Tooltip("period_start_dt:T", title="시작일", format="%Y-%m-%d"),
+            alt.Tooltip("_formatted:N", title=label),
+        ],
+    )
+
+    # 라인 (시간순 연결)
+    line = base.mark_line(
+        color=COLOR_ACCENT,
+        strokeWidth=2,
+        interpolate="linear",
+    )
+
+    # 점 (각 전시 위치)
+    points = base.mark_circle(
+        color=COLOR_ACCENT,
+        size=80,
+        opacity=0.9,
+        stroke="white",
+        strokeWidth=1.5,
+    )
+
+    # 평균 기준선 (가로 점선)
+    mean_df = pd.DataFrame({"y": [mean_v], "label": [f"평균 {_fmt_value(mean_v, unit)}"]})
+    mean_rule = alt.Chart(mean_df).mark_rule(
+        color=COLOR_ACCENT_2,
+        strokeDash=[5, 4],
+        strokeWidth=1.2,
+        opacity=0.7,
+    ).encode(y="y:Q")
+
+    chart = (line + points + mean_rule).properties(
+        height=200,
+        padding={"left": 6, "right": 12, "top": 8, "bottom": 8},
+    ).configure_view(
+        strokeWidth=0,
+    )
+
+    st.altair_chart(chart, use_container_width=True)
 
 
 def _fmt_value(v: float, unit: str) -> str:
