@@ -270,13 +270,14 @@ def _fmt_value(v: float, unit: str) -> str:
 # ──────────────────────────────────────────────
 
 def _render_compare(records: List[Dict]):
-    """전시들을 선택해 절대 비율(KB 평균 = 100%) 막대 차트로 비교.
+    """전시들을 선택해 절대 비율(KB 최소값 = 100%) 막대 차트로 비교.
 
     카드 대신 차트 기반이므로 다수 전시 비교 시에도 화면 폭 부담 없음.
-    정규화 기준이 KB 전체 평균이라 선택 변경에 영향받지 않음 (안정).
+    정규화 기준이 KB 최소값이라 선택 변경에 영향받지 않음 (안정).
+    모든 막대 ≥ 100% — 최소값이 기준선, 다른 전시는 그 몇 배인지 표시.
     """
-    # KB 전체 평균 계산 (모든 분석 대상)
-    averages = _compute_kb_averages(records)
+    # KB 전체 최소값 계산 (모든 분석 대상)
+    minimums = _compute_kb_minimums(records)
 
     # 선택용 라벨
     options = []
@@ -290,7 +291,7 @@ def _render_compare(records: List[Dict]):
         options.append(label)
         id_to_record[label] = r
 
-    st.caption("비교할 전시를 선택하세요. 막대 길이는 KB 전체 평균을 100%로 한 절대 비율입니다.")
+    st.caption("비교할 전시를 선택하세요. 막대 길이는 KB 최소값을 100%로 한 절대 비율입니다.")
     selected_labels = st.multiselect(
         "비교할 전시 선택",
         options=options,
@@ -303,27 +304,28 @@ def _render_compare(records: List[Dict]):
         return
 
     selected = [id_to_record[lbl] for lbl in selected_labels]
-    _render_compare_chart(selected, averages)
+    _render_compare_chart(selected, minimums)
 
 
-def _compute_kb_averages(records: List[Dict]) -> Dict[str, float]:
-    """KB 분석 대상 전시들의 지표별 평균.
+def _compute_kb_minimums(records: List[Dict]) -> Dict[str, float]:
+    """KB 분석 대상 전시들의 지표별 최소값.
 
-    각 지표마다 유효값(>0)만 평균. 데이터 없는 지표는 None.
+    각 지표마다 유효값(>0)만 추려 최소값. 데이터 없는 지표는 None.
+    0이나 None은 입력 누락으로 보아 제외 (오인된 0을 기준점으로 삼지 않기 위함).
     """
-    averages = {}
+    minimums = {}
     for label, key, _unit in COMPARE_METRICS:
         values = []
         for r in records:
             v = _extract_metric(r.get("data", {}), key)
             if v is not None and v > 0:
                 values.append(v)
-        averages[label] = (sum(values) / len(values)) if values else None
-    return averages
+        minimums[label] = min(values) if values else None
+    return minimums
 
 
 # 비교 차트에 표시할 핵심 지표 (모두 "클수록 큼"이라 정규화 비교에 적합)
-# 정규화 기준: KB 전체 분석 대상(type≠0) 전시의 평균 = 100%
+# 정규화 기준: KB 전체 분석 대상(type≠0) 전시의 최소값 = 100%
 COMPARE_METRICS = [
     # (라벨, key 또는 derived flag, 단위)
     ("총 관객", "total_visitors", "명"),
@@ -363,11 +365,11 @@ def _extract_metric(data: dict, key: str) -> Optional[float]:
     return v if v else None
 
 
-def _build_compare_long_df(records: List[Dict], averages: Dict[str, float]) -> pd.DataFrame:
+def _build_compare_long_df(records: List[Dict], minimums: Dict[str, float]) -> pd.DataFrame:
     """선택된 전시들의 비교용 long-format DataFrame.
 
-    한 행 = (전시, 지표, 실제값, 평균 대비 비율, 포맷된 값).
-    정규화 기준: KB 전체 평균을 1.0(=100%)으로.
+    한 행 = (전시, 지표, 실제값, 최소값 대비 비율, 포맷된 값).
+    정규화 기준: KB 전체 최소값을 1.0(=100%)으로.
     """
     rows = []
     for r in records:
@@ -381,12 +383,12 @@ def _build_compare_long_df(records: List[Dict], averages: Dict[str, float]) -> p
         for label, key, unit in COMPARE_METRICS:
             v = _extract_metric(data, key)
             v_actual = v if v is not None else 0
-            avg = averages.get(label)
-            if avg and avg > 0:
-                normalized = v_actual / avg
+            mn = minimums.get(label)
+            if mn and mn > 0:
+                normalized = v_actual / mn
             else:
                 normalized = 0.0
-            avg_fmt = _fmt_value(avg, unit) if avg else "—"
+            min_fmt = _fmt_value(mn, unit) if mn else "—"
             rows.append({
                 "exhibition": full_title,
                 "exhibition_short": short,
@@ -394,7 +396,7 @@ def _build_compare_long_df(records: List[Dict], averages: Dict[str, float]) -> p
                 "value": v_actual,
                 "formatted": _fmt_value(v_actual, unit) if v_actual else "—",
                 "normalized": normalized,
-                "average_fmt": avg_fmt,
+                "minimum_fmt": min_fmt,
                 "period": f"{ps} ~ {pe}",
                 "type_label": type_lbl,
             })
@@ -402,9 +404,9 @@ def _build_compare_long_df(records: List[Dict], averages: Dict[str, float]) -> p
     return pd.DataFrame(rows)
 
 
-def _render_compare_chart(records: List[Dict], averages: Dict[str, float]):
-    """Altair 절대 비율(KB 평균=100%) 그룹 막대 차트."""
-    df = _build_compare_long_df(records, averages)
+def _render_compare_chart(records: List[Dict], minimums: Dict[str, float]):
+    """Altair 절대 비율(KB 최소값=100%) 그룹 막대 차트."""
+    df = _build_compare_long_df(records, minimums)
 
     # 색 팔레트 (미술관 톤 + 추가 색)
     palette = [
@@ -477,21 +479,21 @@ def _render_compare_chart(records: List[Dict], averages: Dict[str, float]):
             alt.Tooltip("type_label:N", title="유형"),
             alt.Tooltip("metric:N", title="지표"),
             alt.Tooltip("formatted:N", title="실제 값"),
-            alt.Tooltip("average_fmt:N", title="KB 평균"),
-            alt.Tooltip("normalized:Q", title="평균 대비", format=".0%"),
+            alt.Tooltip("minimum_fmt:N", title="KB 최소값"),
+            alt.Tooltip("normalized:Q", title="최소값 대비", format=".0%"),
             alt.Tooltip("period:N", title="기간"),
         ],
     )
 
-    # 100% 기준선 (KB 평균)
-    avg_rule = alt.Chart(pd.DataFrame({"y": [1.0]})).mark_rule(
+    # 100% 기준선 (KB 최소값)
+    base_rule = alt.Chart(pd.DataFrame({"y": [1.0]})).mark_rule(
         color=COLOR_ACCENT_2,
         strokeDash=[5, 4],
         strokeWidth=1.4,
         opacity=0.8,
     ).encode(y="y:Q")
 
-    chart = (bars + avg_rule).properties(
+    chart = (bars + base_rule).properties(
         height=340,
         padding={"left": 6, "right": 12, "top": 8, "bottom": 8},
     ).configure_view(strokeWidth=0)
@@ -499,8 +501,8 @@ def _render_compare_chart(records: List[Dict], averages: Dict[str, float]):
     st.altair_chart(chart, use_container_width=True)
 
     st.caption(
-        "막대 길이는 **KB 분석 대상 전시의 평균을 100%로 한 절대 비율**. "
-        "테라코타 점선이 평균선(100%). 막대가 점선 위면 평균 초과, 아래면 평균 미달. "
-        "실제 값·평균값은 마우스 호버로 확인. "
+        "막대 길이는 **KB 분석 대상 전시의 최소값을 100%로 한 절대 비율**. "
+        "테라코타 점선이 최소값 기준선(100%). 즉 막대가 200%이면 최소값의 2배. "
+        "실제 값·최소값은 마우스 호버로 확인. "
         "‘총 예산’은 클수록 좋다는 의미가 아니라 규모 비교용입니다."
     )
