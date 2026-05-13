@@ -3,17 +3,21 @@
 import streamlit as st
 import pandas as pd
 import os
+from ui_helpers import section_header, subsection
 
 
 def render(tab):
     with tab:
-        st.markdown('<div class="section-header">📊 정량 데이터</div>', unsafe_allow_html=True)
-        st.caption("숫자를 입력하면 다음 탭에서 과거 전시와의 비교 분석이 자동 생성됩니다.")
+        section_header(
+            "EXHIBITION INPUT · DATA",
+            "정량 데이터",
+            "숫자를 입력하면 다음 탭에서 과거 전시와의 비교 분석이 자동 생성됩니다.",
+        )
 
         # ════════════════════════════════════════
         # 1. 예산
         # ════════════════════════════════════════
-        st.subheader("💰 예산 및 수입")
+        subsection("BUDGET", "예산 및 수입")
 
         col1, col2 = st.columns(2)
         with col1:
@@ -110,7 +114,7 @@ def render(tab):
         # ════════════════════════════════════════
         # 2. 관객
         # ════════════════════════════════════════
-        st.subheader("👥 관객")
+        subsection("VISITORS", "관객")
 
         col1, col2 = st.columns(2)
         with col1:
@@ -179,7 +183,7 @@ def render(tab):
         # ════════════════════════════════════════
         # 3. 출품 작품
         # ════════════════════════════════════════
-        st.subheader("🎨 출품 작품")
+        subsection("ARTWORKS", "출품 작품")
 
         cols = st.columns(6)
         with cols[0]:
@@ -208,7 +212,7 @@ def render(tab):
         # ════════════════════════════════════════
         # 4. 프로그램
         # ════════════════════════════════════════
-        st.subheader("🎯 프로그램 & 도슨트")
+        subsection("PROGRAMS", "프로그램 & 도슨트")
 
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -231,7 +235,7 @@ def render(tab):
         # ════════════════════════════════════════
         # 5. 운영 인력
         # ════════════════════════════════════════
-        st.subheader("👷 운영 인력")
+        subsection("STAFF", "운영 인력")
 
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -246,7 +250,7 @@ def render(tab):
         # ════════════════════════════════════════
         # 6. 홍보 지표
         # ════════════════════════════════════════
-        st.subheader("📢 홍보 지표")
+        subsection("PROMOTION METRICS", "홍보 지표")
 
         col1, col2, col3 = st.columns(3)
         with col1:

@@ -3,15 +3,19 @@
 import streamlit as st
 from datetime import date
 from utils import add_item, remove_item
+from ui_helpers import section_header, subsection
 
 
 def render(tab):
     with tab:
-        st.markdown('<div class="section-header">📋 기본 정보</div>', unsafe_allow_html=True)
-        st.caption("보고서의 뼈대가 되는 서술 정보를 입력합니다. 숫자는 다음 탭에서 입력합니다.")
+        section_header(
+            "EXHIBITION INPUT · BASIC",
+            "기본 정보",
+            "보고서의 뼈대가 되는 서술 정보를 입력합니다. 숫자는 다음 탭에서 입력합니다.",
+        )
 
         # ── 전시 기본 ──
-        st.subheader("전시 기본")
+        subsection("BASIC", "전시 기본")
         col1, col2 = st.columns(2)
         with col1:
             st.text_input("전시 제목", key="exhibition_title")
@@ -29,7 +33,7 @@ def render(tab):
         st.divider()
 
         # ── 기획진 ──
-        st.subheader("기획진")
+        subsection("CURATORIAL TEAM", "기획진")
         c1, c2 = st.columns(2)
         with c1:
             st.text_input("책임기획", key="chief_curator")
@@ -43,7 +47,7 @@ def render(tab):
         st.divider()
 
         # ── 전시 주제와 내용 ──
-        st.subheader("전시 주제와 내용")
+        subsection("THEME", "전시 주제와 내용")
         st.text_area(
             "전시 에세이",
             key="theme_text",
@@ -54,7 +58,7 @@ def render(tab):
         st.divider()
 
         # ── 전시 디자인 ──
-        st.subheader("전시 디자인")
+        subsection("DESIGN", "전시 디자인")
         c1, c2 = st.columns(2)
         with c1:
             st.text_input("그래픽 디자인", key="graphic_designer",
@@ -66,7 +70,7 @@ def render(tab):
         st.divider()
 
         # ── 전시실 구성 ──
-        st.subheader("전시실 구성")
+        subsection("ROOMS", "전시실 구성")
         for i, room in enumerate(st.session_state.rooms):
             with st.expander(f"🏛️ {room.get('name', f'{i+1}전시실')}", expanded=(i == 0)):
                 c1, c2 = st.columns([1, 2])
@@ -96,7 +100,7 @@ def render(tab):
         st.divider()
 
         # ── 프로그램 (서술 정보) ──
-        st.subheader("전시 연계 프로그램")
+        subsection("PROGRAMS", "전시 연계 프로그램")
         st.caption("프로그램 총 수와 참여 인원 합계는 '정량 데이터' 탭에서 입력합니다.")
         for i, prog in enumerate(st.session_state.related_programs):
             cols = st.columns([1.5, 3, 2, 1.5, 2.5])
@@ -136,7 +140,7 @@ def render(tab):
         st.divider()
 
         # ── 인쇄물 ──
-        st.subheader("인쇄물 및 굿즈")
+        subsection("MATERIALS", "인쇄물 및 굿즈")
         for i, mat in enumerate(st.session_state.printed_materials):
             cols = st.columns([3, 2, 4])
             with cols[0]:
@@ -166,7 +170,7 @@ def render(tab):
         st.divider()
 
         # ── 홍보 방식 ──
-        st.subheader("홍보 방식")
+        subsection("PROMOTION", "홍보 방식")
         st.text_area("광고", key="promo_advertising", height=80)
         st.text_area("보도자료", key="promo_press_release", height=80)
         c1, c2 = st.columns(2)
@@ -180,7 +184,7 @@ def render(tab):
         st.divider()
 
         # ── 언론보도 리스트 ──
-        st.subheader("언론보도 리스트")
+        subsection("PRESS", "언론보도 리스트")
         st.caption("보도 총 건수는 '정량 데이터' 탭에서 자동 집계됩니다.")
 
         # 엑셀 업로드 안내
@@ -252,13 +256,13 @@ def render(tab):
         st.divider()
 
         # ── 멤버십 ──
-        st.subheader("멤버십 커뮤니케이션")
+        subsection("MEMBERSHIP", "멤버십 커뮤니케이션")
         st.text_area("멤버십 관련 내용", key="membership_text", height=100)
 
         st.divider()
 
         # ── 관객 후기 ──
-        st.subheader("관객 후기")
+        subsection("AUDIENCE REVIEWS", "관객 후기")
         for i, review in enumerate(st.session_state.visitor_reviews):
             cols = st.columns([1.5, 6, 2])
             with cols[0]:

@@ -30,6 +30,24 @@ def section_header(eyebrow_text: str, title: str, subtitle: str = "") -> None:
     st.markdown(html, unsafe_allow_html=True)
 
 
+def subsection(eyebrow_text: str, title: str) -> None:
+    """탭 내 하위 섹션 헤더 — eyebrow + 타이틀.
+
+    상위 section_header보다 작고, 같은 탭 안의 그룹화 용도.
+
+    Examples:
+        subsection("BUDGET", "예산 및 수입")
+    """
+    st.markdown(
+        f'<div style="margin: 26px 0 12px 0;">'
+        f'<div class="eyebrow">{eyebrow_text}</div>'
+        f'<div style="font-size: 16px; font-weight: 700; color: #20231f; '
+        f'line-height: 1.3;">{title}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def chip(text: str, kind: str = "") -> str:
     """Chip HTML 문자열 반환 (st.markdown으로 출력 필요).
 

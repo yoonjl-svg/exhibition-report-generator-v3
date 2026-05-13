@@ -11,11 +11,16 @@ from utils import fmt_money, fmt_number, collect_analysis_data
 import analysis_engine as ae
 import reference_data as rd
 from llm_writer import rewrite_insights, validate_api_key, estimate_cost, HAS_ANTHROPIC
+from ui_helpers import section_header, subsection
 
 
 def render(tab, load_reference_data):
     with tab:
-        st.markdown('<div class="section-header">📄 보고서 생성</div>', unsafe_allow_html=True)
+        section_header(
+            "REPORT",
+            "보고서 생성",
+            "분석 결과를 신문 기사 톤의 종합 보고서로 변환하고, 웹에서 검수 후 Word로 다운로드합니다.",
+        )
 
         # ── 데이터 완성도 체크 ──
         _show_completeness_check()
@@ -23,7 +28,7 @@ def render(tab, load_reference_data):
         st.divider()
 
         # ── 보고서 구조 미리보기 ──
-        st.subheader("📖 보고서 구조 미리보기")
+        subsection("STRUCTURE", "보고서 구조 미리보기")
         st.caption("최종 보고서의 흐름을 미리 확인합니다. 분석 인사이트가 각 섹션에 배치된 모습을 볼 수 있습니다.")
 
         _show_preview()
@@ -31,7 +36,7 @@ def render(tab, load_reference_data):
         st.divider()
 
         # ── AI 글쓰기 설정 ──
-        st.subheader("✨ AI 분석 글쓰기")
+        subsection("AI WRITING", "AI 분석 글쓰기")
 
         if not HAS_ANTHROPIC:
             st.warning("`anthropic` 패키지가 설치되지 않았습니다. `pip install anthropic`으로 설치하면 AI 글쓰기를 사용할 수 있습니다.")
@@ -56,7 +61,7 @@ def render(tab, load_reference_data):
         st.divider()
 
         # ── 생성 ──
-        st.subheader("📥 보고서 생성")
+        subsection("GENERATE", "보고서 생성")
 
         if use_llm:
             st.info("🤖 AI 글쓰기 활성화 — 보고서 생성 시 Claude Opus가 분석 문단을 보고서 문체로 재작성합니다.")
@@ -76,7 +81,7 @@ def render(tab, load_reference_data):
 
         # JSON 불러오기
         st.divider()
-        st.subheader("📂 데이터 불러오기")
+        subsection("LOAD", "데이터 불러오기")
         uploaded = st.file_uploader("이전 작업 JSON 파일", type=["json"], key="json_upload")
         if uploaded:
             if st.button("JSON 데이터 적용"):
@@ -295,7 +300,7 @@ def _render_preview_and_edit():
     original_sections = state["llm_sections_original"]
 
     st.markdown("---")
-    st.markdown('<div class="section-header">📝 보고서 미리보기 & 편집</div>', unsafe_allow_html=True)
+    subsection("PREVIEW & EDIT", "보고서 미리보기 & 편집")
     st.caption("LLM이 생성한 분석 문단을 검토·수정한 뒤 Word로 다운로드하세요. 텍스트 수정은 자동으로 다운로드에 반영됩니다.")
 
     # 핵심 수치 종합표 (자동 계산, 편집 불가)

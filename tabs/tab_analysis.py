@@ -4,12 +4,16 @@ import streamlit as st
 import reference_data as rd
 import analysis_engine as ae
 from utils import collect_analysis_data
+from ui_helpers import section_header, subsection
 
 
 def render(tab, load_reference_data):
     with tab:
-        st.markdown('<div class="section-header">🔍 분석 & 평가</div>', unsafe_allow_html=True)
-        st.caption("정량 데이터를 기반으로 과거 전시와 비교 분석하고, 평가 문장 초안을 자동 생성합니다.")
+        section_header(
+            "ANALYSIS",
+            "분석 & 평가",
+            "정량 데이터를 기반으로 과거 전시와 비교 분석하고, 평가 문장 초안을 자동 생성합니다.",
+        )
 
         ref_df = load_reference_data()
         if ref_df is None:
@@ -75,7 +79,7 @@ def render(tab, load_reference_data):
         # PART 1: 분석 인사이트
         # ═══════════════════════════════════════
         st.markdown("---")
-        st.subheader(f"📊 분석 인사이트 ({len(result.insights)}건)")
+        subsection("INSIGHTS", f"분석 인사이트 ({len(result.insights)}건)")
         st.caption("체크박스로 보고서에 포함할 항목을 선택하고, 텍스트를 자유롭게 수정할 수 있습니다. "
                    "각 인사이트는 보고서의 해당 섹션에 자동 배치됩니다.")
 
@@ -123,7 +127,7 @@ def render(tab, load_reference_data):
         # ═══════════════════════════════════════
         if result.similar_comparison_table is not None:
             st.markdown("---")
-            st.subheader("📋 유사 전시 비교")
+            subsection("BENCHMARK", "유사 전시 비교")
 
             # 그룹 막대 그래프
             if result.similar_exhibitions:
