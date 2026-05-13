@@ -127,7 +127,8 @@ def render(tab):
             with cols[0]:
                 _render_room(i, st.session_state.rooms[i])
 
-        col_add, col_rm, _ = st.columns([1, 1, 4])
+        # v5.3.21: 버튼 폭 통일 (페이지 ~15%)
+        col_add, col_rm, _ = st.columns([1.5, 1.5, 7])
         with col_add:
             if st.button("➕ 전시실 추가", key="add_room", use_container_width=True):
                 n = len(st.session_state.rooms) + 1
@@ -169,7 +170,7 @@ def render(tab):
                 st.session_state.related_programs[i]["note"] = st.text_input(
                     "비고", value=prog.get("note", ""), key=f"prog_note_{i}")
 
-        c1, c2, _ = st.columns([1, 1, 4])
+        c1, c2, _ = st.columns([1.5, 1.5, 7])
         with c1:
             if st.button("➕ 프로그램 추가", key="add_prog", use_container_width=True):
                 add_item("related_programs",
@@ -189,7 +190,8 @@ def render(tab):
         with col_mat:
             subsection("", "인쇄물 및 굿즈")
             for i, mat in enumerate(st.session_state.printed_materials):
-                cols = st.columns([2, 1.5, 3])
+                # v5.3.21: 종류 컬럼 50% 축소 ([2,1.5,3] → [1.0,1.5,3])
+                cols = st.columns([1.0, 1.5, 3])
                 with cols[0]:
                     mat_options = ["포스터", "리플렛", "초대장", "굿즈", "기타"]
                     mat_val = mat.get("type")
@@ -204,7 +206,7 @@ def render(tab):
                     st.session_state.printed_materials[i]["note"] = st.text_input(
                         "비고", value=mat.get("note", ""), key=f"mat_note_{i}")
 
-            c1, c2 = st.columns(2)
+            c1, c2, _ = st.columns([3, 3, 4])
             with c1:
                 if st.button("➕ 인쇄물 추가", key="add_mat", use_container_width=True):
                     add_item("printed_materials", {"type": None, "quantity": "", "note": ""})
@@ -260,7 +262,7 @@ def render(tab):
                     st.session_state.press_print[i]["note"] = st.text_input(
                         "비고", value=item.get("note", ""), key=f"pp_note_{i}")
 
-            c1, c2 = st.columns(2)
+            c1, c2, _ = st.columns([3, 3, 4])
             with c1:
                 if st.button("➕ 일간지 추가", key="add_pp", use_container_width=True):
                     add_item("press_print", {"outlet": "", "date": None, "title": "", "note": ""})
@@ -290,7 +292,7 @@ def render(tab):
                     st.session_state.press_online[i]["url"] = st.text_input(
                         "URL", value=item.get("url", ""), key=f"po_url_{i}")
 
-            c1, c2 = st.columns(2)
+            c1, c2, _ = st.columns([3, 3, 4])
             with c1:
                 if st.button("➕ 온라인 추가", key="add_po", use_container_width=True):
                     add_item("press_online", {"outlet": "", "date": None, "title": "", "url": ""})
@@ -302,11 +304,11 @@ def render(tab):
 
         st.divider()
 
-        # ── 관객 후기 (분류·출처 50% 축소) ──
+        # ── 관객 후기 (분류·출처 50% 축소, 내용 80%) ──
         subsection("", "관객 후기")
         for i, review in enumerate(st.session_state.visitor_reviews):
-            # 기존: [1.5, 6, 2] → 신: [0.75, 6, 1]
-            cols = st.columns([0.75, 6, 1])
+            # 분류·출처 50% 축소 + v5.3.21: 내용 80%로 ([0.75, 6, 1] → [0.75, 4.8, 1])
+            cols = st.columns([0.75, 4.8, 1])
             with cols[0]:
                 st.session_state.visitor_reviews[i]["category"] = st.selectbox(
                     "분류", ["긍정", "부정", "건의"], key=f"rev_cat_{i}",
@@ -319,7 +321,7 @@ def render(tab):
                 st.session_state.visitor_reviews[i]["source"] = st.text_input(
                     "출처", value=review.get("source", ""), key=f"rev_source_{i}")
 
-        c1, c2, _ = st.columns([1, 1, 4])
+        c1, c2, _ = st.columns([1.5, 1.5, 7])
         with c1:
             if st.button("➕ 후기 추가", key="add_rev", use_container_width=True):
                 add_item("visitor_reviews", {"category": "긍정", "content": "", "source": ""})
