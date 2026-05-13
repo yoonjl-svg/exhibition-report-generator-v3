@@ -241,29 +241,27 @@ def render(tab):
         # staff_total은 자동 합산 (KB 저장·분석 호환)
         st.session_state.staff_total = st.session_state.staff_paid + st.session_state.staff_volunteer
 
-        # ── 예산 — '전시 기본' 헤더 아래 통합 ──
-        # 예산 — 2행
-        cols = st.columns([1.3, 1.3, 7.4])
-        with cols[0]:
-            st.number_input("전시 사용 예산 (원)", min_value=0, step=1_000_000,
-                            key="budget_exhibition", format="%d")
-        with cols[1]:
-            st.number_input("부대 사용 예산 (원)", min_value=0, step=100_000,
-                            key="budget_supplementary", format="%d")
-        total_budget = st.session_state.budget_exhibition + st.session_state.budget_supplementary
-        st.session_state.total_budget = total_budget
-
-        cols = st.columns([1.3, 1.3, 1.3, 6.1])
+        # ── 예산 — '전시 기본' 헤더 아래, 1행 5열로 통일 ──
+        # 순서: 예산 계획액 → 전시 사용 → 부대 사용 → 입장 수입 → 기타 수입
+        cols = st.columns([1.3, 1.3, 1.3, 1.3, 1.3, 3.5])
         with cols[0]:
             st.number_input("예산 계획액 (원)", min_value=0, step=1_000_000,
                             key="budget_planned", format="%d")
         with cols[1]:
+            st.number_input("전시 사용 예산 (원)", min_value=0, step=1_000_000,
+                            key="budget_exhibition", format="%d")
+        with cols[2]:
+            st.number_input("부대 사용 예산 (원)", min_value=0, step=100_000,
+                            key="budget_supplementary", format="%d")
+        with cols[3]:
             st.number_input("입장 수입 (원)", min_value=0, step=100_000,
                             key="ticket_revenue", format="%d")
-        with cols[2]:
+        with cols[4]:
             st.number_input("기타 수입 (원)", min_value=0, step=100_000,
                             key="other_revenue", format="%d")
 
+        total_budget = st.session_state.budget_exhibition + st.session_state.budget_supplementary
+        st.session_state.total_budget = total_budget
         total_revenue = st.session_state.ticket_revenue + st.session_state.other_revenue
         st.session_state.total_revenue = total_revenue
 
