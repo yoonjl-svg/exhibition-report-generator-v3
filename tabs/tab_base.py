@@ -59,15 +59,22 @@ def render(tab):
 
         with col_right:
             subsection("", "기획진")
-            c1, c2 = st.columns(2)
-            with c1:
+            # Row 1: 책임기획 + 기획
+            r1c1, r1c2 = st.columns(2)
+            with r1c1:
                 st.text_input("책임기획", key="chief_curator")
+            with r1c2:
                 st.text_input("기획", key="curators")
+            # Row 2: 진행 + 홍보
+            r2c1, r2c2 = st.columns(2)
+            with r2c1:
                 st.text_input("진행", key="coordinators")
-            with c2:
-                st.text_input("학예팀", key="curatorial_team")
+            with r2c2:
                 st.text_input("홍보", key="pr_person")
-                st.text_input("후원", key="sponsors")
+            # Row 3: 학예팀 (단독, 풀폭)
+            st.text_input("학예팀", key="curatorial_team")
+            # Row 4: 후원 (단독, 풀폭 — 다수의 후원사 이름을 위해 넓게)
+            st.text_input("후원", key="sponsors")
 
         st.divider()
 
