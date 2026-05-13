@@ -472,17 +472,18 @@ st.markdown("""
         border: 1px solid var(--line) !important;
     }
 
-    /* file_uploader 영역 흰색 */
-    [data-testid="stFileUploader"] section {
-        background: var(--surface) !important;
-        border: 1px dashed var(--line) !important;
+    /* file_uploader을 'Browse files' 단일 버튼 스타일로 (v5.3.42)
+       Streamlit 기본은 큰 dropzone 박스 전체가 클릭 가능한데,
+       라벨까지 묶여 사용자가 혼란스러워하므로 dropzone 시각화 제거.
+       업로드된 파일 리스트는 dropzone 외부에 별도로 나타나므로 영향 없음. */
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploaderDropzone"] {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        min-height: 0 !important;
     }
-
-    /* file_uploader 내부의 'Limit 200MB per file • PNG, JPG' 안내 텍스트 숨김
-       (v5.3.41) — 다수 업로더가 같은 메시지를 반복해 노이즈가 됨. 한 번만
-       헤더 옆에 표시. */
-    [data-testid="stFileUploaderDropzoneInstructions"] small,
-    [data-testid="stFileUploaderDropzone"] small {
+    [data-testid="stFileUploaderDropzoneInstructions"] {
         display: none !important;
     }
 </style>
