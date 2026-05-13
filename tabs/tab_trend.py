@@ -270,8 +270,12 @@ def _fmt_value(v: float, unit: str) -> str:
 # ──────────────────────────────────────────────
 
 def _render_compare(records: List[Dict]):
-    """2~4개 전시를 선택해 카드 형식 side-by-side 비교."""
-    # 선택용 라벨: "2025-하이퍼 옐로우 (정기 기획전)"
+    """전시들을 선택해 정규화 그룹 막대 차트로 비교.
+
+    카드 대신 차트 기반이므로 다수 전시 비교 시에도 화면 폭 부담 없음.
+    선택 개수에 비례해 막대가 늘어남.
+    """
+    # 선택용 라벨
     options = []
     id_to_record = {}
     for r in records:
@@ -283,11 +287,10 @@ def _render_compare(records: List[Dict]):
         options.append(label)
         id_to_record[label] = r
 
-    st.caption("최대 4개까지 선택. 카드 형태로 나란히 표시합니다.")
+    st.caption("비교할 전시를 선택하세요. 막대 차트는 선택 개수만큼 자동 확장됩니다.")
     selected_labels = st.multiselect(
         "비교할 전시 선택",
         options=options,
-        max_selections=4,
         key="compare_select",
         label_visibility="collapsed",
     )
@@ -297,74 +300,172 @@ def _render_compare(records: List[Dict]):
         return
 
     selected = [id_to_record[lbl] for lbl in selected_labels]
-    _render_compare_cards(selected)
+    _render_compare_chart(selected)
 
 
-def _render_compare_cards(records: List[Dict]):
-    """선택된 전시들을 카드 그리드로 표시."""
-    n = len(records)
-    cols = st.columns(n, gap="medium")
-    for col, rec in zip(cols, records):
-        with col:
-            _render_compare_card(rec)
+# 비교 차트에 표시할 핵심 지표 (모두 "클수록 큼"이라 정규화 비교에 적합)
+COMPARE_METRICS = [
+    # (라벨, key 또는 derived flag, 단위)
+    ("총 관객", "total_visitors", "명"),
+    ("일평균", "_daily_avg", "명"),
+    ("총 예산", "total_budget", "원"),
+    ("보도 건수", "press_count", "건"),
+    ("프로그램 참여", "program_participants", "명"),
+    ("출품 작품", "_artwork_total", "점"),
+]
 
 
-def _render_compare_card(rec: Dict):
-    """단일 전시의 비교용 카드 — 핵심 수치 강조."""
-    data = rec.get("data", {})
-    title = data.get("exhibition_title") or "(제목없음)"
-    ps = data.get("period_start") or "—"
-    pe = data.get("period_end") or "—"
-    type_num = rec.get("type")
-    status = rec.get("status", "draft")
-
-    # 핵심 수치
-    tv = data.get("total_visitors") or 0
-    tb = data.get("total_budget") or 0
-    pc = data.get("press_count") or 0
-    pp = data.get("program_participants") or 0
-    aw = data.get("artwork_painting", 0) + data.get("artwork_sculpture", 0) + \
-         data.get("artwork_photo", 0) + data.get("artwork_installation", 0) + \
-         data.get("artwork_media", 0) + data.get("artwork_other", 0)
-
-    # 일평균
-    daily = None
-    if ps and pe:
+def _extract_metric(data: dict, key: str) -> Optional[float]:
+    """data dict에서 비교 지표 값 추출 (파생값 처리 포함)."""
+    if key == "_daily_avg":
+        ps, pe = data.get("period_start"), data.get("period_end")
+        tv = data.get("total_visitors") or 0
+        if not (ps and pe and tv > 0):
+            return None
         try:
             s = date.fromisoformat(ps); e = date.fromisoformat(pe)
             days = (e - s).days + 1
-            if days > 0 and tv > 0:
-                daily = int(tv / days)
+            return tv / days if days > 0 else None
         except (ValueError, TypeError):
-            pass
+            return None
+    if key == "_artwork_total":
+        total = sum([
+            data.get("artwork_painting", 0) or 0,
+            data.get("artwork_sculpture", 0) or 0,
+            data.get("artwork_photo", 0) or 0,
+            data.get("artwork_installation", 0) or 0,
+            data.get("artwork_media", 0) or 0,
+            data.get("artwork_other", 0) or 0,
+        ])
+        return total if total > 0 else None
+    v = data.get(key)
+    return v if v else None
 
-    with st.container(border=True):
-        # 헤더
-        st.markdown(
-            f'<div class="eyebrow">{ps[:4]} · {TYPE_LABELS.get(type_num, "미분류")}</div>'
-            f'<div class="exhibition-card-title" style="margin-bottom:6px;">《{title}》</div>'
-            f'<div class="exhibition-card-meta">{ps} ~ {pe}</div>',
-            unsafe_allow_html=True,
-        )
-        chips_html = status_chip(status) + " " + type_chip(type_num)
-        st.markdown(chips_html, unsafe_allow_html=True)
 
-        st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+def _build_compare_long_df(records: List[Dict]) -> pd.DataFrame:
+    """선택된 전시들의 비교용 long-format DataFrame.
 
-        # 메트릭 카드 4개 (반복)
-        items = [
-            {"label": "총 관객", "value": f"{tv:,}명" if tv else "—",
-             "context": (f"일평균 {daily:,}명" if daily else "")},
-            {"label": "총 예산",
-             "value": f"{tb / 100_000_000:.2f}억" if tb >= 100_000_000 else
-                      (f"{tb / 10_000:,.0f}만" if tb >= 10_000 else
-                       (f"{tb:,}원" if tb else "—")),
-             "context": (f"관객당 {int(tb/tv):,}원" if (tv and tb) else "")},
-            {"label": "보도 건수", "value": f"{pc}건" if pc else "—",
-             "context": ""},
-            {"label": "프로그램 참여", "value": f"{pp:,}명" if pp else "—",
-             "context": ""},
-            {"label": "출품 작품", "value": f"{aw}점" if aw else "—",
-             "context": ""},
-        ]
-        metric_strip(items)
+    한 행 = (전시, 지표, 실제값, 정규화값, 포맷된 값).
+    정규화는 지표별 max를 기준으로 0~1.
+    """
+    rows = []
+    for r in records:
+        data = r.get("data", {})
+        full_title = data.get("exhibition_title") or "(제목없음)"
+        short = full_title if len(full_title) <= 18 else full_title[:17] + "…"
+        ps = data.get("period_start") or "—"
+        pe = data.get("period_end") or "—"
+        type_lbl = TYPE_LABELS.get(r.get("type"), "미분류")
+
+        for label, key, unit in COMPARE_METRICS:
+            v = _extract_metric(data, key)
+            v_actual = v if v is not None else 0
+            rows.append({
+                "exhibition": full_title,
+                "exhibition_short": short,
+                "metric": label,
+                "value": v_actual,
+                "formatted": _fmt_value(v_actual, unit) if v_actual else "—",
+                "period": f"{ps} ~ {pe}",
+                "type_label": type_lbl,
+            })
+
+    df = pd.DataFrame(rows)
+
+    # 정규화: 각 metric별 max를 1로
+    df["normalized"] = 0.0
+    for metric in df["metric"].unique():
+        mask = df["metric"] == metric
+        max_v = df.loc[mask, "value"].max()
+        if max_v > 0:
+            df.loc[mask, "normalized"] = df.loc[mask, "value"] / max_v
+
+    return df
+
+
+def _render_compare_chart(records: List[Dict]):
+    """Altair 정규화 그룹 막대 차트."""
+    df = _build_compare_long_df(records)
+
+    # 색 팔레트 (미술관 톤 + 추가 색)
+    palette = [
+        COLOR_ACCENT,       # 녹색
+        COLOR_ACCENT_2,     # 테라코타
+        "#3f5e99",          # 슬레이트 블루
+        "#8a4b15",          # 갈색
+        "#7a6b8b",          # 자줏빛
+        "#4a7c59",          # 다른 녹색
+        "#a8632c",          # 다른 테라코타
+        "#5a6e80",          # 회청색
+    ]
+    palette = palette[:len(records)]
+
+    # 막대 순서를 보존하기 위해 metric 순서 명시
+    metric_order = [m[0] for m in COMPARE_METRICS]
+
+    chart = alt.Chart(df).mark_bar(
+        cornerRadiusTopLeft=2,
+        cornerRadiusTopRight=2,
+    ).encode(
+        x=alt.X(
+            "metric:N",
+            title=None,
+            sort=metric_order,
+            axis=alt.Axis(
+                labelAngle=0,
+                labelFontSize=12,
+                labelColor=COLOR_MUTED,
+                labelPadding=8,
+            ),
+        ),
+        xOffset=alt.XOffset(
+            "exhibition_short:N",
+            sort=[r.get("data", {}).get("exhibition_title", "")[:18] for r in records],
+        ),
+        y=alt.Y(
+            "normalized:Q",
+            title=None,
+            scale=alt.Scale(domain=[0, 1.05]),
+            axis=alt.Axis(
+                grid=True,
+                gridColor=COLOR_LINE,
+                gridOpacity=0.6,
+                format=".0%",
+                labelColor=COLOR_MUTED,
+                labelFontSize=10,
+                tickCount=5,
+            ),
+        ),
+        color=alt.Color(
+            "exhibition_short:N",
+            title="전시",
+            scale=alt.Scale(range=palette),
+            legend=alt.Legend(
+                orient="top",
+                labelFontSize=11,
+                titleFontSize=11,
+                titleColor=COLOR_MUTED,
+                labelColor="#20231f",
+                offset=4,
+            ),
+        ),
+        tooltip=[
+            alt.Tooltip("exhibition:N", title="전시"),
+            alt.Tooltip("type_label:N", title="유형"),
+            alt.Tooltip("metric:N", title="지표"),
+            alt.Tooltip("formatted:N", title="실제 값"),
+            alt.Tooltip("normalized:Q", title="비교 비율", format=".0%"),
+            alt.Tooltip("period:N", title="기간"),
+        ],
+    ).properties(
+        height=340,
+        padding={"left": 6, "right": 12, "top": 8, "bottom": 8},
+    ).configure_view(strokeWidth=0)
+
+    st.altair_chart(chart, use_container_width=True)
+
+    st.caption(
+        "막대 길이는 **선택된 전시들 중 지표별 최대값을 100%로 한 상대 비율**. "
+        "실제 값과 기간은 마우스를 올려 툴팁으로 확인하세요. "
+        "‘총 예산’은 클수록 좋다는 의미가 아니라 규모 비교용입니다."
+    )
