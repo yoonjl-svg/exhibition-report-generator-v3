@@ -31,16 +31,18 @@ def section_header(eyebrow_text: str, title: str, subtitle: str = "") -> None:
 
 
 def subsection(eyebrow_text: str, title: str) -> None:
-    """탭 내 하위 섹션 헤더 — eyebrow + 타이틀 (L3).
+    """탭 내 하위 섹션 헤더 — 한글 타이틀만 렌더 (L3).
+
+    v5.3.16: 한글 타이틀이 같은 정보를 전달하므로 영문 eyebrow는 출력하지 않음.
+    eyebrow_text 인자는 호출 호환성을 위해 유지하지만 무시됨.
 
     상위 section_header(L2)보다 작고, 같은 탭 안의 그룹화 용도.
 
     Examples:
-        subsection("BUDGET", "예산 및 수입")
+        subsection("BUDGET", "예산 및 수입")  # "BUDGET"은 무시, "예산 및 수입"만 출력
     """
     st.markdown(
         f'<div style="margin: 18px 0 6px 0;">'
-        f'<div class="eyebrow">{eyebrow_text}</div>'
         f'<div style="font-size: 14px; font-weight: 700; color: #20231f; '
         f'line-height: 1.3;">{title}</div>'
         f'</div>',

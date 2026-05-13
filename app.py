@@ -307,10 +307,10 @@ st.markdown("""
         gap: 0.6rem;
     }
 
-    /* 입력 위젯 라벨 — L5 */
+    /* 입력 위젯 라벨 — L3 (가독성 강화: 12px → 14px) */
     label[data-testid="stWidgetLabel"],
     [data-testid="stWidgetLabel"] p {
-        font-size: var(--font-l5) !important;
+        font-size: var(--font-l3) !important;
         margin-bottom: 4px !important;
         color: var(--l5-color) !important;
         font-weight: 500 !important;
@@ -354,8 +354,9 @@ st.markdown("""
         padding-bottom: 6px !important;
     }
 
-    /* textarea 라인 높이 정리 */
+    /* textarea — 본문 입력값 가독성 강화 (L3 14px) */
     .stTextArea textarea {
+        font-size: var(--font-l3) !important;
         padding-top: 8px !important;
         padding-bottom: 8px !important;
         line-height: 1.5 !important;
