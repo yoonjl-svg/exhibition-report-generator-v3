@@ -49,10 +49,10 @@ st.markdown("""
         --soft: #eef2ea;        /* 메트릭 카드 등 미세 강조 영역 */
         --warn: #8a4b15;
 
-        /* ─── 타이포그래피 위계 (v5.3) ───
-           L0: eyebrow/chip · L5: caption/label · L4: 본문
-           L3: subsection · L2: section · L1: page title · Display: metric value */
-        --font-l0: 10px;
+        /* ─── 타이포그래피 위계 (v5.3.1) ───
+           L5: eyebrow/chip/caption/label · L4: 본문
+           L3: subsection · L2: section · L1: page title · Display: metric value
+           v5.3에서 L0(10px)을 L5(11px)로 통합하여 6단계로 단순화 */
         --font-l5: 11px;
         --font-l4: 13px;
         --font-l3: 14px;
@@ -61,10 +61,10 @@ st.markdown("""
         --font-display: 19px;
     }
 
-    /* === L0 — Eyebrow 라벨 (모든 섹션 위에) === */
+    /* === L5 — Eyebrow 라벨 (모든 섹션 위에, 11px로 가독성 ↑) === */
     .eyebrow {
         color: var(--accent);
-        font-size: var(--font-l0);
+        font-size: var(--font-l5);
         font-weight: 700;
         letter-spacing: 0.8px;
         text-transform: uppercase;
@@ -126,20 +126,20 @@ st.markdown("""
     }
     .metric-card .metric-context {
         color: var(--muted);
-        font-size: var(--font-l0);       /* L0 (작은 디테일) */
+        font-size: var(--font-l5);       /* L5 */
         margin-top: 4px;
     }
 
-    /* === L0 — Chips (분류·상태·중요도) === */
+    /* === L5 — Chips (분류·상태·중요도) === */
     .chip {
         display: inline-flex;
         align-items: center;
-        height: 20px;
+        height: 22px;
         border-radius: 999px;
-        padding: 0 9px;
+        padding: 0 10px;
         background: var(--soft);
         color: var(--muted);
-        font-size: var(--font-l0);
+        font-size: var(--font-l5);
         font-weight: 500;
         margin-right: 5px;
         white-space: nowrap;
