@@ -1,0 +1,22 @@
+# 일민미술관 전시 워크스페이스 — Streamlit 테마 설정
+# GPT v4.1의 미술관 톤 팔레트를 기반으로 v5.1에서 통합
+
+[theme]
+# 메인 강조색 (액션 버튼, 링크) — 깊은 녹색
+primaryColor = "#255c4a"
+
+# 배경색 — 따뜻한 크림 (미술관 벽 느낌)
+backgroundColor = "#f7f8f5"
+
+# 사이드바·카드 배경 — 연한 녹빛 크림
+secondaryBackgroundColor = "#eef2ea"
+
+# 본문 텍스트 — 근접 검정
+textColor = "#20231f"
+
+# 폰트 — 한국어 우선
+font = "sans serif"
+
+[server]
+# 운영 시 자동 reload 비활성화 (개발 시 켜둠)
+runOnSave = false

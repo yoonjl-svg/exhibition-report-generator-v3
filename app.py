@@ -32,43 +32,184 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    .section-header {
-        font-size: 1.3rem;
-        font-weight: 700;
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #e0e0e0;
+    /* ═══════════════════════════════════════════════
+       일민미술관 전시 워크스페이스 v5.1 — 미술관 톤 시스템
+       GPT v4.1 디자인 언어 흡수 (시각만, 아키텍처는 우리 것)
+       ═══════════════════════════════════════════════ */
+
+    :root {
+        --bg: #f7f8f5;
+        --surface: #ffffff;
+        --ink: #20231f;
+        --muted: #646b61;
+        --line: #d9ddd4;
+        --accent: #255c4a;
+        --accent-2: #b4512a;
+        --accent-3: #3f5e99;
+        --soft: #eef2ea;
+        --warn: #8a4b15;
     }
+
+    /* === Eyebrow 라벨 (모든 섹션 위에) === */
+    .eyebrow {
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+        line-height: 1.3;
+    }
+
+    /* === 메인 타이틀 (페이지 헤더) === */
+    .main-title {
+        font-size: 26px;
+        font-weight: 700;
+        color: var(--ink);
+        margin: 0 0 4px 0;
+        letter-spacing: -0.2px;
+    }
+    .main-subtitle {
+        color: var(--muted);
+        font-size: 14px;
+        margin: 0 0 24px 0;
+    }
+
+    /* === 섹션 헤더 (구버전 .section-header 갱신) === */
+    .section-header {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--ink);
+        margin: 4px 0 16px 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+
+    /* === Metric Strip (워크스페이스 상단 KPI) === */
+    .metric-strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin: 8px 0 24px 0;
+    }
+    .metric-card {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px 16px;
+        background: var(--soft);
+    }
+    .metric-card .metric-label {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 6px;
+        line-height: 1.3;
+    }
+    .metric-card .metric-value {
+        color: var(--ink);
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+    .metric-card .metric-context {
+        color: var(--muted);
+        font-size: 11px;
+        margin-top: 4px;
+    }
+
+    /* === Chips (분류·상태·중요도) === */
+    .chip {
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        border-radius: 999px;
+        padding: 0 10px;
+        background: var(--soft);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 500;
+        margin-right: 5px;
+        white-space: nowrap;
+        line-height: 1;
+    }
+    .chip.high, .chip.completed { background: #e7f1eb; color: var(--accent); }
+    .chip.medium, .chip.in-progress { background: #f5eee8; color: var(--accent-2); }
+    .chip.low, .chip.draft { background: #eef1f6; color: var(--accent-3); }
+    .chip.archived { background: #ececea; color: var(--muted); }
+
+    /* === Exhibition Card (워크스페이스 목록) === */
+    .exhibition-card-title {
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--ink);
+        margin: 6px 0 4px 0;
+        line-height: 1.3;
+    }
+    .exhibition-card-meta {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 8px;
+    }
+    .exhibition-card-metrics {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        color: var(--ink);
+        font-size: 13px;
+        margin-top: 4px;
+    }
+    .exhibition-card-metrics .metric-item {
+        color: var(--muted);
+    }
+    .exhibition-card-metrics .metric-item strong {
+        color: var(--ink);
+        font-weight: 600;
+    }
+
+    /* === 기존 인사이트 카드 (분석 탭) — 미술관 톤 적용 === */
     .insight-card {
-        background: #f8f9fa;
-        border-left: 4px solid #4a90d9;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--accent);
         padding: 12px 16px;
         margin: 8px 0;
-        border-radius: 0 8px 8px 0;
+        border-radius: 6px;
     }
     .eval-draft {
-        background: #fff3cd;
-        border-left: 4px solid #ffc107;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--accent-2);
         padding: 12px 16px;
         margin: 8px 0;
-        border-radius: 0 8px 8px 0;
+        border-radius: 6px;
     }
     .metric-badge {
         display: inline-block;
-        background: #e8f4fd;
-        color: #1a73e8;
-        padding: 2px 8px;
+        background: var(--soft);
+        color: var(--accent);
+        padding: 2px 10px;
         border-radius: 12px;
-        font-size: 0.8rem;
-        margin-left: 8px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: 6px;
     }
+
+    /* === Streamlit 위젯 미세 조정 === */
     div[data-testid="stTabs"] button[data-baseweb="tab"] {
-        font-size: 1rem;
+        font-size: 14px;
         font-weight: 600;
     }
     .stNumberInput > div > div > input { text-align: right; }
+
+    /* === Streamlit 기본 alert 색 미술관 톤 === */
+    div[data-testid="stAlert"] {
+        border-radius: 6px;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+
+# UI 헬퍼는 ui_helpers.py에 통합 (모든 탭에서 import 가능)
+from ui_helpers import eyebrow, section_header, chip, chip_row, metric_card, metric_strip, status_chip, type_chip
 
 
 # ──────────────────────────────────────────────
@@ -264,8 +405,12 @@ def load_reference_data():
 # ──────────────────────────────────────────────
 
 with st.sidebar:
-    st.title("🎨 전시 워크스페이스")
-    st.caption("v5.0 — KB 통합형")
+    st.markdown(
+        '<div class="eyebrow">ILMIN EXHIBITION WORKSPACE</div>'
+        '<div class="main-title" style="font-size: 20px;">전시 워크스페이스</div>'
+        '<p class="main-subtitle" style="font-size: 12px; margin-bottom: 16px;">v5.1 — KB 통합형</p>',
+        unsafe_allow_html=True,
+    )
     st.divider()
 
     # 모드 표시 + 워크스페이스 복귀 버튼
@@ -273,10 +418,21 @@ with st.sidebar:
     if app_mode == "detail":
         current_id = st.session_state.get("current_exhibition_id")
         title = st.session_state.get("exhibition_title", "")
+        status = st.session_state.get("current_exhibition_status", "draft")
+        type_num = st.session_state.get("current_exhibition_type")
+
+        eyebrow("작업 중인 전시")
         if title:
-            st.markdown(f"**작업 중**\n\n《{title}》")
+            st.markdown(f'<div class="exhibition-card-title">《{title}》</div>',
+                        unsafe_allow_html=True)
         else:
-            st.markdown("**신규 전시 작업 중**")
+            st.markdown('<div class="exhibition-card-title">(제목 미입력)</div>',
+                        unsafe_allow_html=True)
+
+        # 상태·유형 chip
+        chips_html = status_chip(status) + " " + type_chip(type_num)
+        st.markdown(chips_html, unsafe_allow_html=True)
+
         if current_id:
             st.caption(f"id: `{current_id}`")
         else:
@@ -301,7 +457,7 @@ with st.sidebar:
             kb_session.enter_workspace_mode()
             st.rerun()
     else:
-        st.markdown("**📚 워크스페이스 모드**")
+        eyebrow("WORKSPACE MODE")
         st.caption("저장된 전시를 선택해 편집하거나 새로 만드세요.")
 
     st.divider()
