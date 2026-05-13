@@ -307,8 +307,9 @@ def _render_compare(records: List[Dict]):
 COMPARE_METRICS = [
     # (라벨, key 또는 derived flag, 단위)
     ("총 관객", "total_visitors", "명"),
-    ("일평균", "_daily_avg", "명"),
+    ("일평균 관객", "_daily_avg", "명"),
     ("총 예산", "total_budget", "원"),
+    ("총 수입", "total_revenue", "원"),
     ("보도 건수", "press_count", "건"),
     ("프로그램 참여", "program_participants", "명"),
     ("출품 작품", "_artwork_total", "점"),
