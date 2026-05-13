@@ -53,7 +53,7 @@ def _add_remove_buttons(label_add, label_rm, key_add, key_rm, item_key, default_
 
 
 def _render_room(i: int, room: dict):
-    """단일 전시실 — 헤더 + 참여 작가 + (도면 + 전경 사진 가로)."""
+    """단일 전시실 — 헤더 + 참여 작가 + (도면 + 전경 사진 가로 1줄)."""
     st.markdown(
         f'<div style="font-size: 13px; font-weight: 700; color: #20231f; '
         f'margin: 8px 0 4px 0;">{room.get("name", f"{i+1}전시실")}</div>',
@@ -61,11 +61,14 @@ def _render_room(i: int, room: dict):
     )
     st.session_state.rooms[i]["artists"] = st.text_input(
         "참여 작가", value=room.get("artists", ""), key=f"room_artists_{i}")
-    st.session_state.rooms[i]["floor_plan_file"] = st.file_uploader(
-        "도면", type=["png", "jpg", "jpeg"], key=f"room_floor_{i}")
-    st.session_state.rooms[i]["photo_files"] = st.file_uploader(
-        "전경 사진", type=["png", "jpg", "jpeg"],
-        accept_multiple_files=True, key=f"room_photos_{i}")
+    uc1, uc2 = st.columns(2, gap="small")
+    with uc1:
+        st.session_state.rooms[i]["floor_plan_file"] = st.file_uploader(
+            "도면", type=["png", "jpg", "jpeg"], key=f"room_floor_{i}")
+    with uc2:
+        st.session_state.rooms[i]["photo_files"] = st.file_uploader(
+            "전경 사진", type=["png", "jpg", "jpeg"],
+            accept_multiple_files=True, key=f"room_photos_{i}")
 
 
 def _section_divider():
