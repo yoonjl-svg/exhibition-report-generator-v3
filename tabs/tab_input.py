@@ -21,11 +21,13 @@
   13. 관객 후기
 """
 
+import json
 import streamlit as st
 import pandas as pd
 from datetime import date
 from utils import add_item, remove_item
 from ui_helpers import subsection
+import excel_template
 
 
 # ──────────────────────────────────────────────
@@ -73,31 +75,115 @@ def _section_divider():
 
 
 # ──────────────────────────────────────────────
+# 가져오기 (워크스페이스와 동일 규격: 6시트 Excel + v3/v5 JSON)
+# 차이는 적용 대상: 워크스페이스 = 새 전시 생성, 본 탭 = 현재 전시에 덮어쓰기
+# ──────────────────────────────────────────────
+
+def _show_import_warnings_if_any():
+    """이전 import 경고가 있으면 표시 후 소거."""
+    warnings = st.session_state.pop("_excel_import_warnings", None)
+    if warnings:
+        for w in warnings:
+            st.warning(f"⚠️ {w}")
+
+
+def _apply_imported_data(data: dict, exhibition_type=None):
+    """파싱된 평면 dict을 현재 세션에 적용.
+
+    init_session의 _pending_json 처리가 dates·중첩 list dates를 자동 변환하므로
+    그대로 위임. rerun 후 위젯들이 새 값으로 다시 그려짐.
+    """
+    st.session_state["_pending_json"] = data
+    if exhibition_type is not None:
+        st.session_state["current_exhibition_type"] = exhibition_type
+
+
+def _render_excel_import():
+    """워크스페이스와 동일한 Excel 가져오기 UI — 단, 적용 대상만 다름."""
+    st.markdown(
+        "큐레이터가 외부에서 데이터를 정리한 뒤 한 번에 업로드할 수 있는 표준 템플릿입니다. "
+        "폼 입력의 대체가 아니라 **보조 경로**이며, 업로드 후에도 검수·수정이 가능합니다."
+    )
+    col_dl, col_ul = st.columns([1, 2])
+    with col_dl:
+        try:
+            tpl_bytes = excel_template.generate_template_xlsx()
+            st.download_button(
+                "템플릿 다운로드",
+                data=tpl_bytes,
+                file_name="ilmin_exhibition_template.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="input_dl_template",
+                use_container_width=True,
+            )
+        except Exception as e:
+            st.error(f"템플릿 생성 실패: {e}")
+
+    with col_ul:
+        uploaded = st.file_uploader(
+            "작성 완료된 템플릿 업로드", type=["xlsx", "xls"], key="input_xlsx_upload",
+        )
+
+    if uploaded:
+        if st.button("가져와서 현재 전시에 적용", type="primary",
+                     use_container_width=True, key="input_do_xlsx_import"):
+            try:
+                result = excel_template.parse_template_xlsx(uploaded)
+                if result["warnings"]:
+                    st.session_state["_excel_import_warnings"] = result["warnings"]
+                _apply_imported_data(result["data"], result.get("type"))
+                st.rerun()
+            except Exception as e:
+                st.error(f"가져오기 실패: {e}")
+                import traceback
+                st.code(traceback.format_exc())
+
+
+def _render_json_import():
+    """워크스페이스와 동일한 JSON 가져오기 UI — 단, 적용 대상만 다름."""
+    st.markdown(
+        "이전에 저장한 v3 또는 v5 JSON 파일에서 데이터를 복원합니다. "
+        "두 형식 모두 자동 인식되며, 업로드 후 검수·수정이 가능합니다."
+    )
+    uploaded = st.file_uploader(
+        "JSON 파일 선택", type=["json"], key="input_json_upload",
+        help="v3 형식(평면 data) 또는 v5 형식({data: {...}}) 모두 인식",
+    )
+    if uploaded is None:
+        return
+    if st.button("불러와서 현재 전시에 적용", type="primary",
+                 use_container_width=True, key="input_do_json_import"):
+        try:
+            raw = json.loads(uploaded.read())
+            # v5 형식이면 data만 추출, v3 형식이면 그대로
+            data = raw["data"] if isinstance(raw, dict) and isinstance(raw.get("data"), dict) else raw
+            exhibition_type = raw.get("type") if isinstance(raw, dict) else None
+            _apply_imported_data(data, exhibition_type)
+            st.rerun()
+        except Exception as e:
+            st.error(f"가져오기 실패: {e}")
+
+
+# ──────────────────────────────────────────────
 # 메인 렌더
 # ──────────────────────────────────────────────
 
 def render(tab):
     with tab:
         # ────────────────────────────────────────
-        # 0. 상단 — 엑셀 일괄 업로드 (선택)
+        # 0. 상단 — 가져오기 (워크스페이스와 동일 규격·방식)
         # ────────────────────────────────────────
-        with st.expander("📥 엑셀 일괄 업로드 (선택)", expanded=False):
+        with st.expander("📥 가져오기 (Excel · JSON)", expanded=False):
             st.caption(
-                "표준 엑셀 템플릿에 예산 집행 내역과 언론보도 리스트를 작성한 뒤 업로드하면 "
-                "보고서에 자동 반영됩니다. 이미지는 수동 업로드 필요."
+                "워크스페이스의 '가져오기'와 동일한 6시트 표준 템플릿을 사용합니다. "
+                "여기서 업로드하면 **현재 편집 중인 전시에 즉시 적용**됩니다 (기존 입력은 덮어씁니다)."
             )
-            ec1, ec2, _ = st.columns([2, 3, 5])
-            with ec1:
-                if st.button("📥 템플릿 다운로드", key="dl_data_tpl"):
-                    from tabs.tab_data import _create_data_template
-                    _create_data_template()
-            with ec2:
-                data_file = st.file_uploader(
-                    "전시 데이터 엑셀 업로드", type=["xlsx", "xls"],
-                    key="data_excel_upload", label_visibility="collapsed")
-                if data_file:
-                    from tabs.tab_data import _process_data_excel
-                    _process_data_excel(data_file)
+            _show_import_warnings_if_any()
+            import_tabs = st.tabs(["Excel 템플릿", "JSON 파일"])
+            with import_tabs[0]:
+                _render_excel_import()
+            with import_tabs[1]:
+                _render_json_import()
 
         _section_divider()
 
