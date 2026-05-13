@@ -407,11 +407,11 @@ st.markdown("""
     }
 
     /* 사이드바 상단 정렬 — 본문 첫 텍스트("일민미술관의 전시…")와 사이드바
-       첫 텍스트("IMA Exhibition Workspace")의 baseline을 시각적으로 일치.
-       사이드바 내부 «(접기) 토글이 약 40-50px의 헤더 영역을 차지하고,
-       본문은 Streamlit 상단 헤더가 약 60px. 양쪽 모두 동일한 padding-top을
-       두면 사이드바 콘텐츠가 본문보다 아래로 밀리므로, 사이드바의 추가
-       padding을 0으로 두어 toggle 영역만으로 정렬되도록 함. */
+       "전시 워크스페이스" 타이틀의 baseline 일치.
+       Streamlit 본문은 상단 헤더(~60px) + .block-container padding-top(3rem)
+       으로 첫 텍스트가 viewport 상단 ≈ 108px. 사이드바는 «(접기) 토글이
+       ~40px를 차지하므로 .sidebar-brand에 margin-top: 3rem(=48px)을 더해
+       40 + 48 ≈ 88px → 본문과 거의 같은 라인. */
     section[data-testid="stSidebar"] > div:first-child {
         padding-top: 0 !important;
     }
@@ -421,6 +421,13 @@ st.markdown("""
     [data-testid="stSidebarUserContent"] {
         padding-top: 0 !important;
         margin-top: 0 !important;
+    }
+    /* 사이드바 브랜드(전시 워크스페이스) — 본문 첫 텍스트와 수직 정렬 */
+    .sidebar-brand {
+        margin-top: 3rem !important;
+        font-size: 20px !important;
+        margin-bottom: 16px !important;
+        line-height: 1.2;
     }
 
     /* 사이드바 버튼 — L5 (본문보다 살짝 작게) */
@@ -662,16 +669,14 @@ def load_reference_data():
 
 with st.sidebar:
     st.markdown(
-        '<div class="eyebrow" style="text-transform: none;">IMA Exhibition Workspace</div>'
-        '<div class="main-title" style="font-size: 20px;">전시 워크스페이스</div>'
-        '<p class="main-subtitle" style="font-size: 12px; margin-bottom: 16px;">v5.1 — KB 통합형</p>',
+        '<div class="main-title sidebar-brand">전시 워크스페이스</div>',
         unsafe_allow_html=True,
     )
-    st.divider()
 
     # 모드 표시 + 워크스페이스 복귀 버튼
     app_mode = st.session_state.get("app_mode", "workspace")
     if app_mode == "detail":
+        st.divider()
         current_id = st.session_state.get("current_exhibition_id")
         title = st.session_state.get("exhibition_title", "")
         status = st.session_state.get("current_exhibition_status", "draft")
@@ -712,9 +717,6 @@ with st.sidebar:
                      help="목록 화면으로 돌아갑니다. 저장하지 않은 변경은 메모리에 유지됩니다."):
             kb_session.enter_workspace_mode()
             st.rerun()
-    else:
-        eyebrow("WORKSPACE MODE")
-        st.caption("저장된 전시를 선택해 편집하거나 새로 만드세요.")
 
     st.divider()
     st.caption("© 일민미술관")

@@ -66,7 +66,7 @@ def render(tab, load_reference_data):
             return
 
         # ── 트렌드·비교 (확장 가능) ──
-        with st.expander("시계열 트렌드 & 다중 전시 비교", expanded=False):
+        with st.expander("누적 흐름 & 다중 전시 비교", expanded=False):
             from tabs import tab_trend
             tab_trend.render(records)
 
