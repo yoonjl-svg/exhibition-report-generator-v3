@@ -406,25 +406,28 @@ st.markdown("""
         width: 240px !important;
     }
 
-    /* 사이드바 상단 정렬 — 본문 첫 텍스트("일민미술관의 전시…")와 사이드바
-       "전시 워크스페이스" 타이틀의 baseline 일치.
-       Streamlit 본문은 상단 헤더(~60px) + .block-container padding-top(3rem)
-       으로 첫 텍스트가 viewport 상단 ≈ 108px. 사이드바는 «(접기) 토글이
-       ~40px를 차지하므로 .sidebar-brand에 margin-top: 3rem(=48px)을 더해
-       40 + 48 ≈ 88px → 본문과 거의 같은 라인. */
+    /* 사이드바 상단 정렬 — 본문 첫 텍스트("일민미술관의 전시…")와
+       사이드바 "전시 워크스페이스" 타이틀의 baseline 일치.
+       Streamlit이 stSidebarContent에 약 6rem의 기본 padding-top을 적용하므로
+       이를 명시적으로 작은 값(0.5rem)으로 덮어써 본문 .block-container
+       padding-top(3rem) 라인까지 끌어올림. */
     section[data-testid="stSidebar"] > div:first-child {
         padding-top: 0 !important;
     }
     [data-testid="stSidebarContent"] {
-        padding-top: 0 !important;
+        padding-top: 0.5rem !important;
     }
     [data-testid="stSidebarUserContent"] {
         padding-top: 0 !important;
         margin-top: 0 !important;
     }
+    section[data-testid="stSidebar"] .stMainBlockContainer,
+    section[data-testid="stSidebar"] [class*="block-container"] {
+        padding-top: 0.5rem !important;
+    }
     /* 사이드바 브랜드(전시 워크스페이스) — 본문 첫 텍스트와 수직 정렬 */
     .sidebar-brand {
-        margin-top: 3rem !important;
+        margin-top: 0 !important;
         font-size: 20px !important;
         margin-bottom: 16px !important;
         line-height: 1.2;
