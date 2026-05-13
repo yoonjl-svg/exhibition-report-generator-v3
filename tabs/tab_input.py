@@ -325,8 +325,8 @@ def render(tab):
                 st.caption("일평균: 기간 입력 시 자동")
 
         st.markdown("**입장권별 구성**")
-        # 8개 칸을 1줄에 (일반·학생·초대권·예술인패스·디스커버서울패스·기타 할인·단체 관객·오프닝 참석)
-        cols = st.columns([1.0, 1.0, 1.0, 1.2, 1.5, 1.1, 1.1, 1.2, 0.9])
+        # 8개 칸 너비 통일 ('일반' 기준 1.0). 우측 2.0은 spacer.
+        cols = st.columns([1, 1, 1, 1, 1, 1, 1, 1, 2])
         with cols[0]:
             st.number_input("일반", min_value=0, key="visitor_general", format="%d")
         with cols[1]:
