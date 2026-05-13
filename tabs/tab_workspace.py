@@ -14,11 +14,30 @@ import streamlit as st
 
 import kb_store
 import kb_session
+import excel_template
 from ui_helpers import (
     eyebrow, section_header, chip, chip_row,
     metric_strip, status_chip, type_chip,
     STATUS_LABELS, TYPE_LABELS,
 )
+
+
+# ──────────────────────────────────────────────
+# 모달 다이얼로그 — 가져오기 (Excel + JSON 통합)
+# ──────────────────────────────────────────────
+
+@st.dialog("가져오기")
+def _show_import_modal():
+    """진짜 모달 오버레이로 띄우는 가져오기 다이얼로그.
+
+    Excel 템플릿과 JSON 파일을 탭으로 분리.
+    X 버튼 또는 외부 클릭으로 닫힘 (Streamlit이 자동 처리).
+    """
+    tabs = st.tabs(["Excel 템플릿", "JSON 파일"])
+    with tabs[0]:
+        _render_excel_section(excel_template)
+    with tabs[1]:
+        _render_json_section()
 
 
 def render(tab, load_reference_data):
@@ -39,7 +58,6 @@ def render(tab, load_reference_data):
             _render_metric_strip(records)
 
         _render_action_bar()
-        _render_import_dialog()  # Excel + JSON 통합
 
         if not records:
             st.info("📭 저장된 전시가 없습니다. 위에서 '신규 전시 만들기'를 클릭하세요.")
@@ -179,32 +197,12 @@ def _render_action_bar():
         if st.button("가져오기", use_container_width=True,
                      key="ws_open_import",
                      help="Excel 템플릿 또는 JSON 파일로 데이터를 가져옵니다."):
-            st.session_state["ws_show_import"] = not st.session_state.get("ws_show_import", False)
+            _show_import_modal()
     with col3:
         if st.button("새로고침", use_container_width=True, key="ws_refresh",
                      help="KB 캐시를 비우고 다시 로드합니다."):
             kb_store._cache_clear()
             st.rerun()
-
-
-def _render_import_dialog():
-    """통합 가져오기 다이얼로그 — Excel 템플릿과 JSON 파일을 탭으로 분리.
-
-    좌측 50% 폭으로 제한 (다이얼로그가 본문 전체를 점유하지 않도록).
-    """
-    if not st.session_state.get("ws_show_import"):
-        return
-
-    import excel_template
-
-    dialog_col, _ = st.columns([1, 1])
-    with dialog_col:
-        with st.expander("가져오기", expanded=True):
-            tabs = st.tabs(["Excel 템플릿", "JSON 파일"])
-            with tabs[0]:
-                _render_excel_section(excel_template)
-            with tabs[1]:
-                _render_json_section()
 
 
 def _render_excel_section(excel_template):
@@ -235,35 +233,29 @@ def _render_excel_section(excel_template):
         )
 
     if uploaded:
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            if st.button("가져와서 편집 시작", type="primary",
-                         use_container_width=True, key="ws_do_xlsx_import"):
-                try:
-                    result = excel_template.parse_template_xlsx(uploaded)
-                    record = {
-                        "id": None,
-                        "data": result["data"],
-                        "status": "draft",
-                        "type": result["type"],
-                        "source": "excel",
-                    }
-                    kb_session.enter_detail_mode(record=record)
-                    st.session_state["current_exhibition_id"] = None
-                    if result["type"] is not None:
-                        st.session_state["current_exhibition_type"] = result["type"]
-                    st.session_state["ws_show_import"] = False
-                    if result["warnings"]:
-                        st.session_state["_excel_import_warnings"] = result["warnings"]
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"가져오기 실패: {e}")
-                    import traceback
-                    st.code(traceback.format_exc())
-        with col2:
-            if st.button("취소", use_container_width=True, key="ws_cancel_excel"):
-                st.session_state["ws_show_import"] = False
+        # 모달 X 버튼으로 닫을 수 있으므로 취소 버튼 제거
+        if st.button("가져와서 편집 시작", type="primary",
+                     use_container_width=True, key="ws_do_xlsx_import"):
+            try:
+                result = excel_template.parse_template_xlsx(uploaded)
+                record = {
+                    "id": None,
+                    "data": result["data"],
+                    "status": "draft",
+                    "type": result["type"],
+                    "source": "excel",
+                }
+                kb_session.enter_detail_mode(record=record)
+                st.session_state["current_exhibition_id"] = None
+                if result["type"] is not None:
+                    st.session_state["current_exhibition_type"] = result["type"]
+                if result["warnings"]:
+                    st.session_state["_excel_import_warnings"] = result["warnings"]
                 st.rerun()
+            except Exception as e:
+                st.error(f"가져오기 실패: {e}")
+                import traceback
+                st.code(traceback.format_exc())
 
 
 def _render_json_section():
@@ -278,23 +270,16 @@ def _render_json_section():
     )
     if uploaded is None:
         return
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        if st.button("불러와서 편집 시작", type="primary", use_container_width=True,
-                     key="ws_do_import"):
-            try:
-                raw = json.loads(uploaded.read())
-                record = _normalize_imported(raw)
-                kb_session.enter_detail_mode(record=record)
-                st.session_state["current_exhibition_id"] = None
-                st.session_state["ws_show_import"] = False
-                st.rerun()
-            except Exception as e:
-                st.error(f"가져오기 실패: {e}")
-    with col2:
-        if st.button("취소", use_container_width=True, key="ws_cancel_json"):
-            st.session_state["ws_show_import"] = False
+    if st.button("불러와서 편집 시작", type="primary", use_container_width=True,
+                 key="ws_do_import"):
+        try:
+            raw = json.loads(uploaded.read())
+            record = _normalize_imported(raw)
+            kb_session.enter_detail_mode(record=record)
+            st.session_state["current_exhibition_id"] = None
             st.rerun()
+        except Exception as e:
+            st.error(f"가져오기 실패: {e}")
 
 
 def _normalize_imported(raw: dict) -> dict:
