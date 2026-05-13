@@ -168,7 +168,9 @@ def _render_metric_strip(records):
 # ──────────────────────────────────────────────
 
 def _render_action_bar():
-    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
+    # 버튼은 콘텐츠 폭에 맞춘 좁은 컬럼 + 우측 충분한 빈 공간
+    # [1.5, 1.5, 1.8, 1, 7] = 신규 11.7% / Excel 11.7% / JSON 14.1% / 새로고침 7.8% / 빈 54.7%
+    col1, col2, col3, col4, _col5 = st.columns([1.5, 1.5, 1.8, 1, 7])
     with col1:
         if st.button("➕ 신규 전시 만들기", type="primary", use_container_width=True,
                      key="ws_new_exhibition"):
@@ -179,7 +181,7 @@ def _render_action_bar():
                      key="ws_open_excel",
                      help="Excel 템플릿에 작성한 데이터를 일괄 가져옵니다."):
             st.session_state["ws_show_excel"] = not st.session_state.get("ws_show_excel", False)
-            st.session_state["ws_show_import"] = False  # 다른 다이얼로그는 닫기
+            st.session_state["ws_show_import"] = False
     with col3:
         if st.button("📥 JSON 파일 가져오기", use_container_width=True,
                      key="ws_open_import",
@@ -308,8 +310,8 @@ def _safe_list():
 # ──────────────────────────────────────────────
 
 def _apply_filters(records):
-    # 컬럼 비율 [1, 1, 2, 2]: 유형 필터·정렬 각 16.7%, 검색 33.3% (기존 유지), 우측 빈 칸 33.3%
-    col1, col2, col3, _col4 = st.columns([1, 1, 2, 2])
+    # 컬럼 [1, 1, 4]: 필터·정렬 16.7%, 검색 66.7% (빈 칸 제거, 검색이 남은 폭 채움)
+    col1, col2, col3 = st.columns([1, 1, 4])
     with col1:
         type_options = ["전체"] + [TYPE_LABELS[k] for k in (1, 2, 3, 0)]
         type_choice = st.selectbox("유형 필터", type_options, key="ws_type_filter")

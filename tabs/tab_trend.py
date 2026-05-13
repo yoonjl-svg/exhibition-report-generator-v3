@@ -289,15 +289,18 @@ def _render_compare(records: List[Dict]):
         id_to_record[label] = r
 
     st.caption("비교할 전시를 선택하세요. 막대 길이는 선택된 전시들 중 지표별 최소값을 100%로 한 비율입니다.")
-    selected_labels = st.multiselect(
-        "비교할 전시 선택",
-        options=options,
-        key="compare_select",
-        label_visibility="collapsed",
-    )
+    # multiselect는 본문 전폭을 점유하므로 좁은 컬럼으로 감싸 너비 제한 (60%)
+    ms_col, _ = st.columns([3, 2])
+    with ms_col:
+        selected_labels = st.multiselect(
+            "비교할 전시 선택",
+            options=options,
+            key="compare_select",
+            label_visibility="collapsed",
+        )
 
     if len(selected_labels) < 2:
-        st.info("최소 2개의 전시를 선택하세요.")
+        st.caption("ℹ️ 최소 2개의 전시를 선택하세요.")
         return
 
     selected = [id_to_record[lbl] for lbl in selected_labels]
