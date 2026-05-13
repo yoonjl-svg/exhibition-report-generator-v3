@@ -8,7 +8,9 @@ from datetime import date
 import streamlit as st
 import pandas as pd
 
-from tabs import tab_base, tab_data, tab_analysis, tab_generate, tab_workspace
+from tabs import tab_input, tab_analysis, tab_generate, tab_workspace
+# 레거시(롤백 안전망): tab_base, tab_data는 import만 유지 — 직접 호출은 제거됨
+from tabs import tab_base, tab_data  # noqa: F401
 import reference_data as rd
 import kb_session
 
@@ -745,15 +747,13 @@ if app_mode == "workspace":
     # 워크스페이스만 단독 렌더 (전시 목록 + 신규)
     tab_workspace.render(st.container(), load_reference_data)
 else:
-    # 상세 모드: 기존 4탭 (B/A/C/D)
-    tab_b, tab_a, tab_c, tab_d = st.tabs([
-        "📋 기본 정보",
-        "📊 정량 데이터",
+    # 상세 모드: 3탭 (v5.3.23 — 기본 정보+정량 데이터 통합)
+    tab_input_t, tab_c, tab_d = st.tabs([
+        "📋 전시 데이터",
         "🔍 분석 & 평가",
         "📄 보고서 생성",
     ])
 
-    tab_base.render(tab_b)
-    tab_data.render(tab_a)
+    tab_input.render(tab_input_t)
     tab_analysis.render(tab_c, load_reference_data)
     tab_generate.render(tab_d, load_reference_data)

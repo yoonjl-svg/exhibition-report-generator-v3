@@ -1,0 +1,595 @@
+"""통합 탭: 전시 데이터 입력 (v5.3.23, 옵션 B)
+
+기존 '기본 정보(B)' + '정량 데이터(A)' 두 탭을 단일 탭으로 통합.
+- 상단: 엑셀 일괄 업로드 (예산·언론보도 4시트 템플릿)
+- 본문: 섹션별 수동 입력
+- 모든 입력 너비 정밀 적용 — 풀폭 강박 제거
+
+섹션 순서:
+  1. 전시 기본
+  2. 전시 주제와 내용
+  3. 전시실 구성
+  4. 출품 작품
+  5. 전시 연계 프로그램
+  6. 운영 인력
+  7. 예산 및 수입
+  8. 관객
+  9. 인쇄물 및 굿즈
+  10. 홍보 방식
+  11. 홍보 지표
+  12. 언론보도 리스트
+  13. 관객 후기
+"""
+
+import streamlit as st
+import pandas as pd
+from datetime import date
+from utils import add_item, remove_item
+from ui_helpers import subsection
+
+
+# ──────────────────────────────────────────────
+# 공통 헬퍼
+# ──────────────────────────────────────────────
+
+def _add_remove_buttons(label_add, label_rm, key_add, key_rm, item_key, default_item, page_full=True):
+    """추가/제거 버튼 한 쌍 — 페이지 ~15% 너비로 통일.
+
+    page_full=True: 풀폭 컨텍스트, [1.5, 1.5, 7]
+    page_full=False: 50% 부모 안 (i.e., col_mat·col_print 같은 컨텍스트), [3, 3, 4]
+    """
+    ratios = [1.5, 1.5, 7] if page_full else [3, 3, 4]
+    c1, c2, _ = st.columns(ratios)
+    with c1:
+        if st.button(label_add, key=key_add, use_container_width=True):
+            add_item(item_key, default_item)
+            st.rerun()
+    with c2:
+        if st.button(label_rm, key=key_rm, use_container_width=True):
+            remove_item(item_key, -1)
+            st.rerun()
+
+
+def _render_room(i: int, room: dict):
+    """단일 전시실 — 헤더 + 참여 작가 + (도면 + 전경 사진 가로)."""
+    st.markdown(
+        f'<div style="font-size: 13px; font-weight: 700; color: #20231f; '
+        f'margin: 8px 0 4px 0;">{room.get("name", f"{i+1}전시실")}</div>',
+        unsafe_allow_html=True,
+    )
+    st.session_state.rooms[i]["artists"] = st.text_input(
+        "참여 작가", value=room.get("artists", ""), key=f"room_artists_{i}")
+    st.session_state.rooms[i]["floor_plan_file"] = st.file_uploader(
+        "도면", type=["png", "jpg", "jpeg"], key=f"room_floor_{i}")
+    st.session_state.rooms[i]["photo_files"] = st.file_uploader(
+        "전경 사진", type=["png", "jpg", "jpeg"],
+        accept_multiple_files=True, key=f"room_photos_{i}")
+
+
+def _section_divider():
+    """섹션 간 여백 + 가는 구분선."""
+    st.markdown('<div style="margin-top: 18px;"></div>', unsafe_allow_html=True)
+    st.divider()
+
+
+# ──────────────────────────────────────────────
+# 메인 렌더
+# ──────────────────────────────────────────────
+
+def render(tab):
+    with tab:
+        # ────────────────────────────────────────
+        # 0. 상단 — 엑셀 일괄 업로드 (선택)
+        # ────────────────────────────────────────
+        with st.expander("📥 엑셀 일괄 업로드 (선택)", expanded=False):
+            st.caption(
+                "표준 엑셀 템플릿에 예산 집행 내역과 언론보도 리스트를 작성한 뒤 업로드하면 "
+                "보고서에 자동 반영됩니다. 이미지는 수동 업로드 필요."
+            )
+            ec1, ec2, _ = st.columns([2, 3, 5])
+            with ec1:
+                if st.button("📥 템플릿 다운로드", key="dl_data_tpl"):
+                    from tabs.tab_data import _create_data_template
+                    _create_data_template()
+            with ec2:
+                data_file = st.file_uploader(
+                    "전시 데이터 엑셀 업로드", type=["xlsx", "xls"],
+                    key="data_excel_upload", label_visibility="collapsed")
+                if data_file:
+                    from tabs.tab_data import _process_data_excel
+                    _process_data_excel(data_file)
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 1. 전시 기본
+        # ════════════════════════════════════════
+        # 4단: 전시 기본 + 기획진 + 전시 디자인 + 여백 (각 25%)
+        c_basic, c_team, c_design, _sp = st.columns([1, 1, 1, 1], gap="large")
+
+        with c_basic:
+            subsection("", "전시 기본")
+            st.text_input("전시 제목", key="exhibition_title")
+            d1, d2 = st.columns(2)
+            with d1:
+                st.date_input("시작일", key="period_start", value=None)
+            with d2:
+                st.date_input("종료일", key="period_end", value=None)
+            st.text_input("참여 작가 (쉼표 구분)", key="artists",
+                          placeholder="구정연, 이미래, 장서영")
+            if st.session_state.period_start and st.session_state.period_end:
+                days = (st.session_state.period_end - st.session_state.period_start).days + 1
+                st.info(f"📅 전시 일수: **{days}일**")
+
+        with c_team:
+            subsection("", "기획진")
+            r1c1, r1c2 = st.columns(2)
+            with r1c1:
+                st.text_input("책임기획", key="chief_curator")
+            with r1c2:
+                st.text_input("기획", key="curators")
+            r2c1, r2c2 = st.columns(2)
+            with r2c1:
+                st.text_input("진행", key="coordinators")
+            with r2c2:
+                st.text_input("홍보", key="pr_person")
+            st.text_input("학예팀", key="curatorial_team")
+            st.text_input("후원", key="sponsors")
+
+        with c_design:
+            subsection("", "전시 디자인")
+            st.text_input("그래픽 디자인", key="graphic_designer",
+                          placeholder="예: 페이퍼프레스")
+            st.text_input("공간 구성", key="space_designer",
+                          placeholder="예: 석운동")
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 2. 전시 주제와 내용 + 3. 전시실 구성
+        # ════════════════════════════════════════
+        col_theme, col_rooms = st.columns([2, 3], gap="large")
+
+        with col_theme:
+            subsection("", "전시 주제와 내용")
+            st.text_area(
+                "전시 에세이", key="theme_text", height=300,
+                placeholder=(
+                    "전시의 주제, 기획 의도, 내용을 서술합니다.\n\n"
+                    "단락 사이에 빈 줄을 넣으면 보고서에서도 단락이 구분됩니다."
+                ),
+            )
+
+        with col_rooms:
+            subsection("", "전시실 구성")
+            for i, room in enumerate(st.session_state.rooms):
+                _render_room(i, room)
+            _add_remove_buttons(
+                "➕ 전시실 추가", "➖ 마지막 제거",
+                "add_room", "rm_room",
+                "rooms",
+                {"name": f"{len(st.session_state.rooms) + 1}전시실", "artists": ""},
+                page_full=False,
+            )
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 4. 출품 작품 — 6 매체 × 좁은 컬럼
+        # ════════════════════════════════════════
+        subsection("", "출품 작품 (매체별)")
+        # 6개 narrow + 큰 spacer
+        cols = st.columns([1, 1, 1, 1, 1, 1, 4])
+        with cols[0]:
+            st.number_input("회화", min_value=0, key="artwork_painting", format="%d")
+        with cols[1]:
+            st.number_input("조각", min_value=0, key="artwork_sculpture", format="%d")
+        with cols[2]:
+            st.number_input("사진", min_value=0, key="artwork_photo", format="%d")
+        with cols[3]:
+            st.number_input("설치", min_value=0, key="artwork_installation", format="%d")
+        with cols[4]:
+            st.number_input("미디어", min_value=0, key="artwork_media", format="%d")
+        with cols[5]:
+            st.number_input("기타", min_value=0, key="artwork_other", format="%d")
+
+        artwork_total = (st.session_state.artwork_painting + st.session_state.artwork_sculpture +
+                         st.session_state.artwork_photo + st.session_state.artwork_installation +
+                         st.session_state.artwork_media + st.session_state.artwork_other)
+        st.session_state.artwork_total = artwork_total
+        if artwork_total > 0:
+            mc, _ = st.columns([1, 9])
+            with mc:
+                st.metric("총 작품 수", f"{artwork_total}점")
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 5. 전시 연계 프로그램
+        # ════════════════════════════════════════
+        subsection("", "전시 연계 프로그램")
+        st.caption("프로그램 총 수·회차·참여 인원 요약은 본 섹션 하단의 숫자 칸에 입력합니다.")
+
+        # 상세 행 (반복)
+        for i, prog in enumerate(st.session_state.related_programs):
+            cols = st.columns([0.75, 3, 1, 0.4, 2, 2.85])
+            with cols[0]:
+                cat_options = ["아티스트 토크", "강연", "워크숍", "스크리닝", "퍼포먼스", "기타"]
+                cat_val = prog.get("category")
+                cat_idx = cat_options.index(cat_val) if cat_val in cat_options else None
+                st.session_state.related_programs[i]["category"] = st.selectbox(
+                    "구분", options=cat_options, index=cat_idx, key=f"prog_cat_{i}",
+                    placeholder="선택")
+            with cols[1]:
+                st.session_state.related_programs[i]["title"] = st.text_input(
+                    "제목", value=prog.get("title", ""), key=f"prog_title_{i}")
+            with cols[2]:
+                date_val = prog.get("date")
+                if not isinstance(date_val, date):
+                    date_val = None
+                st.session_state.related_programs[i]["date"] = st.date_input(
+                    "일자", value=date_val, key=f"prog_date_{i}")
+            with cols[3]:
+                st.session_state.related_programs[i]["participants"] = st.text_input(
+                    "참여", value=prog.get("participants", ""), key=f"prog_part_{i}")
+            with cols[4]:
+                st.session_state.related_programs[i]["note"] = st.text_input(
+                    "비고", value=prog.get("note", ""), key=f"prog_note_{i}")
+
+        _add_remove_buttons(
+            "➕ 프로그램 추가", "➖ 마지막 제거",
+            "add_prog", "rm_prog",
+            "related_programs",
+            {"category": None, "title": "", "date": None, "participants": "", "note": ""},
+        )
+
+        # 프로그램 요약 수치
+        st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
+        cols = st.columns([1, 1, 1, 1, 1, 5])
+        with cols[0]:
+            st.number_input("프로그램 수", min_value=0, key="program_count", format="%d")
+        with cols[1]:
+            st.number_input("총 회차", min_value=0, key="program_sessions", format="%d")
+        with cols[2]:
+            st.number_input("총 참여", min_value=0, key="program_participants", format="%d")
+        with cols[3]:
+            st.number_input("도슨트 정기", min_value=0, key="docent_regular", format="%d")
+        with cols[4]:
+            st.number_input("도슨트 특별", min_value=0, key="docent_special", format="%d")
+        st.session_state.docent_total = st.session_state.docent_regular + st.session_state.docent_special
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 6. 운영 인력
+        # ════════════════════════════════════════
+        subsection("", "운영 인력")
+        cols = st.columns([1, 1, 1, 7])
+        with cols[0]:
+            st.number_input("총원", min_value=0, key="staff_total", format="%d")
+        with cols[1]:
+            st.number_input("유급", min_value=0, key="staff_paid", format="%d")
+        with cols[2]:
+            st.number_input("봉사자", min_value=0, key="staff_volunteer", format="%d")
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 7. 예산 및 수입
+        # ════════════════════════════════════════
+        subsection("", "예산 및 수입")
+        cols = st.columns([1.3, 1.3, 7.4])
+        with cols[0]:
+            st.number_input("전시 사용 예산 (원)", min_value=0, step=1_000_000,
+                            key="budget_exhibition", format="%d")
+        with cols[1]:
+            st.number_input("부대 사용 예산 (원)", min_value=0, step=100_000,
+                            key="budget_supplementary", format="%d")
+        total_budget = st.session_state.budget_exhibition + st.session_state.budget_supplementary
+        st.session_state.total_budget = total_budget
+
+        cols = st.columns([1.3, 1.3, 1.3, 6.1])
+        with cols[0]:
+            st.number_input("예산 계획액 (원)", min_value=0, step=1_000_000,
+                            key="budget_planned", format="%d")
+        with cols[1]:
+            st.number_input("입장 수입 (원)", min_value=0, step=100_000,
+                            key="ticket_revenue", format="%d")
+        with cols[2]:
+            st.number_input("기타 수입 (원)", min_value=0, step=100_000,
+                            key="other_revenue", format="%d")
+
+        total_revenue = st.session_state.ticket_revenue + st.session_state.other_revenue
+        st.session_state.total_revenue = total_revenue
+
+        # 자동 계산 표시
+        if total_budget > 0 or total_revenue > 0:
+            mc1, mc2, mc3, mc4, _ = st.columns([1.3, 1.3, 1.3, 1.3, 4.8])
+            with mc1:
+                if total_budget > 0:
+                    st.metric("총 예산", f"{total_budget:,}원")
+            with mc2:
+                if total_revenue > 0:
+                    st.metric("총 수입", f"{total_revenue:,}원")
+            with mc3:
+                if st.session_state.budget_exhibition and st.session_state.budget_supplementary:
+                    ratio = st.session_state.budget_exhibition / total_budget * 100
+                    st.metric("전시비 비율", f"{ratio:.1f}%")
+            with mc4:
+                if total_revenue and total_budget:
+                    recovery = total_revenue / total_budget * 100
+                    st.metric("회수율", f"{recovery:.1f}%")
+
+        # 업로드된 예산 미리보기 (있을 때만)
+        if st.session_state.get("budget_summary") and any(
+                x.get("category") for x in st.session_state.budget_summary):
+            with st.expander("📋 업로드된 예산 집행 내역", expanded=False):
+                summary_df = pd.DataFrame(st.session_state.budget_summary)
+                summary_df = summary_df[summary_df["category"].astype(bool)]
+                st.dataframe(summary_df, use_container_width=True, hide_index=True)
+
+        if st.session_state.get("budget_details") and any(
+                x.get("subcategory") or x.get("detail") for x in st.session_state.budget_details):
+            with st.expander("📋 업로드된 예산 세부 내역", expanded=False):
+                details_df = pd.DataFrame(st.session_state.budget_details)
+                details_df = details_df[details_df["subcategory"].astype(bool) | details_df["detail"].astype(bool)]
+                st.dataframe(details_df, use_container_width=True, hide_index=True)
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 8. 관객
+        # ════════════════════════════════════════
+        subsection("", "관객")
+
+        cols = st.columns([1.2, 1.2, 7.6])
+        with cols[0]:
+            st.number_input("총 관객수", min_value=0, step=100,
+                            key="total_visitors", format="%d")
+        with cols[1]:
+            days = None
+            if st.session_state.period_start and st.session_state.period_end:
+                days = (st.session_state.period_end - st.session_state.period_start).days + 1
+            if st.session_state.total_visitors and days and days > 0:
+                daily_avg = st.session_state.total_visitors // days
+                st.metric("일평균 (자동)", f"{daily_avg:,}명")
+            else:
+                st.caption("일평균: 기간 입력 시 자동")
+
+        st.markdown("**입장권별 구성**")
+        cols = st.columns([1.2, 1.2, 1.2, 1.4, 1.7, 1.4, 1.9])
+        with cols[0]:
+            st.number_input("일반", min_value=0, key="visitor_general", format="%d")
+        with cols[1]:
+            st.number_input("학생", min_value=0, key="visitor_student", format="%d")
+        with cols[2]:
+            st.number_input("초대권", min_value=0, key="visitor_invitation", format="%d")
+        with cols[3]:
+            st.number_input("예술인패스", min_value=0, key="visitor_artpass", format="%d")
+        with cols[4]:
+            st.number_input("디스커버서울패스", min_value=0, key="visitor_discover", format="%d")
+        with cols[5]:
+            st.number_input("기타 할인", min_value=0, key="visitor_discount", format="%d")
+
+        ticket_sum = (st.session_state.visitor_general + st.session_state.visitor_student +
+                      st.session_state.visitor_invitation + st.session_state.visitor_artpass +
+                      st.session_state.visitor_discover + st.session_state.visitor_discount)
+        if ticket_sum > 0 and st.session_state.total_visitors > 0:
+            if ticket_sum != st.session_state.total_visitors:
+                st.warning(f"⚠️ 입장권별 합계({ticket_sum:,}명)와 총 관객수({st.session_state.total_visitors:,}명)가 다릅니다.")
+            else:
+                st.success(f"✅ 입장권별 합계 일치: {ticket_sum:,}명")
+
+        cols = st.columns([1.2, 1.2, 7.6])
+        with cols[0]:
+            st.number_input("단체 관객", min_value=0, key="visitor_group", format="%d")
+        with cols[1]:
+            st.number_input("오프닝 참석", min_value=0, key="opening_attendance", format="%d")
+
+        # 주차별 관객
+        st.markdown("**주차별 관객 수**")
+        st.caption("보고서 차트용. 빈 칸은 무시됩니다.")
+        week_cols = st.columns([1, 1, 1, 1, 1, 1, 4])
+        weekly = st.session_state.get("weekly_visitors", {})
+        new_weekly = {}
+        for i in range(6):
+            with week_cols[i]:
+                label = f"{i+1}주"
+                val = weekly.get(label, 0)
+                entered = st.number_input(label, min_value=0, value=val,
+                                          key=f"weekly_{i}", format="%d")
+                if entered > 0:
+                    new_weekly[label] = entered
+        st.session_state.weekly_visitors = new_weekly
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 9. 인쇄물 및 굿즈 + 10. 홍보 방식 (각 50%)
+        # ════════════════════════════════════════
+        col_mat, col_promo = st.columns(2, gap="large")
+
+        with col_mat:
+            subsection("", "인쇄물 및 굿즈")
+            for i, mat in enumerate(st.session_state.printed_materials):
+                cols = st.columns([1.0, 0.6, 2.0, 1.9])
+                with cols[0]:
+                    mat_options = ["포스터", "리플렛", "초대장", "굿즈", "기타"]
+                    mat_val = mat.get("type")
+                    mat_idx = mat_options.index(mat_val) if mat_val in mat_options else None
+                    st.session_state.printed_materials[i]["type"] = st.selectbox(
+                        "종류", options=mat_options, index=mat_idx, key=f"mat_type_{i}",
+                        placeholder="선택")
+                with cols[1]:
+                    st.session_state.printed_materials[i]["quantity"] = st.text_input(
+                        "수량", value=mat.get("quantity", ""), key=f"mat_qty_{i}")
+                with cols[2]:
+                    st.session_state.printed_materials[i]["note"] = st.text_input(
+                        "비고", value=mat.get("note", ""), key=f"mat_note_{i}")
+
+            _add_remove_buttons(
+                "➕ 인쇄물 추가", "➖ 마지막 제거",
+                "add_mat", "rm_mat",
+                "printed_materials", {"type": None, "quantity": "", "note": ""},
+                page_full=False,
+            )
+
+        with col_promo:
+            subsection("", "홍보 방식")
+            st.text_area("광고", key="promo_advertising", height=80)
+            st.text_area("보도자료", key="promo_press_release", height=80)
+            pc1, pc2 = st.columns(2)
+            with pc1:
+                st.text_area("웹 초청장", key="promo_web_invitation", height=80)
+                st.text_area("뉴스레터", key="promo_newsletter", height=80)
+            with pc2:
+                st.text_area("SNS", key="promo_sns", height=80)
+                st.text_area("그 외", key="promo_other", height=80)
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 11. 홍보 지표
+        # ════════════════════════════════════════
+        subsection("", "홍보 지표")
+        cols = st.columns([1.2, 1.2, 1.2, 6.4])
+        with cols[0]:
+            st.number_input("언론 보도 건수", min_value=0, key="press_count", format="%d",
+                            help="일간지+온라인 합계. 본 섹션 하단 보도 리스트와 연동.")
+        with cols[1]:
+            st.number_input("웹 초청장 발송", min_value=0, key="web_invitation_count", format="%d")
+        with cols[2]:
+            st.number_input("뉴스레터 오픈율 (%)", min_value=0.0, max_value=100.0,
+                            step=0.1, key="newsletter_open_rate", format="%.1f")
+
+        cols = st.columns([1.2, 1.2, 1.2, 6.4])
+        with cols[0]:
+            st.number_input("SNS 게시", min_value=0, key="sns_posts", format="%d")
+        with cols[1]:
+            st.number_input("SNS 피드백", min_value=0, key="sns_feedback", format="%d")
+        with cols[2]:
+            st.number_input("멤버십 회원수", min_value=0, key="membership_count", format="%d")
+
+        st.markdown("**SNS 상세 통계**")
+        st.caption("인스타그램 기준 정량 지표.")
+        cols = st.columns([1, 1, 1, 1, 6])
+        with cols[0]:
+            st.number_input("팔로워", min_value=0, key="sns_followers", format="%d")
+        with cols[1]:
+            st.number_input("팔로워 증가", min_value=0, key="sns_followers_gained", format="%d",
+                            help="전시 기간 중 순증가")
+        with cols[2]:
+            st.number_input("평균 좋아요", min_value=0, key="sns_avg_likes", format="%d")
+        with cols[3]:
+            st.number_input("최고 좋아요", min_value=0, key="sns_best_likes", format="%d")
+        bc, _ = st.columns([4, 6])
+        with bc:
+            st.text_input("최고 반응 게시물 내용", key="sns_best_post",
+                          placeholder="예: 한강주조 겨울 에디션 게시물")
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 12. 언론보도 리스트 — 일간지/월간지 + 온라인 각 50%
+        # ════════════════════════════════════════
+        subsection("", "언론보도 리스트")
+        _has_press_data = any(p.get("outlet") for p in st.session_state.press_print) or \
+                          any(p.get("outlet") for p in st.session_state.press_online)
+        if _has_press_data:
+            st.info("💡 엑셀로 업로드한 언론보도 데이터가 있습니다. 아래에서 수정·추가 가능합니다.")
+        else:
+            st.caption("상단의 '엑셀 일괄 업로드'로 일괄 입력도 가능합니다.")
+
+        # 보도 건수 자동 동기화 제안
+        print_count = len([p for p in st.session_state.press_print if p.get("outlet")])
+        online_count = len([p for p in st.session_state.press_online if p.get("outlet")])
+        list_total = print_count + online_count
+        if list_total > 0 and st.session_state.press_count == 0:
+            sc, _ = st.columns([3, 7])
+            with sc:
+                if st.button(f"💡 보도 건수를 {list_total}건으로 자동 입력",
+                             key="sync_press", use_container_width=True):
+                    st.session_state.press_count = list_total
+                    st.rerun()
+
+        col_print, col_online = st.columns(2, gap="large")
+
+        with col_print:
+            st.markdown("**일간지 및 월간지**")
+            for i, item in enumerate(st.session_state.press_print):
+                cols = st.columns([1.5, 1.5, 4, 2])
+                with cols[0]:
+                    st.session_state.press_print[i]["outlet"] = st.text_input(
+                        "매체명", value=item.get("outlet", ""), key=f"pp_outlet_{i}")
+                with cols[1]:
+                    pp_date_val = item.get("date")
+                    if not isinstance(pp_date_val, date):
+                        pp_date_val = None
+                    st.session_state.press_print[i]["date"] = st.date_input(
+                        "일자", value=pp_date_val, key=f"pp_date_{i}")
+                with cols[2]:
+                    st.session_state.press_print[i]["title"] = st.text_input(
+                        "제목", value=item.get("title", ""), key=f"pp_title_{i}")
+                with cols[3]:
+                    st.session_state.press_print[i]["note"] = st.text_input(
+                        "비고", value=item.get("note", ""), key=f"pp_note_{i}")
+
+            _add_remove_buttons(
+                "➕ 일간지 추가", "➖ 마지막 제거",
+                "add_pp", "rm_pp",
+                "press_print", {"outlet": "", "date": None, "title": "", "note": ""},
+                page_full=False,
+            )
+
+        with col_online:
+            st.markdown("**온라인 매체**")
+            for i, item in enumerate(st.session_state.press_online):
+                cols = st.columns([1.5, 1.5, 3, 3])
+                with cols[0]:
+                    st.session_state.press_online[i]["outlet"] = st.text_input(
+                        "매체명", value=item.get("outlet", ""), key=f"po_outlet_{i}")
+                with cols[1]:
+                    po_date_val = item.get("date")
+                    if not isinstance(po_date_val, date):
+                        po_date_val = None
+                    st.session_state.press_online[i]["date"] = st.date_input(
+                        "일자", value=po_date_val, key=f"po_date_{i}")
+                with cols[2]:
+                    st.session_state.press_online[i]["title"] = st.text_input(
+                        "제목", value=item.get("title", ""), key=f"po_title_{i}")
+                with cols[3]:
+                    st.session_state.press_online[i]["url"] = st.text_input(
+                        "URL", value=item.get("url", ""), key=f"po_url_{i}")
+
+            _add_remove_buttons(
+                "➕ 온라인 추가", "➖ 마지막 제거",
+                "add_po", "rm_po",
+                "press_online", {"outlet": "", "date": None, "title": "", "url": ""},
+                page_full=False,
+            )
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 13. 관객 후기
+        # ════════════════════════════════════════
+        subsection("", "관객 후기")
+        for i, review in enumerate(st.session_state.visitor_reviews):
+            cols = st.columns([0.75, 4.8, 1, 3.45])
+            with cols[0]:
+                st.session_state.visitor_reviews[i]["category"] = st.selectbox(
+                    "분류", ["긍정", "부정", "건의"], key=f"rev_cat_{i}",
+                    index=["긍정", "부정", "건의"].index(review.get("category", "긍정"))
+                    if review.get("category", "긍정") in ["긍정", "부정", "건의"] else 0)
+            with cols[1]:
+                st.session_state.visitor_reviews[i]["content"] = st.text_input(
+                    "내용", value=review.get("content", ""), key=f"rev_content_{i}")
+            with cols[2]:
+                st.session_state.visitor_reviews[i]["source"] = st.text_input(
+                    "출처", value=review.get("source", ""), key=f"rev_source_{i}")
+
+        _add_remove_buttons(
+            "➕ 후기 추가", "➖ 마지막 제거",
+            "add_rev", "rm_rev",
+            "visitor_reviews", {"category": "긍정", "content": "", "source": ""},
+        )
