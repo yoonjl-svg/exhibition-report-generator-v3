@@ -306,7 +306,74 @@ def render(tab):
         _section_divider()
 
         # ════════════════════════════════════════
-        # 2. 전시 주제와 내용 + 3. 전시실 구성
+        # 2. 관객 (전시 기본 직후로 이동 — v5.3.35)
+        # ════════════════════════════════════════
+        subsection("", "관객")
+
+        cols = st.columns([1.2, 1.2, 7.6])
+        with cols[0]:
+            st.number_input("총 관객수", min_value=0, step=100,
+                            key="total_visitors", format="%d")
+        with cols[1]:
+            days = None
+            if st.session_state.period_start and st.session_state.period_end:
+                days = (st.session_state.period_end - st.session_state.period_start).days + 1
+            if st.session_state.total_visitors and days and days > 0:
+                daily_avg = st.session_state.total_visitors // days
+                st.metric("일평균 (자동)", f"{daily_avg:,}명")
+            else:
+                st.caption("일평균: 기간 입력 시 자동")
+
+        st.markdown("**입장권별 구성**")
+        cols = st.columns([1.2, 1.2, 1.2, 1.4, 1.7, 1.4, 1.9])
+        with cols[0]:
+            st.number_input("일반", min_value=0, key="visitor_general", format="%d")
+        with cols[1]:
+            st.number_input("학생", min_value=0, key="visitor_student", format="%d")
+        with cols[2]:
+            st.number_input("초대권", min_value=0, key="visitor_invitation", format="%d")
+        with cols[3]:
+            st.number_input("예술인패스", min_value=0, key="visitor_artpass", format="%d")
+        with cols[4]:
+            st.number_input("디스커버서울패스", min_value=0, key="visitor_discover", format="%d")
+        with cols[5]:
+            st.number_input("기타 할인", min_value=0, key="visitor_discount", format="%d")
+
+        ticket_sum = (st.session_state.visitor_general + st.session_state.visitor_student +
+                      st.session_state.visitor_invitation + st.session_state.visitor_artpass +
+                      st.session_state.visitor_discover + st.session_state.visitor_discount)
+        if ticket_sum > 0 and st.session_state.total_visitors > 0:
+            if ticket_sum != st.session_state.total_visitors:
+                st.warning(f"⚠️ 입장권별 합계({ticket_sum:,}명)와 총 관객수({st.session_state.total_visitors:,}명)가 다릅니다.")
+            else:
+                st.success(f"✅ 입장권별 합계 일치: {ticket_sum:,}명")
+
+        cols = st.columns([1.2, 1.2, 7.6])
+        with cols[0]:
+            st.number_input("단체 관객", min_value=0, key="visitor_group", format="%d")
+        with cols[1]:
+            st.number_input("오프닝 참석", min_value=0, key="opening_attendance", format="%d")
+
+        # 주차별 관객
+        st.markdown("**주차별 관객 수**")
+        st.caption("보고서 차트용. 빈 칸은 무시됩니다.")
+        week_cols = st.columns([1, 1, 1, 1, 1, 1, 4])
+        weekly = st.session_state.get("weekly_visitors", {})
+        new_weekly = {}
+        for i in range(6):
+            with week_cols[i]:
+                label = f"{i+1}주"
+                val = weekly.get(label, 0)
+                entered = st.number_input(label, min_value=0, value=val,
+                                          key=f"weekly_{i}", format="%d")
+                if entered > 0:
+                    new_weekly[label] = entered
+        st.session_state.weekly_visitors = new_weekly
+
+        _section_divider()
+
+        # ════════════════════════════════════════
+        # 3. 전시 주제와 내용 + 4. 전시실 구성
         # ════════════════════════════════════════
         col_theme, col_rooms = st.columns([2, 3], gap="large")
 
@@ -423,78 +490,7 @@ def render(tab):
         _section_divider()
 
         # ════════════════════════════════════════
-        # (운영 인력·예산은 위 '전시 기본' 섹션 아래로 통합됨 — v5.3.27)
-        # ════════════════════════════════════════
-
-        # ════════════════════════════════════════
-        # 8. 관객
-        # ════════════════════════════════════════
-        subsection("", "관객")
-
-        cols = st.columns([1.2, 1.2, 7.6])
-        with cols[0]:
-            st.number_input("총 관객수", min_value=0, step=100,
-                            key="total_visitors", format="%d")
-        with cols[1]:
-            days = None
-            if st.session_state.period_start and st.session_state.period_end:
-                days = (st.session_state.period_end - st.session_state.period_start).days + 1
-            if st.session_state.total_visitors and days and days > 0:
-                daily_avg = st.session_state.total_visitors // days
-                st.metric("일평균 (자동)", f"{daily_avg:,}명")
-            else:
-                st.caption("일평균: 기간 입력 시 자동")
-
-        st.markdown("**입장권별 구성**")
-        cols = st.columns([1.2, 1.2, 1.2, 1.4, 1.7, 1.4, 1.9])
-        with cols[0]:
-            st.number_input("일반", min_value=0, key="visitor_general", format="%d")
-        with cols[1]:
-            st.number_input("학생", min_value=0, key="visitor_student", format="%d")
-        with cols[2]:
-            st.number_input("초대권", min_value=0, key="visitor_invitation", format="%d")
-        with cols[3]:
-            st.number_input("예술인패스", min_value=0, key="visitor_artpass", format="%d")
-        with cols[4]:
-            st.number_input("디스커버서울패스", min_value=0, key="visitor_discover", format="%d")
-        with cols[5]:
-            st.number_input("기타 할인", min_value=0, key="visitor_discount", format="%d")
-
-        ticket_sum = (st.session_state.visitor_general + st.session_state.visitor_student +
-                      st.session_state.visitor_invitation + st.session_state.visitor_artpass +
-                      st.session_state.visitor_discover + st.session_state.visitor_discount)
-        if ticket_sum > 0 and st.session_state.total_visitors > 0:
-            if ticket_sum != st.session_state.total_visitors:
-                st.warning(f"⚠️ 입장권별 합계({ticket_sum:,}명)와 총 관객수({st.session_state.total_visitors:,}명)가 다릅니다.")
-            else:
-                st.success(f"✅ 입장권별 합계 일치: {ticket_sum:,}명")
-
-        cols = st.columns([1.2, 1.2, 7.6])
-        with cols[0]:
-            st.number_input("단체 관객", min_value=0, key="visitor_group", format="%d")
-        with cols[1]:
-            st.number_input("오프닝 참석", min_value=0, key="opening_attendance", format="%d")
-
-        # 주차별 관객
-        st.markdown("**주차별 관객 수**")
-        st.caption("보고서 차트용. 빈 칸은 무시됩니다.")
-        week_cols = st.columns([1, 1, 1, 1, 1, 1, 4])
-        weekly = st.session_state.get("weekly_visitors", {})
-        new_weekly = {}
-        for i in range(6):
-            with week_cols[i]:
-                label = f"{i+1}주"
-                val = weekly.get(label, 0)
-                entered = st.number_input(label, min_value=0, value=val,
-                                          key=f"weekly_{i}", format="%d")
-                if entered > 0:
-                    new_weekly[label] = entered
-        st.session_state.weekly_visitors = new_weekly
-
-        _section_divider()
-
-        # ════════════════════════════════════════
-        # 9. 인쇄물 및 굿즈 + 10. 홍보 방식 (각 50%)
+        # 인쇄물 및 굿즈 + 홍보 방식 (각 50%)
         # ════════════════════════════════════════
         col_mat, col_promo = st.columns(2, gap="large")
 
