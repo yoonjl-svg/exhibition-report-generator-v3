@@ -207,8 +207,9 @@ def render(tab):
                 st.date_input("시작일", key="period_start", value=None)
             with d2:
                 st.date_input("종료일", key="period_end", value=None)
-            st.text_input("참여 작가 (쉼표 구분)", key="artists",
-                          placeholder="구정연, 이미래, 장서영")
+            # 참여 작가: 다수의 작가명 입력을 위해 3배 높이의 textarea
+            st.text_area("참여 작가 (쉼표 구분)", key="artists", height=120,
+                         placeholder="구정연, 이미래, 장서영")
             if st.session_state.period_start and st.session_state.period_end:
                 days = (st.session_state.period_end - st.session_state.period_start).days + 1
                 st.info(f"📅 전시 일수: **{days}일**")
@@ -232,6 +233,75 @@ def render(tab):
                           placeholder="예: 페이퍼프레스")
             st.text_input("공간 구성", key="space_designer",
                           placeholder="예: 석운동")
+
+        # ── 운영 (인력 + 예산) — '전시 기본' 헤더 아래 통합 ──
+        # 인력 (3 narrow)
+        st.markdown('<div style="margin-top: 14px;"></div>', unsafe_allow_html=True)
+        cols = st.columns([1, 1, 1, 7])
+        with cols[0]:
+            st.number_input("운영 인력 총원", min_value=0, key="staff_total", format="%d")
+        with cols[1]:
+            st.number_input("유급 스태프", min_value=0, key="staff_paid", format="%d")
+        with cols[2]:
+            st.number_input("봉사자", min_value=0, key="staff_volunteer", format="%d")
+
+        # 예산 — 2행
+        cols = st.columns([1.3, 1.3, 7.4])
+        with cols[0]:
+            st.number_input("전시 사용 예산 (원)", min_value=0, step=1_000_000,
+                            key="budget_exhibition", format="%d")
+        with cols[1]:
+            st.number_input("부대 사용 예산 (원)", min_value=0, step=100_000,
+                            key="budget_supplementary", format="%d")
+        total_budget = st.session_state.budget_exhibition + st.session_state.budget_supplementary
+        st.session_state.total_budget = total_budget
+
+        cols = st.columns([1.3, 1.3, 1.3, 6.1])
+        with cols[0]:
+            st.number_input("예산 계획액 (원)", min_value=0, step=1_000_000,
+                            key="budget_planned", format="%d")
+        with cols[1]:
+            st.number_input("입장 수입 (원)", min_value=0, step=100_000,
+                            key="ticket_revenue", format="%d")
+        with cols[2]:
+            st.number_input("기타 수입 (원)", min_value=0, step=100_000,
+                            key="other_revenue", format="%d")
+
+        total_revenue = st.session_state.ticket_revenue + st.session_state.other_revenue
+        st.session_state.total_revenue = total_revenue
+
+        # 자동 계산 표시
+        if total_budget > 0 or total_revenue > 0:
+            mc1, mc2, mc3, mc4, _ = st.columns([1.3, 1.3, 1.3, 1.3, 4.8])
+            with mc1:
+                if total_budget > 0:
+                    st.metric("총 예산", f"{total_budget:,}원")
+            with mc2:
+                if total_revenue > 0:
+                    st.metric("총 수입", f"{total_revenue:,}원")
+            with mc3:
+                if st.session_state.budget_exhibition and st.session_state.budget_supplementary:
+                    ratio = st.session_state.budget_exhibition / total_budget * 100
+                    st.metric("전시비 비율", f"{ratio:.1f}%")
+            with mc4:
+                if total_revenue and total_budget:
+                    recovery = total_revenue / total_budget * 100
+                    st.metric("회수율", f"{recovery:.1f}%")
+
+        # 업로드된 예산 미리보기 (있을 때만)
+        if st.session_state.get("budget_summary") and any(
+                x.get("category") for x in st.session_state.budget_summary):
+            with st.expander("📋 업로드된 예산 집행 내역", expanded=False):
+                summary_df = pd.DataFrame(st.session_state.budget_summary)
+                summary_df = summary_df[summary_df["category"].astype(bool)]
+                st.dataframe(summary_df, use_container_width=True, hide_index=True)
+
+        if st.session_state.get("budget_details") and any(
+                x.get("subcategory") or x.get("detail") for x in st.session_state.budget_details):
+            with st.expander("📋 업로드된 예산 세부 내역", expanded=False):
+                details_df = pd.DataFrame(st.session_state.budget_details)
+                details_df = details_df[details_df["subcategory"].astype(bool) | details_df["detail"].astype(bool)]
+                st.dataframe(details_df, use_container_width=True, hide_index=True)
 
         _section_divider()
 
@@ -351,78 +421,8 @@ def render(tab):
         _section_divider()
 
         # ════════════════════════════════════════
-        # 6. 운영 (운영 인력 + 예산 및 수입을 하위 항목으로 통합)
+        # (운영 인력·예산은 위 '전시 기본' 섹션 아래로 통합됨 — v5.3.27)
         # ════════════════════════════════════════
-        subsection("", "운영")
-
-        # 인력 (3 narrow)
-        cols = st.columns([1, 1, 1, 7])
-        with cols[0]:
-            st.number_input("운영 인력 총원", min_value=0, key="staff_total", format="%d")
-        with cols[1]:
-            st.number_input("유급 스태프", min_value=0, key="staff_paid", format="%d")
-        with cols[2]:
-            st.number_input("봉사자", min_value=0, key="staff_volunteer", format="%d")
-
-        # 예산 — 2행
-        cols = st.columns([1.3, 1.3, 7.4])
-        with cols[0]:
-            st.number_input("전시 사용 예산 (원)", min_value=0, step=1_000_000,
-                            key="budget_exhibition", format="%d")
-        with cols[1]:
-            st.number_input("부대 사용 예산 (원)", min_value=0, step=100_000,
-                            key="budget_supplementary", format="%d")
-        total_budget = st.session_state.budget_exhibition + st.session_state.budget_supplementary
-        st.session_state.total_budget = total_budget
-
-        cols = st.columns([1.3, 1.3, 1.3, 6.1])
-        with cols[0]:
-            st.number_input("예산 계획액 (원)", min_value=0, step=1_000_000,
-                            key="budget_planned", format="%d")
-        with cols[1]:
-            st.number_input("입장 수입 (원)", min_value=0, step=100_000,
-                            key="ticket_revenue", format="%d")
-        with cols[2]:
-            st.number_input("기타 수입 (원)", min_value=0, step=100_000,
-                            key="other_revenue", format="%d")
-
-        total_revenue = st.session_state.ticket_revenue + st.session_state.other_revenue
-        st.session_state.total_revenue = total_revenue
-
-        # 자동 계산 표시
-        if total_budget > 0 or total_revenue > 0:
-            mc1, mc2, mc3, mc4, _ = st.columns([1.3, 1.3, 1.3, 1.3, 4.8])
-            with mc1:
-                if total_budget > 0:
-                    st.metric("총 예산", f"{total_budget:,}원")
-            with mc2:
-                if total_revenue > 0:
-                    st.metric("총 수입", f"{total_revenue:,}원")
-            with mc3:
-                if st.session_state.budget_exhibition and st.session_state.budget_supplementary:
-                    ratio = st.session_state.budget_exhibition / total_budget * 100
-                    st.metric("전시비 비율", f"{ratio:.1f}%")
-            with mc4:
-                if total_revenue and total_budget:
-                    recovery = total_revenue / total_budget * 100
-                    st.metric("회수율", f"{recovery:.1f}%")
-
-        # 업로드된 예산 미리보기 (있을 때만)
-        if st.session_state.get("budget_summary") and any(
-                x.get("category") for x in st.session_state.budget_summary):
-            with st.expander("📋 업로드된 예산 집행 내역", expanded=False):
-                summary_df = pd.DataFrame(st.session_state.budget_summary)
-                summary_df = summary_df[summary_df["category"].astype(bool)]
-                st.dataframe(summary_df, use_container_width=True, hide_index=True)
-
-        if st.session_state.get("budget_details") and any(
-                x.get("subcategory") or x.get("detail") for x in st.session_state.budget_details):
-            with st.expander("📋 업로드된 예산 세부 내역", expanded=False):
-                details_df = pd.DataFrame(st.session_state.budget_details)
-                details_df = details_df[details_df["subcategory"].astype(bool) | details_df["detail"].astype(bool)]
-                st.dataframe(details_df, use_container_width=True, hide_index=True)
-
-        _section_divider()
 
         # ════════════════════════════════════════
         # 8. 관객
