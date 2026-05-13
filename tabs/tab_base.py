@@ -1,15 +1,12 @@
 """탭 B: 기본 정보 — 전시의 서술적 정보 입력
 
-v5.3.17 대규모 레이아웃 재구성:
-- section_header 제거 (탭명과 중복)
-- 전시 기본·기획진 좌측 2단(25%+25%, 우측 50% 공백)
-- 전시 주제와 내용 + 전시 디자인 2단 페어 (각 50%)
-- 멤버십 커뮤니케이션 영역 삭제
-- 전시실: 정규 전시실 3개를 1줄, 프로젝트 룸은 1/3 너비 다음 줄
-- 프로그램: 구분/일자/참여인원 컬럼 50% 축소
-- 인쇄물 + 홍보 방식 2단 페어
-- 언론보도: 일간지 + 온라인 2단 페어
-- 후기: 분류/출처 컬럼 50% 축소
+v5.3.20 레이아웃 재구성:
+- Row 1 (4단, 각 25%): 전시 기본 + 기획진 + 전시 디자인 + 여백
+- Row 2 (2단, 40%+60%): 전시 주제와 내용(높이 3배) + 전시실 구성(수직 스택)
+- 전시실 카드: 참여 작가 한 줄 + 도면·전경 사진 가로 나란히
+- 인쇄물 종류 컬럼 50% 축소
+- 관객 후기 내용 컬럼 80%로 축소
+- 모든 add/remove 버튼: use_container_width=False 로 통일된 자동 크기
 """
 
 import streamlit as st
@@ -18,38 +15,68 @@ from utils import add_item, remove_item
 from ui_helpers import subsection
 
 
-def _render_room(i: int, room: dict):
-    """단일 전시실 입력 — 컬럼 안에서 세로 스택. 좁은 컬럼에서도 동작.
+# ──────────────────────────────────────────────
+# 버튼 헬퍼 — 모든 추가/제거 버튼이 동일한 자동 크기로 정렬되도록
+# ──────────────────────────────────────────────
 
-    v5.3.18: 헤더가 이미 전시실명을 표시하므로 '전시실명' 입력 필드는 제거.
-    name은 기본값(예: "1전시실" / "프로젝트 룸") 유지.
-    """
+def _add_remove_buttons(
+    label_add: str, label_rm: str,
+    key_add: str, key_rm: str,
+    item_key: str, default_item: dict,
+):
+    """좌측 정렬된 작은 자동 크기 버튼 한 쌍. use_container_width=False."""
+    c1, c2, _ = st.columns([1, 1, 8])
+    with c1:
+        if st.button(label_add, key=key_add):
+            add_item(item_key, default_item)
+            st.rerun()
+    with c2:
+        if st.button(label_rm, key=key_rm):
+            remove_item(item_key, -1)
+            st.rerun()
+
+
+# ──────────────────────────────────────────────
+# 전시실 카드 렌더
+# ──────────────────────────────────────────────
+
+def _render_room(i: int, room: dict):
+    """단일 전시실 — 헤더 + 참여 작가 + (도면 + 전경 사진 가로 나란히)."""
     st.markdown(
         f'<div style="font-size: 13px; font-weight: 700; color: #20231f; '
-        f'margin: 6px 0 4px 0;">{room.get("name", f"{i+1}전시실")}</div>',
+        f'margin: 10px 0 4px 0;">{room.get("name", f"{i+1}전시실")}</div>',
         unsafe_allow_html=True,
     )
     st.session_state.rooms[i]["artists"] = st.text_input(
         "참여 작가", value=room.get("artists", ""), key=f"room_artists_{i}")
-    st.session_state.rooms[i]["floor_plan_file"] = st.file_uploader(
-        "도면", type=["png", "jpg", "jpeg"], key=f"room_floor_{i}")
-    st.session_state.rooms[i]["photo_files"] = st.file_uploader(
-        "전경 사진", type=["png", "jpg", "jpeg"],
-        accept_multiple_files=True, key=f"room_photos_{i}")
+    uc1, uc2 = st.columns(2)
+    with uc1:
+        st.session_state.rooms[i]["floor_plan_file"] = st.file_uploader(
+            "도면", type=["png", "jpg", "jpeg"], key=f"room_floor_{i}")
+    with uc2:
+        st.session_state.rooms[i]["photo_files"] = st.file_uploader(
+            "전경 사진", type=["png", "jpg", "jpeg"],
+            accept_multiple_files=True, key=f"room_photos_{i}")
 
+
+# ──────────────────────────────────────────────
+# 메인 렌더
+# ──────────────────────────────────────────────
 
 def render(tab):
     with tab:
-        # ── 전시 기본 + 기획진 (좌측 절반에 2단) ──
-        col_left, col_right, _spacer = st.columns([1, 1, 2], gap="large")
+        # ────────────────────────────────────────
+        # Row 1: 전시 기본 + 기획진 + 전시 디자인 (각 25%, 우측 25% 여백)
+        # ────────────────────────────────────────
+        c_basic, c_team, c_design, _spacer = st.columns([1, 1, 1, 1], gap="large")
 
-        with col_left:
+        with c_basic:
             subsection("", "전시 기본")
             st.text_input("전시 제목", key="exhibition_title")
-            c1, c2 = st.columns(2)
-            with c1:
+            d1, d2 = st.columns(2)
+            with d1:
                 st.date_input("전시 시작일", key="period_start", value=None)
-            with c2:
+            with d2:
                 st.date_input("전시 종료일", key="period_end", value=None)
             st.text_input("참여 작가 (쉼표 구분)", key="artists",
                           placeholder="구정연, 이미래, 장서영")
@@ -57,41 +84,22 @@ def render(tab):
                 days = (st.session_state.period_end - st.session_state.period_start).days + 1
                 st.info(f"📅 전시 일수: **{days}일**")
 
-        with col_right:
+        with c_team:
             subsection("", "기획진")
-            # Row 1: 책임기획 + 기획
             r1c1, r1c2 = st.columns(2)
             with r1c1:
                 st.text_input("책임기획", key="chief_curator")
             with r1c2:
                 st.text_input("기획", key="curators")
-            # Row 2: 진행 + 홍보
             r2c1, r2c2 = st.columns(2)
             with r2c1:
                 st.text_input("진행", key="coordinators")
             with r2c2:
                 st.text_input("홍보", key="pr_person")
-            # Row 3: 학예팀 (단독, 풀폭)
             st.text_input("학예팀", key="curatorial_team")
-            # Row 4: 후원 (단독, 풀폭 — 다수의 후원사 이름을 위해 넓게)
             st.text_input("후원", key="sponsors")
 
-        st.divider()
-
-        # ── 전시 주제와 내용 + 전시 디자인 (각 50%) ──
-        col_theme, col_design = st.columns(2, gap="large")
-        with col_theme:
-            subsection("", "전시 주제와 내용")
-            st.text_area(
-                "전시 에세이",
-                key="theme_text",
-                height=250,
-                placeholder=(
-                    "전시의 주제, 기획 의도, 내용을 서술합니다.\n\n"
-                    "단락 사이에 빈 줄을 넣으면 보고서에서도 단락이 구분됩니다."
-                ),
-            )
-        with col_design:
+        with c_design:
             subsection("", "전시 디자인")
             st.text_input("그래픽 디자인", key="graphic_designer",
                           placeholder="예: 페이퍼프레스")
@@ -100,51 +108,41 @@ def render(tab):
 
         st.divider()
 
-        # ── 전시실 구성 ──
-        # 정규 전시실(프로젝트 외) 3개씩 한 줄, 프로젝트 룸은 1/3 너비 별도 줄
-        subsection("", "전시실 구성")
+        # ────────────────────────────────────────
+        # Row 2: 전시 주제와 내용 (40%) + 전시실 구성 (60%)
+        # ────────────────────────────────────────
+        col_theme, col_rooms = st.columns([2, 3], gap="large")
 
-        regular_indices = []
-        project_indices = []
-        for i, room in enumerate(st.session_state.rooms):
-            if "프로젝트" in (room.get("name") or ""):
-                project_indices.append(i)
-            else:
-                regular_indices.append(i)
+        with col_theme:
+            subsection("", "전시 주제와 내용")
+            st.text_area(
+                "전시 에세이",
+                key="theme_text",
+                height=750,  # 기존 250 × 3
+                placeholder=(
+                    "전시의 주제, 기획 의도, 내용을 서술합니다.\n\n"
+                    "단락 사이에 빈 줄을 넣으면 보고서에서도 단락이 구분됩니다."
+                ),
+            )
 
-        # 정규 전시실 — 3개씩 한 줄
-        for start in range(0, len(regular_indices), 3):
-            chunk = regular_indices[start:start + 3]
-            cols = st.columns(3, gap="large")
-            for col, i in zip(cols, chunk):
-                with col:
-                    _render_room(i, st.session_state.rooms[i])
-            # 남는 칸 비워둠 (3-len(chunk) 만큼 자연 공백)
-
-        # 프로젝트 룸 — 1/3 너비
-        for i in project_indices:
-            cols = st.columns(3, gap="large")
-            with cols[0]:
-                _render_room(i, st.session_state.rooms[i])
-
-        col_add, col_rm, _ = st.columns([1, 1, 4])
-        with col_add:
-            if st.button("➕ 전시실 추가", key="add_room", use_container_width=True):
-                n = len(st.session_state.rooms) + 1
-                add_item("rooms", {"name": f"{n}전시실", "artists": ""})
-                st.rerun()
-        with col_rm:
-            if st.button("➖ 마지막 제거", key="rm_room", use_container_width=True):
-                remove_item("rooms", -1)
-                st.rerun()
+        with col_rooms:
+            subsection("", "전시실 구성")
+            for i, room in enumerate(st.session_state.rooms):
+                _render_room(i, room)
+            _add_remove_buttons(
+                "➕ 전시실 추가", "➖ 마지막 제거",
+                "add_room", "rm_room",
+                "rooms", {"name": f"{len(st.session_state.rooms) + 1}전시실", "artists": ""},
+            )
 
         st.divider()
 
-        # ── 프로그램 (구분·일자·참여인원 컬럼 50% 축소) ──
+        # ────────────────────────────────────────
+        # 전시 연계 프로그램 — 구분/일자/참여인원 50% 축소
+        # ────────────────────────────────────────
         subsection("", "전시 연계 프로그램")
         st.caption("프로그램 총 수와 참여 인원 합계는 '정량 데이터' 탭에서 입력합니다.")
         for i, prog in enumerate(st.session_state.related_programs):
-            # 기존: [1.5, 3, 2, 1.5, 2.5] → 신: [0.75, 3, 1, 0.75, 2.5]
             cols = st.columns([0.75, 3, 1, 0.75, 2.5])
             with cols[0]:
                 cat_options = ["아티스트 토크", "강연", "워크숍", "스크리닝", "퍼포먼스", "기타"]
@@ -169,27 +167,25 @@ def render(tab):
                 st.session_state.related_programs[i]["note"] = st.text_input(
                     "비고", value=prog.get("note", ""), key=f"prog_note_{i}")
 
-        c1, c2, _ = st.columns([1, 1, 4])
-        with c1:
-            if st.button("➕ 프로그램 추가", key="add_prog", use_container_width=True):
-                add_item("related_programs",
-                         {"category": None, "title": "", "date": None,
-                          "participants": "", "note": ""})
-                st.rerun()
-        with c2:
-            if st.button("➖ 마지막 제거", key="rm_prog", use_container_width=True):
-                remove_item("related_programs", -1)
-                st.rerun()
+        _add_remove_buttons(
+            "➕ 프로그램 추가", "➖ 마지막 제거",
+            "add_prog", "rm_prog",
+            "related_programs",
+            {"category": None, "title": "", "date": None, "participants": "", "note": ""},
+        )
 
         st.divider()
 
-        # ── 인쇄물 + 홍보 방식 (각 50%) ──
+        # ────────────────────────────────────────
+        # 인쇄물 + 홍보 방식 (각 50%) — 인쇄물 종류 50% 축소
+        # ────────────────────────────────────────
         col_mat, col_promo = st.columns(2, gap="large")
 
         with col_mat:
             subsection("", "인쇄물 및 굿즈")
             for i, mat in enumerate(st.session_state.printed_materials):
-                cols = st.columns([2, 1.5, 3])
+                # 기존 [2, 1.5, 3] → 종류 50% 축소: [1.0, 1.5, 3]
+                cols = st.columns([1.0, 1.5, 3])
                 with cols[0]:
                     mat_options = ["포스터", "리플렛", "초대장", "굿즈", "기타"]
                     mat_val = mat.get("type")
@@ -204,15 +200,11 @@ def render(tab):
                     st.session_state.printed_materials[i]["note"] = st.text_input(
                         "비고", value=mat.get("note", ""), key=f"mat_note_{i}")
 
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("➕ 인쇄물 추가", key="add_mat", use_container_width=True):
-                    add_item("printed_materials", {"type": None, "quantity": "", "note": ""})
-                    st.rerun()
-            with c2:
-                if st.button("➖ 마지막 제거", key="rm_mat", use_container_width=True):
-                    remove_item("printed_materials", -1)
-                    st.rerun()
+            _add_remove_buttons(
+                "➕ 인쇄물 추가", "➖ 마지막 제거",
+                "add_mat", "rm_mat",
+                "printed_materials", {"type": None, "quantity": "", "note": ""},
+            )
 
         with col_promo:
             subsection("", "홍보 방식")
@@ -228,7 +220,9 @@ def render(tab):
 
         st.divider()
 
-        # ── 언론보도 리스트 (일간지/월간지 + 온라인 각 50%) ──
+        # ────────────────────────────────────────
+        # 언론보도 — 일간지/월간지 + 온라인 2단 (각 50%)
+        # ────────────────────────────────────────
         subsection("", "언론보도 리스트")
         st.caption("보도 총 건수는 '정량 데이터' 탭에서 자동 집계됩니다.")
         _has_press_data = any(p.get("outlet") for p in st.session_state.press_print) or \
@@ -260,15 +254,11 @@ def render(tab):
                     st.session_state.press_print[i]["note"] = st.text_input(
                         "비고", value=item.get("note", ""), key=f"pp_note_{i}")
 
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("➕ 일간지 추가", key="add_pp", use_container_width=True):
-                    add_item("press_print", {"outlet": "", "date": None, "title": "", "note": ""})
-                    st.rerun()
-            with c2:
-                if st.button("➖ 마지막 제거", key="rm_pp", use_container_width=True):
-                    remove_item("press_print", -1)
-                    st.rerun()
+            _add_remove_buttons(
+                "➕ 일간지 추가", "➖ 마지막 제거",
+                "add_pp", "rm_pp",
+                "press_print", {"outlet": "", "date": None, "title": "", "note": ""},
+            )
 
         with col_online:
             st.markdown("**온라인 매체**")
@@ -290,23 +280,21 @@ def render(tab):
                     st.session_state.press_online[i]["url"] = st.text_input(
                         "URL", value=item.get("url", ""), key=f"po_url_{i}")
 
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("➕ 온라인 추가", key="add_po", use_container_width=True):
-                    add_item("press_online", {"outlet": "", "date": None, "title": "", "url": ""})
-                    st.rerun()
-            with c2:
-                if st.button("➖ 마지막 제거", key="rm_po", use_container_width=True):
-                    remove_item("press_online", -1)
-                    st.rerun()
+            _add_remove_buttons(
+                "➕ 온라인 추가", "➖ 마지막 제거",
+                "add_po", "rm_po",
+                "press_online", {"outlet": "", "date": None, "title": "", "url": ""},
+            )
 
         st.divider()
 
-        # ── 관객 후기 (분류·출처 50% 축소) ──
+        # ────────────────────────────────────────
+        # 관객 후기 — 분류·출처 50% 축소(기존), 내용 80%로 축소(신규)
+        # ────────────────────────────────────────
         subsection("", "관객 후기")
         for i, review in enumerate(st.session_state.visitor_reviews):
-            # 기존: [1.5, 6, 2] → 신: [0.75, 6, 1]
-            cols = st.columns([0.75, 6, 1])
+            # 기존 [0.75, 6, 1] → 내용 80%: [0.75, 4.8, 1]
+            cols = st.columns([0.75, 4.8, 1])
             with cols[0]:
                 st.session_state.visitor_reviews[i]["category"] = st.selectbox(
                     "분류", ["긍정", "부정", "건의"], key=f"rev_cat_{i}",
@@ -319,12 +307,8 @@ def render(tab):
                 st.session_state.visitor_reviews[i]["source"] = st.text_input(
                     "출처", value=review.get("source", ""), key=f"rev_source_{i}")
 
-        c1, c2, _ = st.columns([1, 1, 4])
-        with c1:
-            if st.button("➕ 후기 추가", key="add_rev", use_container_width=True):
-                add_item("visitor_reviews", {"category": "긍정", "content": "", "source": ""})
-                st.rerun()
-        with c2:
-            if st.button("➖ 마지막 제거", key="rm_rev", use_container_width=True):
-                remove_item("visitor_reviews", -1)
-                st.rerun()
+        _add_remove_buttons(
+            "➕ 후기 추가", "➖ 마지막 제거",
+            "add_rev", "rm_rev",
+            "visitor_reviews", {"category": "긍정", "content": "", "source": ""},
+        )
