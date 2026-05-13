@@ -62,13 +62,26 @@ def _render_room(i: int, room: dict):
     st.session_state.rooms[i]["artists"] = st.text_input(
         "참여 작가", value=room.get("artists", ""), key=f"room_artists_{i}")
     uc1, uc2 = st.columns(2, gap="small")
+    # 라벨을 file_uploader 내부에서 분리 — Streamlit 기본 라벨은 dropzone과 묶여
+    # 함께 클릭 가능해지므로, label_visibility="collapsed"로 숨기고 별도 markdown
+    # 라벨을 두어 단순 텍스트로 표시.
+    _label_style = (
+        'font-size: 14px; font-weight: 500; color: #252a28; '
+        'margin: 4px 0 4px 0; line-height: 1.3;'
+    )
     with uc1:
+        st.markdown(f'<div style="{_label_style}">도면</div>',
+                    unsafe_allow_html=True)
         st.session_state.rooms[i]["floor_plan_file"] = st.file_uploader(
-            "도면", type=["png", "jpg", "jpeg"], key=f"room_floor_{i}")
+            "도면", type=["png", "jpg", "jpeg"], key=f"room_floor_{i}",
+            label_visibility="collapsed")
     with uc2:
+        st.markdown(f'<div style="{_label_style}">전경 사진</div>',
+                    unsafe_allow_html=True)
         st.session_state.rooms[i]["photo_files"] = st.file_uploader(
             "전경 사진", type=["png", "jpg", "jpeg"],
-            accept_multiple_files=True, key=f"room_photos_{i}")
+            accept_multiple_files=True, key=f"room_photos_{i}",
+            label_visibility="collapsed")
 
 
 def _section_divider():
