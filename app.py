@@ -153,10 +153,12 @@ st.markdown("""
     }
     .exhibition-card-metrics {
         display: flex;
-        gap: 14px;
+        column-gap: 14px;
+        row-gap: 0.3em;            /* 줄바꿈 시 간격: 제목 line-height 1.3(=130%)과 동일 비율 */
         flex-wrap: wrap;
         color: var(--ink);
         font-size: 13px;
+        line-height: 1.3;          /* 제목과 동일 130% */
         margin-top: 4px;
     }
     .exhibition-card-metrics .metric-item {

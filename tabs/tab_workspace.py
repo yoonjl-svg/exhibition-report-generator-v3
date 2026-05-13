@@ -308,7 +308,8 @@ def _safe_list():
 # ──────────────────────────────────────────────
 
 def _apply_filters(records):
-    col1, col2, col3 = st.columns([2, 2, 2])
+    # 컬럼 비율 [1, 1, 2, 2]: 유형 필터·정렬 각 16.7%, 검색 33.3% (기존 유지), 우측 빈 칸 33.3%
+    col1, col2, col3, _col4 = st.columns([1, 1, 2, 2])
     with col1:
         type_options = ["전체"] + [TYPE_LABELS[k] for k in (1, 2, 3, 0)]
         type_choice = st.selectbox("유형 필터", type_options, key="ws_type_filter")
@@ -388,10 +389,10 @@ def _render_year_header(year_str: str, count: int):
 
 
 def _render_year_grid(records):
-    """해당 연도의 전시들을 3열 그리드로 배치. 마지막 행이 3개 미만이면 빈 컬럼은 그대로."""
-    for i in range(0, len(records), 3):
-        chunk = records[i:i + 3]
-        cols = st.columns(3, gap="medium")
+    """해당 연도의 전시들을 4열 그리드로 배치. 마지막 행이 4개 미만이면 빈 컬럼은 그대로."""
+    for i in range(0, len(records), 4):
+        chunk = records[i:i + 4]
+        cols = st.columns(4, gap="medium")
         for col, rec in zip(cols, chunk):
             with col:
                 _render_card(rec)
@@ -430,10 +431,9 @@ def _render_card(rec):
     status_label = STATUS_LABELS.get(status, status)
     year = (ps or "")[:4] or "—"
 
-    # 핵심 수치
+    # 핵심 수치 (총 수입은 4열 그리드에서 제외 — 카드 폭 줄어듦에 맞춤)
     tv = data.get("total_visitors") or 0
     tb = data.get("total_budget") or 0
-    tr = data.get("total_revenue") or 0
 
     # 일평균 관객 (파생)
     daily = None
@@ -451,7 +451,6 @@ def _render_card(rec):
     visitor_str = f"{tv:,}명" if tv else "—"
     daily_str = f"{daily:,}명" if daily else "—"
     budget_str = _fmt_money(tb)
-    revenue_str = _fmt_money(tr)
 
     chips_html = status_chip(status) + " " + type_chip(rec.get("type"))
 
@@ -460,7 +459,6 @@ def _render_card(rec):
         f'<span class="metric-item">👥 <strong>{visitor_str}</strong></span>'
         f'<span class="metric-item">📊 <strong>{daily_str}</strong></span>'
         f'<span class="metric-item">💰 <strong>{budget_str}</strong></span>'
-        f'<span class="metric-item">💵 <strong>{revenue_str}</strong></span>'
         '</div>'
     )
 
