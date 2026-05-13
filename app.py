@@ -249,12 +249,12 @@ st.markdown("""
        v5.2 컴팩트 레이아웃 — 광역 모니터 가독성
        ═══════════════════════════════════════════════ */
 
-    /* 메인 콘텐츠 최대 너비 제한 (1920px 모니터 대응)
-       GPT v4.1의 max-width 1320px 차용, 약간 더 타이트하게 1280px */
+    /* 메인 콘텐츠 최대 너비 (1920px 모니터 최적화)
+       1280 → 1600px로 확장. 좌측 sidebar 240px + 메인 1600 = 1840, 우측 80px 여백 */
     .block-container,
     [data-testid="stMainBlockContainer"],
     [data-testid="block-container"] {
-        max-width: 1280px !important;
+        max-width: 1600px !important;
         padding-top: 2.5rem !important;   /* Streamlit 헤더(60px) 여유 + 자체 마진 */
         padding-bottom: 3rem !important;
         padding-left: 2rem !important;
@@ -345,14 +345,19 @@ st.markdown("""
         padding: 0 14px !important;
     }
 
-    /* 사이드바 폭 고정 — Streamlit 기본 ~290px에서 10% 축소 = 261px */
+    /* 사이드바 폭 고정 — 240px (사용자 요청) */
     section[data-testid="stSidebar"] {
-        min-width: 261px !important;
-        max-width: 261px !important;
-        width: 261px !important;
+        min-width: 240px !important;
+        max-width: 240px !important;
+        width: 240px !important;
     }
     section[data-testid="stSidebar"] > div:first-child {
-        width: 261px !important;
+        width: 240px !important;
+    }
+
+    /* 사이드바 버튼 살짝 컴팩트 (좁아진 폭에 맞춤) */
+    section[data-testid="stSidebar"] .stButton button {
+        font-size: 12.5px !important;
     }
 
     /* ═══════════════════════════════════════════════

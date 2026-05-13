@@ -128,7 +128,7 @@ def render_sample_button():
     with st.sidebar:
         st.divider()
         st.caption("🧪 테스트 도구")
-        if st.button("샘플 데이터 채우기", use_container_width=True,
+        if st.button("샘플 채우기", use_container_width=True,
                      help="(가)하이퍼 옐로우 데이터로 모든 필드를 채웁니다. 자동으로 상세 작업 모드로 진입합니다."):
             # 기존 JSON 로드와 동일한 메커니즘 사용 (위젯 키 충돌 회피)
             st.session_state["_pending_json"] = {k: v for k, v in SAMPLE_DATA.items()}
