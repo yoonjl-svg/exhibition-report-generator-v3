@@ -330,69 +330,130 @@ def _apply_filters(records):
 # ──────────────────────────────────────────────
 
 def _render_list(records):
+    """전시 목록 — 연도별 그룹화 + 3열 그리드 (최신 연도부터)."""
+    # 연도별 그룹화
+    by_year = {}
+    no_year = []
     for rec in records:
-        _render_card(rec)
+        ps = (rec.get("data", {}).get("period_start") or "")
+        year = ps[:4] if len(ps) >= 4 else None
+        if year:
+            by_year.setdefault(year, []).append(rec)
+        else:
+            no_year.append(rec)
+
+    # 연도 내림차순 (최신부터)
+    for year in sorted(by_year.keys(), reverse=True):
+        _render_year_header(year, len(by_year[year]))
+        _render_year_grid(by_year[year])
+
+    # 연도 미상
+    if no_year:
+        _render_year_header("미상", len(no_year))
+        _render_year_grid(no_year)
+
+
+def _render_year_header(year_str: str, count: int):
+    """연도 헤더 — eyebrow + 큰 연도 + 카운트."""
+    label = f"{year_str}년" if year_str != "미상" else year_str
+    st.markdown(
+        f'<div class="year-header">'
+        f'<div class="eyebrow">YEAR · {year_str}</div>'
+        f'<div>'
+        f'<span class="year-label">{label}</span>'
+        f'<span class="year-count">· {count}건</span>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_year_grid(records):
+    """해당 연도의 전시들을 3열 그리드로 배치. 마지막 행이 3개 미만이면 빈 컬럼은 그대로."""
+    for i in range(0, len(records), 3):
+        chunk = records[i:i + 3]
+        cols = st.columns(3, gap="medium")
+        for col, rec in zip(cols, chunk):
+            with col:
+                _render_card(rec)
+
+
+def _fmt_money(v) -> str:
+    """예산·수입 한국식 포맷."""
+    if not v:
+        return "—"
+    v = int(v)
+    if v >= 100_000_000:
+        return f"{v / 100_000_000:.2f}억"
+    if v >= 10_000_000:
+        return f"{v / 10_000:,.0f}만"
+    return f"{v:,}원"
 
 
 def _render_card(rec):
-    """미술관 톤 전시 카드. eyebrow + 제목 + chips + 핵심 수치 + 편집 버튼."""
+    """미술관 톤 전시 카드 (3열 그리드 좁은 너비용).
+
+    구성:
+      - eyebrow: 연도 · 상태
+      - 제목 (《》)
+      - 기간 (YYYY-MM-DD ~ YYYY-MM-DD)
+      - 상태·유형 chips
+      - 4개 핵심 지표 (총 관객 / 일평균 관객 / 총 예산 / 총 수입)
+      - 편집 버튼
+    """
+    from datetime import date as _date
+
     data = rec.get("data", {})
     title = data.get("exhibition_title") or "(제목없음)"
     ps = data.get("period_start") or "—"
     pe = data.get("period_end") or "—"
-
-    # eyebrow: 연도 · 상태 라벨
-    year = (ps or "")[:4] or "—"
     status = rec.get("status", "draft")
     status_label = STATUS_LABELS.get(status, status)
+    year = (ps or "")[:4] or "—"
 
     # 핵심 수치
     tv = data.get("total_visitors") or 0
     tb = data.get("total_budget") or 0
-    pc = data.get("press_count") or 0
-    pp = data.get("program_participants") or 0
+    tr = data.get("total_revenue") or 0
 
+    # 일평균 관객 (파생)
+    daily = None
+    if tv and ps and pe and ps != "—" and pe != "—":
+        try:
+            s = _date.fromisoformat(ps)
+            e = _date.fromisoformat(pe)
+            days = (e - s).days + 1
+            if days > 0:
+                daily = int(tv / days)
+        except (ValueError, TypeError):
+            pass
+
+    # 포맷
     visitor_str = f"{tv:,}명" if tv else "—"
-    if tb >= 100_000_000:
-        budget_str = f"{tb / 100_000_000:.2f}억"
-    elif tb >= 10_000_000:
-        budget_str = f"{tb / 10_000:,.0f}만"
-    elif tb > 0:
-        budget_str = f"{tb:,}원"
-    else:
-        budget_str = "—"
-    press_str = f"{pc}건" if pc else "—"
-    program_str = f"{pp:,}명" if pp else "—"
-
-    artists = data.get("artists") or ""
-    artists_short = artists[:60] + "…" if len(artists) > 60 else artists
+    daily_str = f"{daily:,}명" if daily else "—"
+    budget_str = _fmt_money(tb)
+    revenue_str = _fmt_money(tr)
 
     chips_html = status_chip(status) + " " + type_chip(rec.get("type"))
 
     metrics_html = (
-        f'<div class="exhibition-card-metrics">'
-        f'<span class="metric-item">👥 <strong>{visitor_str}</strong></span>'
-        f'<span class="metric-item">💰 <strong>{budget_str}</strong></span>'
-        f'<span class="metric-item">📰 <strong>{press_str}</strong></span>'
-        f'<span class="metric-item">🎯 <strong>{program_str}</strong></span>'
-        f'</div>'
+        '<div class="card-metrics-v">'
+        f'<div class="row"><span class="label">👥 총 관객</span><strong>{visitor_str}</strong></div>'
+        f'<div class="row"><span class="label">📊 일평균 관객</span><strong>{daily_str}</strong></div>'
+        f'<div class="row"><span class="label">💰 총 예산</span><strong>{budget_str}</strong></div>'
+        f'<div class="row"><span class="label">💵 총 수입</span><strong>{revenue_str}</strong></div>'
+        '</div>'
     )
 
     with st.container(border=True):
-        col_main, col_action = st.columns([6, 1])
-        with col_main:
-            st.markdown(
-                f'<div class="eyebrow">{year} · {status_label}</div>'
-                f'<div class="exhibition-card-title">《{title}》</div>'
-                f'<div class="exhibition-card-meta">{ps} ~ {pe}'
-                + (f' · {artists_short}' if artists_short else '')
-                + f'</div>'
-                f'<div style="margin: 6px 0;">{chips_html}</div>'
-                f'{metrics_html}',
-                unsafe_allow_html=True,
-            )
-        with col_action:
-            st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
-            if st.button("편집 →", key=f"ws_edit_{rec['id']}", use_container_width=True):
-                kb_session.enter_detail_mode(record=rec)
-                st.rerun()
+        st.markdown(
+            f'<div class="eyebrow">{year} · {status_label}</div>'
+            f'<div class="exhibition-card-title">《{title}》</div>'
+            f'<div class="exhibition-card-meta">{ps} ~ {pe}</div>'
+            f'<div style="margin: 6px 0;">{chips_html}</div>'
+            f'{metrics_html}',
+            unsafe_allow_html=True,
+        )
+        if st.button("편집 →", key=f"ws_edit_{rec['id']}", use_container_width=True):
+            kb_session.enter_detail_mode(record=rec)
+            st.rerun()

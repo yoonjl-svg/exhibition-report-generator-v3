@@ -166,6 +166,44 @@ st.markdown("""
         color: var(--ink);
         font-weight: 600;
     }
+    /* 3열 그리드 좁은 카드용 — 세로 정렬 메트릭 */
+    .card-metrics-v {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-top: 10px;
+        font-size: 12.5px;
+    }
+    .card-metrics-v .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+    }
+    .card-metrics-v .row .label {
+        color: var(--muted);
+    }
+    .card-metrics-v .row strong {
+        color: var(--ink);
+        font-weight: 600;
+    }
+    /* 연도 헤더 (워크스페이스 목록) */
+    .year-header {
+        margin: 24px 0 12px 0;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--line);
+    }
+    .year-header .year-label {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--ink);
+        letter-spacing: -0.2px;
+    }
+    .year-header .year-count {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 500;
+        margin-left: 8px;
+    }
 
     /* === 기존 인사이트 카드 (분석 탭) — 미술관 톤 적용 === */
     .insight-card {
