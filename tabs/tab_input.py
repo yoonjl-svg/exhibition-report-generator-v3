@@ -75,9 +75,20 @@ def _section_divider():
 
 
 # ──────────────────────────────────────────────
-# 가져오기 (워크스페이스와 동일 규격: 6시트 Excel + v3/v5 JSON)
-# 차이는 적용 대상: 워크스페이스 = 새 전시 생성, 본 탭 = 현재 전시에 덮어쓰기
+# 가져오기 (워크스페이스와 동일 모달 다이얼로그)
+# 동일: 모달 형식, Excel/JSON 2탭, 6시트 템플릿, 파서
+# 차이: 적용 대상 — 워크스페이스 = 새 전시, 본 탭 = 현재 전시에 덮어쓰기
 # ──────────────────────────────────────────────
+
+@st.dialog("가져오기")
+def _show_data_import_modal():
+    """워크스페이스 _show_import_modal과 동일 구조의 모달."""
+    import_tabs = st.tabs(["Excel 템플릿", "JSON 파일"])
+    with import_tabs[0]:
+        _render_excel_import()
+    with import_tabs[1]:
+        _render_json_import()
+
 
 def _show_import_warnings_if_any():
     """이전 import 경고가 있으면 표시 후 소거."""
@@ -171,19 +182,14 @@ def _render_json_import():
 def render(tab):
     with tab:
         # ────────────────────────────────────────
-        # 0. 상단 — 가져오기 (워크스페이스와 동일 규격·방식)
+        # 0. 상단 — 가져오기 (워크스페이스와 동일 모달 다이얼로그)
         # ────────────────────────────────────────
-        with st.expander("📥 가져오기 (Excel · JSON)", expanded=False):
-            st.caption(
-                "워크스페이스의 '가져오기'와 동일한 6시트 표준 템플릿을 사용합니다. "
-                "여기서 업로드하면 **현재 편집 중인 전시에 즉시 적용**됩니다 (기존 입력은 덮어씁니다)."
-            )
-            _show_import_warnings_if_any()
-            import_tabs = st.tabs(["Excel 템플릿", "JSON 파일"])
-            with import_tabs[0]:
-                _render_excel_import()
-            with import_tabs[1]:
-                _render_json_import()
+        _show_import_warnings_if_any()
+        ib, _ = st.columns([1, 9])
+        with ib:
+            if st.button("가져오기", key="data_import_btn",
+                         use_container_width=True):
+                _show_data_import_modal()
 
         _section_divider()
 
