@@ -428,7 +428,7 @@ st.markdown("""
     /* 사이드바 브랜드(전시 워크스페이스) — 본문 첫 텍스트와 수직 정렬.
        수동 보정: negative margin-top으로 추가 끌어올림. */
     .sidebar-brand {
-        margin-top: -1.25rem !important;
+        margin-top: -1.3rem !important;
         font-size: 20px !important;
         margin-bottom: 16px !important;
         line-height: 1.2;
