@@ -214,6 +214,15 @@ def _generate_report(api_key=None, load_ref=None):
             )
         except Exception:
             data["summary_metrics"] = []
+            ref_df_for_summary = None
+
+        # ── 시각화 페이로드(롤리팝·재정패널) 구성 (v5.3.61) ──
+        try:
+            data["viz"] = _build_viz_payload(
+                s, data["summary_metrics"], ref_df_for_summary,
+                s.get("exhibition_type", None))
+        except Exception:
+            data["viz"] = {}
 
         # ── LLM 분석 글쓰기 ──
         if api_key:
@@ -383,6 +392,55 @@ def _render_preview_and_edit():
             for key, _label in section_order:
                 st.session_state.pop(f"preview_edit_{key}", None)
             st.rerun()
+
+
+def _build_viz_payload(s, summary_metrics, ref_df, exhibition_type):
+    """롤리팝·재정패널용 시각화 데이터 구성.
+
+    - lollipop: summary_metrics에서 (현재/기준×100) 비율 행 생성
+    - financial: 총예산·총수입·집행률·관객당비용의 이번/기준 쌍
+    """
+    import pandas as _pd
+    import numpy as _np
+
+    # 롤리팝 행
+    lolli = []
+    by_label = {}
+    for m in (summary_metrics or []):
+        by_label[m["label"]] = m
+        cur, ref = m.get("current"), m.get("reference_avg")
+        if cur is not None and ref:
+            lolli.append({
+                "label": m["label"],
+                "current_fmt": m.get("current_fmt", ""),
+                "reference_fmt": m.get("reference_avg_fmt", ""),
+                "ratio": cur / ref * 100,
+            })
+
+    # 재정 패널
+    def _avg(col):
+        if ref_df is None or col not in getattr(ref_df, "columns", []):
+            return None
+        ser = _pd.to_numeric(ref_df[col], errors="coerce").dropna()
+        return float(ser.mean()) if len(ser) >= 2 else None
+
+    budget_m = by_label.get("총 사용 예산", {})
+    cost_m = by_label.get("관객당 비용", {})
+    exec_cur = (s.total_budget / s.budget_planned * 100) \
+        if (s.total_budget and s.budget_planned) else None
+
+    # 예산 집행률 기준 평균 — 레퍼런스가 비율(1.10)로 저장된 경우 퍼센트로 정규화
+    exec_ref = _avg("예산 집행률")
+    if exec_ref is not None and exec_ref < 5:
+        exec_ref *= 100
+
+    financial = {
+        "budget": {"current": budget_m.get("current"), "ref": budget_m.get("reference_avg")},
+        "revenue": {"current": s.total_revenue or None, "ref": _avg("총수입")},
+        "exec_rate": {"current": exec_cur, "ref": exec_ref},
+        "cost": {"current": cost_m.get("current"), "ref": cost_m.get("reference_avg")},
+    }
+    return {"lollipop": lolli, "financial": financial}
 
 
 def _build_reference_points(load_ref):

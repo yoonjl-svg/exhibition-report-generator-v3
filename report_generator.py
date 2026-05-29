@@ -30,6 +30,8 @@ from chart_generator import (
     create_budget_structure_chart,
     create_efficiency_scatter_chart,
     create_trend_chart,
+    create_keymetrics_lollipop,
+    create_financial_panel,
 )
 
 
@@ -571,11 +573,33 @@ class ExhibitionReportGenerator:
     def _section_6_evaluation(self):
         add_section_title(self.doc, "VI", "Executive Summary")
 
-        # 1. 핵심 수치 종합표 (v4 단계 2)
-        self._insert_summary_metrics_table()
+        viz = self.data.get("viz", {})
 
-        # 2. 종합 의견 (LLM, v4 단계 5a)
-        add_subsection_title(self.doc, "2", "종합 의견")
+        # 1. 기준 대비 핵심 지표 (롤리팝) — 없으면 종합표로 폴백
+        lolli = viz.get("lollipop")
+        lolli_chart = create_keymetrics_lollipop(lolli, title="기준 대비 핵심 지표") if lolli else None
+        if lolli_chart:
+            self.temp_files.append(lolli_chart)
+            add_subsection_title(self.doc, "1", "기준 대비 핵심 지표")
+            add_paragraph(
+                self.doc,
+                "(비교 기준 평균을 100으로 환산해 단위가 다른 지표를 한 화면에서 비교. "
+                "점이 본 전시 위치. 기준 위=녹색, 아래=테라코타. 평가가 아닌 위치 표시.)",
+                size=Fonts.CAPTION, color=Colors.MEDIUM_GRAY, space_after=Pt(4))
+            add_image(self.doc, lolli_chart, is_chart=True)
+        else:
+            self._insert_summary_metrics_table()
+
+        # 2. 재정 지표 구조 (멀티패널)
+        fin = viz.get("financial")
+        fin_chart = create_financial_panel(fin, title="재정 지표 구조") if fin else None
+        if fin_chart:
+            self.temp_files.append(fin_chart)
+            add_subsection_title(self.doc, "2", "재정 지표 구조")
+            add_image(self.doc, fin_chart, is_chart=True)
+
+        # 3. 종합 의견 (LLM, v4 단계 5a)
+        add_subsection_title(self.doc, "3", "종합 의견")
         self._insert_section_insights("evaluation")
 
         # 3. 관객 반응 종합 (LLM, v4 단계 6) — 후기가 있을 때만 자동 표시
@@ -590,7 +614,7 @@ class ExhibitionReportGenerator:
                 title="유사 전시 비교 (정규화 0~1 기준)",
             )
             if chart_path:
-                add_subsection_title(self.doc, "4", "유사 전시 비교")
+                add_subsection_title(self.doc, "5", "유사 전시 비교")
                 add_paragraph(
                     self.doc,
                     "(축별 최댓값을 1로 정규화하여 다른 스케일의 지표를 한 그래프에서 비교. 본 전시 막대 위에 실제 수치 표기)",
@@ -609,7 +633,7 @@ class ExhibitionReportGenerator:
                 title="예산 대비 관객 (역대 전시 분포)")
             if scatter:
                 self.temp_files.append(scatter)
-                add_subsection_title(self.doc, "5", "역대 전시 대비 위치")
+                add_subsection_title(self.doc, "6", "역대 전시 대비 위치")
                 add_paragraph(
                     self.doc,
                     "(역대 전시를 예산·관객 평면에 배치하고 본 전시를 강조 표시. "
@@ -679,7 +703,7 @@ class ExhibitionReportGenerator:
         if not llm_audience:
             return
 
-        add_subsection_title(self.doc, "3", "관객 반응 종합")
+        add_subsection_title(self.doc, "4", "관객 반응 종합")
         for para_text in llm_audience.split("\n\n"):
             para_text = para_text.strip()
             if para_text:

@@ -442,6 +442,195 @@ def create_similar_bar_chart(current_data, similar_rows, field_labels=None,
 
 
 # ──────────────────────────────────────────────
+# 차트 공통 스타일 상수 (v5.3.61) — 도판 전반의 타이포·여백 일관성
+# ──────────────────────────────────────────────
+
+CH_TITLE = 14      # 도판 제목
+CH_LABEL = 11      # 축·항목 라벨(굵게)
+CH_VALUE = 11      # 강조 수치
+CH_CAPTION = 9     # 보조 캡션(흐린 회색)
+CH_TICK = 9        # 축 눈금
+
+
+def _fp(size=None, bold=False):
+    """폰트 속성 사본 반환(크기·굵기 적용). 한글 폰트 우선."""
+    base = get_font_prop()
+    if base is None:
+        return None
+    import copy
+    fp = copy.copy(base)
+    if size:
+        fp.set_size(size)
+    if bold:
+        fp.set_weight('bold')
+    return fp
+
+
+def _eok_man(v):
+    """원 단위 → '2.10억' / '1,400만' 표시."""
+    v = v or 0
+    if v >= 1e8:
+        return f"{v/1e8:.2f}억"
+    if v >= 1e4:
+        return f"{v/1e4:,.0f}만"
+    return f"{v:,.0f}원"
+
+
+# ──────────────────────────────────────────────
+# 롤리팝(점-막대): 기준 대비 핵심 지표 (v5.3.61 신규)
+# ──────────────────────────────────────────────
+
+def create_keymetrics_lollipop(rows, title="기준 대비 핵심 지표", output_path=None):
+    """기준(=100) 대비 핵심 지표를 롤리팝(가는 트랙+점)으로 표현.
+
+    rows: [{"label", "current_fmt", "reference_fmt", "ratio"(float, 기준=100)}]
+    기준 위(>=100)=녹색, 아래(<100)=테라코타. 평가 의미 없이 '평균 대비 위치'.
+    """
+    rows = [r for r in rows if r.get("ratio") is not None]
+    if len(rows) < 2:
+        return None
+    if output_path is None:
+        output_path = tempfile.mktemp(suffix='.png')
+
+    n = len(rows)
+    fig, ax = plt.subplots(figsize=(9, 0.62 * n + 1.1))
+
+    ratios = [r["ratio"] for r in rows]
+    xmax = max(160, max(ratios) * 1.08)
+    ys = list(range(n))[::-1]  # 위에서 아래로
+
+    for y, r in zip(ys, rows):
+        val = r["ratio"]
+        color = C_ACCENT if val >= 100 else C_ACCENT2
+        # 트랙(전체 0~xmax 연한 배경 선)
+        ax.plot([0, xmax], [y, y], color="#eef1ec", linewidth=5,
+                solid_capstyle='round', zorder=1)
+        # 기준(100)에서 값까지 강조 세그먼트
+        ax.plot([100, val], [y, y], color=color, linewidth=5,
+                solid_capstyle='round', zorder=2)
+        ax.scatter([val], [y], s=90, color=color, zorder=3,
+                   edgecolor='white', linewidth=1.2)
+        # 값 라벨(점 위)
+        ax.text(val, y + 0.28, f"{val:.0f}", ha='center', va='bottom',
+                fontproperties=_fp(CH_VALUE, bold=True), color=color)
+
+    # 기준선(100) 점선
+    ax.axvline(100, color="#9aa39a", linestyle='--', linewidth=1.1, zorder=1)
+
+    # 좌측 거터: 항목명(굵게) + 캡션(현재 / 기준)
+    ax.set_yticks(ys)
+    ax.set_yticklabels([r["label"] for r in rows])
+    for tick, r in zip(ax.get_yticklabels(), rows):
+        tick.set_fontproperties(_fp(CH_LABEL, bold=True))
+        tick.set_color(C_INK)
+    # 캡션은 각 라벨 아래에 별도 텍스트(축 바깥)
+    for y, r in zip(ys, rows):
+        cap = f"{r.get('current_fmt','')} / 기준 {r.get('reference_fmt','')}"
+        ax.annotate(cap, xy=(0, y), xycoords=('axes fraction', 'data'),
+                    xytext=(-12, -11), textcoords='offset points',
+                    ha='right', va='center',
+                    fontproperties=_fp(CH_CAPTION), color="#7a827a")
+
+    ax.set_xlim(0, xmax)
+    ax.set_ylim(-0.6, n - 0.4)
+    ax.set_xticks([0, 100, round(xmax)])
+    ax.set_xticklabels(["0", "100", f"{round(xmax)}"])
+    for lbl in ax.get_xticklabels():
+        lbl.set_fontproperties(_fp(CH_TICK)); lbl.set_color("#7a827a")
+    ax.xaxis.set_ticks_position('top')
+    ax.tick_params(axis='y', length=0)
+    ax.tick_params(axis='x', length=0)
+    for sp in ('top', 'right', 'bottom', 'left'):
+        ax.spines[sp].set_visible(False)
+    ax.set_title(title, fontproperties=_fp(CH_TITLE, bold=True), color=C_INK,
+                 pad=18, loc='left')
+
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return output_path
+
+
+# ──────────────────────────────────────────────
+# 재정 지표 멀티패널 (v5.3.61 신규)
+# ──────────────────────────────────────────────
+
+def create_financial_panel(fin, title="재정 지표 구조", output_path=None):
+    """재정 지표를 2x2 멀티패널로: 총예산·총수입(미니 막대), 집행률·관객당비용(진행 막대).
+
+    fin = {
+      "budget":  {"current": 원, "ref": 원},
+      "revenue": {"current": 원, "ref": 원},
+      "exec_rate": {"current": %, "ref": %},
+      "cost":    {"current": 원, "ref": 원},
+    }
+    """
+    if not fin:
+        return None
+    if output_path is None:
+        output_path = tempfile.mktemp(suffix='.png')
+
+    fig, axes = plt.subplots(2, 2, figsize=(9, 4.6))
+    fig.subplots_adjust(hspace=0.7, wspace=0.35)
+
+    def mini_bar(ax, sub_title, cur, ref, fmt):
+        ax.set_title(sub_title, fontproperties=_fp(11, bold=True), color=C_INK,
+                     loc='left', pad=8)
+        vals = [cur or 0, ref or 0]
+        bars = ax.bar([0, 1], vals, width=0.55,
+                      color=[C_ACCENT, "#c7cdc2"], edgecolor='white')
+        for b, v in zip(bars, vals):
+            ax.text(b.get_x() + b.get_width()/2, v, fmt(v), ha='center',
+                    va='bottom', fontproperties=_fp(CH_CAPTION, bold=True),
+                    color=C_INK)
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(["이번", "기준"], fontproperties=_fp(CH_TICK),
+                           color="#7a827a")
+        ax.set_ylim(0, max(vals) * 1.25 if max(vals) > 0 else 1)
+        ax.set_yticks([])
+        for sp in ('top', 'right', 'left'):
+            ax.spines[sp].set_visible(False)
+        ax.tick_params(length=0)
+
+    def progress(ax, sub_title, cur, ref, fmt):
+        ax.set_title(sub_title, fontproperties=_fp(11, bold=True), color=C_INK,
+                     loc='left', pad=8)
+        scale = max(cur or 0, ref or 0) * 1.15 or 1
+        ax.barh([0], [scale], color="#eef1ec", height=0.4, zorder=1)
+        ax.barh([0], [cur or 0], color=C_ACCENT, height=0.4, zorder=2)
+        if ref:
+            # 기준 점선은 막대 높이로만 제한 (캡션과 겹침 방지)
+            ax.plot([ref, ref], [-0.26, 0.26], color=C_INK, linestyle='--',
+                    linewidth=1.2, zorder=3)
+        ax.text(0, -0.5, f"이번 {fmt(cur)}", ha='left', va='top',
+                fontproperties=_fp(CH_CAPTION), color=C_ACCENT)
+        ax.text(scale, -0.5, f"기준 {fmt(ref)}", ha='right', va='top',
+                fontproperties=_fp(CH_CAPTION), color="#7a827a")
+        ax.set_xlim(0, scale)
+        ax.set_ylim(-1, 0.5)
+        ax.set_xticks([]); ax.set_yticks([])
+        for sp in ('top', 'right', 'left', 'bottom'):
+            ax.spines[sp].set_visible(False)
+
+    won = _eok_man
+    pct = lambda v: f"{v:.1f}%" if v else "—"
+    won_per = lambda v: f"{v:,.0f}원/명" if v else "—"
+
+    b, r = fin.get("budget", {}), fin.get("revenue", {})
+    e, c = fin.get("exec_rate", {}), fin.get("cost", {})
+    mini_bar(axes[0][0], "총 사용 예산", b.get("current"), b.get("ref"), won)
+    mini_bar(axes[0][1], "총 수입", r.get("current"), r.get("ref"), won)
+    progress(axes[1][0], "예산 집행률", e.get("current"), e.get("ref"), pct)
+    progress(axes[1][1], "관객당 비용", c.get("current"), c.get("ref"), won_per)
+
+    fig.suptitle(title, fontproperties=_fp(CH_TITLE, bold=True), color=C_INK,
+                 x=0.02, ha='left', y=1.02)
+    fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return output_path
+
+
+# ──────────────────────────────────────────────
 # 도넛: 출품 매체 구성 (v5.3.60 신규)
 # ──────────────────────────────────────────────
 
