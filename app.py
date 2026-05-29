@@ -378,17 +378,37 @@ st.markdown("""
        date_input의 달력 아이콘이 잘리거나 겹치지 않음.
        높이는 고정(height) 대신 min-height만 — 고정 높이가 날짜칸 내용을
        짓눌러 겹침을 유발했음. */
-    .stTextInput div[data-baseweb="base-input"],
-    .stNumberInput div[data-baseweb="base-input"],
-    .stDateInput div[data-baseweb="base-input"],
-    .stTextArea div[data-baseweb="base-input"],
+    /* 텍스트/숫자/날짜: 바깥 [data-baseweb="input"]에만 테두리.
+       (DOM 확인 결과 input(40px)·base-input(38px)에 둘 다 테두리가 들어가
+        '박스 안 박스' 이중 테두리 → 두께 편차로 보였음) */
     .stTextInput div[data-baseweb="input"],
     .stNumberInput div[data-baseweb="input"],
     .stDateInput div[data-baseweb="input"] {
         border: 1px solid var(--line) !important;
         border-radius: 6px !important;
         background: var(--surface) !important;
-        min-height: 36px !important;
+        min-height: 38px !important;
+        height: 38px !important;       /* 얇은 쪽으로 정확히 통일 (text 40→38) */
+    }
+    /* selectbox 높이도 38px로 동일하게 (기본 40 → 38) */
+    .stSelectbox div[data-baseweb="select"],
+    .stSelectbox div[data-baseweb="select"] > div:first-child,
+    .stSelectbox > div > div {
+        min-height: 38px !important;
+        height: 38px !important;
+    }
+    /* 안쪽 base-input 테두리·배경 제거 — 이중 테두리 제거 */
+    .stTextInput div[data-baseweb="base-input"],
+    .stNumberInput div[data-baseweb="base-input"],
+    .stDateInput div[data-baseweb="base-input"] {
+        border: none !important;
+        background: transparent !important;
+    }
+    /* textarea는 base-input이 바깥(테두리) 컨테이너 */
+    .stTextArea div[data-baseweb="base-input"] {
+        border: 1px solid var(--line) !important;
+        border-radius: 6px !important;
+        background: var(--surface) !important;
     }
     .stTextInput input,
     .stNumberInput input,
