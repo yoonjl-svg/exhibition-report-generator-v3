@@ -42,6 +42,8 @@ class Insight:
     total_count: Optional[int] = None
     priority: int = 2
     selected: bool = True
+    unit: str = ""          # 근거 표시용 단위 ("원", "명", "건", "개", "%")
+    is_ratio: bool = False  # True면 current/reference가 0~1 분수 → 표시 시 ×100 %
 
 
 @dataclass
@@ -141,6 +143,7 @@ def _make_insight(
         metric_name=metric_name, current_value=current_val,
         reference_avg=avg, percentile=pct, rank=rank,
         total_count=stats.count, priority=priority,
+        unit=unit,
     )
 
 
@@ -228,6 +231,7 @@ def _analyze_visitors(cur, df, gl="역대"):
                 text=f"유료 관객 비율은 {ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%) 대비 {abs(ratio-avg_r)*100:.1f}%p {'높음' if ratio > avg_r else '낮음'}.",
                 metric_name="유료 관객 비율", current_value=ratio, reference_avg=avg_r,
                 priority=_compute_salience((ratio - avg_r) / abs(avg_r) * 100 if avg_r else None),
+                is_ratio=True,
             ))
 
     # 학생 관객 비율 (신규)
@@ -274,7 +278,7 @@ def _analyze_budget(cur, df, gl="역대"):
                 text=f"관객당 비용은 {format_number(cost, '원')}으로, {gl} 평균({format_number(avg_c, '원')}) 대비 {abs(diff):.1f}% {_direction_verb(diff)} ({_quality_word(diff, False)} 수준).",
                 metric_name="관객당 비용", current_value=cost, reference_avg=avg_c,
                 priority=_compute_salience(diff, rank),
-                rank=rank,
+                rank=rank, total_count=len(valid), unit="원",
             ))
 
     # 예산 구조 분석 (신규: 전시비/부대비 비율)
@@ -296,6 +300,7 @@ def _analyze_budget(cur, df, gl="역대"):
                     text=f"전시비 비율은 {exh_ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%)과 비교됨. {'전시 직접비에 집중 투자한' if exh_ratio > avg_r else '부대 사업에 상대적으로 많이 배분한'} 구조임.",
                     metric_name="전시비 비율", current_value=exh_ratio, reference_avg=avg_r,
                     priority=_compute_salience((exh_ratio - avg_r) / abs(avg_r) * 100 if avg_r else None),
+                    is_ratio=True,
                 ))
 
     # 수입/예산 비율
@@ -310,6 +315,7 @@ def _analyze_budget(cur, df, gl="역대"):
                 text=f"예산 대비 수입 비율은 {ratio*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%)을 {'상회함' if ratio > avg_r else '하회함'}.",
                 metric_name="예산 회수율", current_value=ratio, reference_avg=avg_r,
                 priority=_compute_salience((ratio - avg_r) / abs(avg_r) * 100 if avg_r else None),
+                is_ratio=True,
             ))
 
     return insights
@@ -342,6 +348,7 @@ def _analyze_programs(cur, df, gl="역대"):
                 text=f"프로그램 참여율(참여인원/총관객)은 {rate*100:.1f}%로, {gl} 평균({avg_r*100:.1f}%) 대비 {abs(rate-avg_r)*100:.1f}%p {'높음' if rate > avg_r else '낮음'}.",
                 metric_name="프로그램 참여율", current_value=rate, reference_avg=avg_r,
                 priority=_compute_salience((rate - avg_r) / abs(avg_r) * 100 if avg_r else None),
+                is_ratio=True,
             ))
 
     return insights
@@ -405,6 +412,7 @@ def _analyze_artworks(cur, df, gl="역대"):
                     text=text, metric_name="매체별 작품 구성",
                     current_value=dominant_pct, reference_avg=ref_dominant_pct,
                     priority=_compute_salience(media_diff),
+                    unit="%",
                 ))
 
     return insights
@@ -431,7 +439,7 @@ def _analyze_promotion(cur, df, gl="역대"):
                 category="홍보", section="promotion", title="보도건당 관객",
                 text=f"보도 1건당 관객은 {format_number(vpc, '명')}으로, {gl} 평균({format_number(avg, '명')}) 대비 {abs(diff):.1f}% {_direction_verb(diff)}.",
                 metric_name="보도건당 관객", current_value=vpc, reference_avg=avg,
-                priority=_compute_salience(diff),
+                priority=_compute_salience(diff), total_count=len(valid), unit="명",
             ))
 
     v = cur.get("SNS 게시 건수")
@@ -465,7 +473,7 @@ def _analyze_staff(cur, df, gl="역대"):
                     category="인력", section="composition", title="인력당 관객",
                     text=f"운영인력 1인당 관객은 {format_number(v_per_staff, '명')}으로, {gl} 평균({format_number(avg, '명')}) 대비 {abs(diff):.1f}% {_direction_verb(diff)}.",
                     metric_name="인력당 관객", current_value=v_per_staff, reference_avg=avg,
-                    priority=_compute_salience(diff),
+                    priority=_compute_salience(diff), total_count=len(valid), unit="명",
                 ))
 
     return insights
@@ -498,15 +506,17 @@ def _analyze_cross(cur, df, gl="역대"):
                 insights.append(Insight(
                     category="교차분석", section="evaluation", title="예산 대비 관객 효율",
                     text=f"총 사용 예산은 {gl} 평균 대비 {abs(b_diff):.0f}% 낮았으나, 총 관객수는 오히려 {abs(v_diff):.0f}% 높아 관객당 비용 {format_number(cost, '원')}으로 매우 효율적인 운영을 보임 (기존 전시 중 {c_rank}위).",
-                    metric_name="예산-관객 효율", current_value=cost,
-                    priority=1,  # 교차분석 핵심: 항상 우선
+                    metric_name="관객당 비용", current_value=cost, reference_avg=c_stats.mean,
+                    rank=c_rank, total_count=c_stats.count,
+                    priority=1, unit="원",  # 교차분석 핵심: 항상 우선
                 ))
             elif b_diff > 10 and v_diff < -5:
                 insights.append(Insight(
                     category="교차분석", section="evaluation", title="예산 대비 관객 효율",
                     text=f"총 사용 예산은 {gl} 평균 대비 {abs(b_diff):.0f}% 높았으나, 총 관객수는 {abs(v_diff):.0f}% 낮아 관객당 비용이 {format_number(cost, '원')}에 달함. 향후 예산 효율 개선이 필요함.",
-                    metric_name="예산-관객 비효율", current_value=cost,
-                    priority=1,  # 교차분석 핵심: 항상 우선
+                    metric_name="관객당 비용", current_value=cost, reference_avg=c_stats.mean,
+                    rank=c_rank, total_count=c_stats.count,
+                    priority=1, unit="원",  # 교차분석 핵심: 항상 우선
                 ))
 
     # 홍보 vs 관객
@@ -532,7 +542,7 @@ def _analyze_cross(cur, df, gl="역대"):
                     category="교차분석", section="evaluation", title="예산 회수율 초과",
                     text=f"총수입({format_number(revenue, '원')})이 총예산({format_number(budget, '원')})을 초과하여 예산 회수율 {recovery*100:.1f}%를 달성함 ({gl} 평균 {avg_r*100:.1f}%).",
                     metric_name="예산 회수율", current_value=recovery, reference_avg=avg_r,
-                    priority=1,  # 교차분석: 예산 초과 회수는 항상 핵심
+                    priority=1, is_ratio=True,  # 교차분석: 예산 초과 회수는 항상 핵심
                 ))
 
     return insights
