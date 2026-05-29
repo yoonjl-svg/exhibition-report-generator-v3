@@ -21,10 +21,8 @@ from styles import (
     Colors, Fonts, CIRCLED_NUMBERS, ImageSize,
 )
 from chart_generator import (
-    create_visitor_pie_chart,
     create_weekly_visitors_chart,
     create_media_composition_chart,
-    create_comparison_bar,
 )
 
 
@@ -536,37 +534,34 @@ class ExhibitionReportGenerator:
             add_paragraph(self.doc, note, size=Fonts.BODY, space_after=Pt(6),
                           line_spacing=1.5, first_line_indent=Cm(0.5))
 
-        # ── 입장권별 관객 구성 (도넛, 구성) ──
+        # ── 입장권별 구성 + 유료/무료 비율 (자기완결 도넛 2개, 한 줄) ──
         ticket_type = vc.get("ticket_type", {})
         if ticket_type:
-            chart_path = create_visitor_pie_chart(ticket_type, title="입장권별 관객 구성")
-            self.temp_files.append(chart_path)
-            add_image(self.doc, chart_path, is_chart=True)
+            comp_chart = create_media_composition_chart(
+                ticket_type, title="입장권별 관객 구성", unit="명")
+            # 유료/무료(초대): 무료 = 초대권, 유료 = 나머지
+            free = ticket_type.get("초대권", 0) or 0
+            paid = sum(v for k, v in ticket_type.items() if k != "초대권")
+            paidfree_chart = None
+            if paid > 0 or free > 0:
+                paidfree_chart = create_media_composition_chart(
+                    {"유료": paid, "무료·초대": free}, title="유료·무료 비율", unit="명")
+            charts = [c for c in (comp_chart, paidfree_chart) if c]
+            for c in charts:
+                self.temp_files.append(c)
+            if len(charts) == 2:
+                add_images_2col(self.doc, charts, img_width=Cm(8))
+            elif charts:
+                add_image(self.doc, charts[0], is_chart=True)
+            # 서술 (차트→서술 원칙)
             top = max(ticket_type, key=ticket_type.get)
             tt_total = sum(ticket_type.values()) or 1
-            add_paragraph(
-                self.doc,
-                f"입장권별로는 {top}이(가) {ticket_type[top]:,}명"
-                f"({ticket_type[top]/tt_total*100:.0f}%)으로 가장 큰 비중을 차지함.",
-                size=Fonts.BODY, space_after=Pt(6), line_spacing=1.5,
-                first_line_indent=Cm(0.5))
-
-        # ── 유료 관객 비율 비교 (비교형: 이번/평균/마지막) ──
-        paid = comp.get("paid_ratio", [])
-        if paid and len(paid) >= 2:
-            bar = create_comparison_bar(paid, title="유료 관객 비율 비교", unit="%")
-            if bar:
-                self.temp_files.append(bar)
-                add_image(self.doc, bar, is_chart=True)
-                cur = next((v for lbl, v, isc in paid if isc), None)
-                refs = [(lbl, v) for lbl, v, isc in paid if not isc]
-                if cur is not None and refs:
-                    ref_txt = ", ".join(f"{lbl} {v:.0f}%" for lbl, v in refs)
-                    add_paragraph(
-                        self.doc,
-                        f"유료 관객 비율은 {cur:.0f}%로 {ref_txt}와 비교됨.",
-                        size=Fonts.BODY, space_after=Pt(6), line_spacing=1.5,
-                        first_line_indent=Cm(0.5))
+            note = (f"입장권별로는 {top}이(가) {ticket_type[top]:,}명"
+                    f"({ticket_type[top]/tt_total*100:.0f}%)으로 가장 큰 비중을 차지함.")
+            if paid + free > 0:
+                note += f" 유료 관객은 {paid:,}명({paid/(paid+free)*100:.0f}%)임."
+            add_paragraph(self.doc, note, size=Fonts.BODY, space_after=Pt(6),
+                          line_spacing=1.5, first_line_indent=Cm(0.5))
 
         for item in vc.get("ticket_analysis", []):
             if item.startswith("→"):

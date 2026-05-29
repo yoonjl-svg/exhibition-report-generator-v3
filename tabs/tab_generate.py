@@ -395,7 +395,7 @@ def _build_comparison(load_ref, exhibition_type, s):
       }
     데이터 부족 시 해당 항목은 빈 리스트.
     """
-    out = {"weekly_ref": [], "paid_ratio": []}
+    out = {"weekly_ref": []}
     if not load_ref:
         return out
     try:
@@ -403,11 +403,12 @@ def _build_comparison(load_ref, exhibition_type, s):
         ref_df = load_ref()
         if ref_df is None or len(ref_df) == 0:
             return out
+        type_label = rd.get_type_label(exhibition_type)  # "기존 기획전" 등
         df = rd.filter_by_type(rd.exclude_type_zero(ref_df), exhibition_type)
         if df is None or len(df) == 0:
             return out
 
-        # 같은 유형 마지막 전시 (시작일 기준)
+        # 같은 유형 마지막 전시 (시작일 기준) — 정확한 전시명 라벨용
         last_row = None
         if "전시 기간_시작" in df.columns:
             dd = df.copy()
@@ -417,6 +418,10 @@ def _build_comparison(load_ref, exhibition_type, s):
             dd = dd.dropna(subset=["_dt"]).sort_values("_dt")
             if len(dd):
                 last_row = dd.iloc[-1]
+        last_title = ""
+        if last_row is not None:
+            # 일부 원데이터에 《》가 포함돼 있어 중복 괄호 방지 위해 제거 후 재부착
+            last_title = str(last_row.get("전시 제목", "") or "").strip().strip("《》 ")
 
         def _avg(col):
             if col not in df.columns:
@@ -434,39 +439,10 @@ def _build_comparison(load_ref, exhibition_type, s):
         avg_daily = _avg("일평균 관객수")
         last_daily = _last("일평균 관객수")
         if avg_daily:
-            out["weekly_ref"].append((avg_daily * 7, "같은 유형 평균", None))
-        if last_daily:
-            out["weekly_ref"].append((last_daily * 7, "같은 유형 마지막", None))
-
-        # ── 유료 비율 비교 (유료/총 × 100) ──
-        def _paid_ratio_from(paid, total):
-            if paid and total and total > 0:
-                return paid / total * 100
-            return None
-
-        # 이번 전시: 유료 = 총 - 초대권(무료)
-        cur_total = s.total_visitors or 0
-        cur_paid = cur_total - (s.visitor_invitation or 0)
-        cur_ratio = _paid_ratio_from(cur_paid, cur_total)
-
-        avg_paid_ratio = None
-        if "유료 관객수" in df.columns and "총 관객수" in df.columns:
-            import numpy as _np
-            r = (_pd.to_numeric(df["유료 관객수"], errors="coerce") /
-                 _pd.to_numeric(df["총 관객수"], errors="coerce") * 100)
-            r = r.replace([_np.inf, -_np.inf], _np.nan).dropna()
-            avg_paid_ratio = float(r.mean()) if len(r) else None
-        last_paid_ratio = None
-        if last_row is not None:
-            lp, lt = _last("유료 관객수"), _last("총 관객수")
-            last_paid_ratio = _paid_ratio_from(lp, lt)
-
-        if cur_ratio is not None and (avg_paid_ratio or last_paid_ratio):
-            out["paid_ratio"].append(("이번 전시", cur_ratio, True))
-            if avg_paid_ratio is not None:
-                out["paid_ratio"].append(("같은 유형 평균", avg_paid_ratio, False))
-            if last_paid_ratio is not None:
-                out["paid_ratio"].append(("같은 유형 마지막", last_paid_ratio, False))
+            out["weekly_ref"].append((avg_daily * 7, f"{type_label} 평균", None))
+        if last_daily and last_title:
+            short = last_title if len(last_title) <= 12 else last_title[:11] + "…"
+            out["weekly_ref"].append((last_daily * 7, f"직전 《{short}》", None))
         return out
     except Exception:
         return out
@@ -497,6 +473,9 @@ def _collect_report_data(load_ref=None):
             items = []
             for i, ins in enumerate(section_insights):
                 key = f"ins_{section_key}_{i}"
+                # 출품 작품은 III장 도넛+서술이 전담 → 중복 방지 위해 인사이트에서 제외
+                if section_key == "composition" and ins.category == "작품":
+                    continue
                 if s.get("insight_selections", {}).get(key, ins.priority <= 2):
                     text = s.get("insight_texts", {}).get(key, ins.text)
                     items.append({

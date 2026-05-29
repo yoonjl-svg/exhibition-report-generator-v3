@@ -690,10 +690,14 @@ def create_comparison_bar(items, title="비교", unit="%", output_path=None):
 # 도넛: 출품 매체 구성 (v5.3.60 신규)
 # ──────────────────────────────────────────────
 
-def create_media_composition_chart(media_dict, title="출품 매체 구성", output_path=None):
-    """매체별 작품 수 도넛 차트.
+def create_media_composition_chart(media_dict, title="출품 매체 구성",
+                                   output_path=None, unit="점", center_suffix=None):
+    """구성 도넛 (매체·신작/구작·입장권·유료무료 공용).
 
-    media_dict: {"회화": 18, "조각": 8, ...} (0은 자동 제외)
+    v5.3.64: 범례를 하단 가로로 내리고 도넛을 크게(2개 나란히 배치 최적화).
+    media_dict: {"회화": 18, ...} (0은 자동 제외)
+    unit: 범례·중앙 단위 ("점"/"명")
+    center_suffix: 중앙 총계 단위 (None이면 unit 사용)
     """
     data = {k: v for k, v in media_dict.items() if v and v > 0}
     if len(data) < 2:
@@ -701,32 +705,37 @@ def create_media_composition_chart(media_dict, title="출품 매체 구성", out
     if output_path is None:
         output_path = tempfile.mktemp(suffix='.png')
     fp = get_font_prop()
-    fig, ax = plt.subplots(figsize=(6.5, 5))
     labels = list(data.keys())
     values = list(data.values())
     total = sum(values)
     colors = C_CATEGORICAL[:len(labels)]
 
+    # 정사각형 도넛 + 하단 가로 범례 공간
+    fig, ax = plt.subplots(figsize=(5.4, 6.0))
+
     def autopct(pct):
-        return f'{pct:.0f}%' if pct >= 6 else ''
+        return f'{pct:.0f}%' if pct >= 7 else ''
 
     wedges, _t, autotexts = ax.pie(
         values, labels=None, autopct=autopct, startangle=90, colors=colors,
-        pctdistance=0.78,
-        wedgeprops=dict(width=0.42, edgecolor='white', linewidth=2))
+        radius=1.0, pctdistance=0.80,
+        wedgeprops=dict(width=0.40, edgecolor='white', linewidth=2.5))
     for at in autotexts:
-        at.set_fontsize(9); at.set_color('white'); at.set_fontweight('bold')
-        if fp: at.set_fontproperties(fp)
+        at.set_color('white'); at.set_fontproperties(_fp(11, bold=True))
     # 중앙 총계
-    ax.text(0, 0, f'{total}점', ha='center', va='center',
-            fontsize=15, fontweight='bold', color=C_INK,
-            fontproperties=fp if fp else None)
-    legend_labels = [f'{l} {v}점' for l, v in zip(labels, values)]
-    ax.legend(wedges, legend_labels, loc="center left",
-              bbox_to_anchor=(1, 0, 0.4, 1), fontsize=9, prop=fp)
-    ax.set_title(title, fontsize=13, fontweight='bold', pad=16,
-                 fontproperties=fp if fp else None)
-    plt.tight_layout()
+    cs = center_suffix if center_suffix is not None else unit
+    ax.text(0, 0, f'{total:,}{cs}', ha='center', va='center',
+            fontproperties=_fp(17, bold=True), color=C_INK)
+    ax.set_title(title, fontproperties=_fp(CH_TITLE, bold=True), color=C_INK,
+                 pad=14)
+
+    # 하단 가로 범례 (값 포함). 항목 많으면 줄바꿈(최대 3열).
+    legend_labels = [f'{l} {v:,}{unit}' for l, v in zip(labels, values)]
+    ncol = min(3, len(labels))
+    ax.legend(wedges, legend_labels, loc="upper center",
+              bbox_to_anchor=(0.5, -0.02), ncol=ncol, frameon=False,
+              prop=_fp(CH_CAPTION), handlelength=1.0, columnspacing=1.4,
+              labelspacing=0.5)
     fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
     plt.close(fig)
     return output_path
