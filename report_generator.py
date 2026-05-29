@@ -23,6 +23,8 @@ from styles import (
 from chart_generator import (
     create_visitor_pie_chart,
     create_weekly_visitors_chart,
+    create_media_composition_chart,
+    create_comparison_bar,
 )
 
 
@@ -318,12 +320,66 @@ class ExhibitionReportGenerator:
         add_section_title(self.doc, "III", "전시 구성")
 
         self._sub_rooms()
+        self._sub_artwork_composition()  # 매체·신작 도넛(자기완결형) + 서술
         self._sub_programs()
         self._sub_staff()
         self._sub_materials()
 
         # v3: 인라인 분석 (프로그램, 작품, 인력)
         self._insert_section_insights("composition")
+
+    def _sub_artwork_composition(self):
+        """출품 작품 구성 — 매체 도넛 + 신작/구작 도넛(2-up, 자기완결형).
+
+        도넛은 한 줄에 2개. 이어서 그 도표에 대한 서술 1문단(원칙: 차트→서술).
+        """
+        art = self.data.get("artworks", {})
+        total = art.get("total", 0) or 0
+        if total <= 0:
+            return
+
+        media = {
+            "회화": art.get("painting", 0), "조각": art.get("sculpture", 0),
+            "사진": art.get("photo", 0), "설치": art.get("installation", 0),
+            "미디어": art.get("media", 0), "기타": art.get("other", 0),
+        }
+        media_chart = create_media_composition_chart(media, title="출품 매체 구성")
+
+        new_n = art.get("new", 0) or 0
+        old_n = art.get("old", 0) or 0
+        new_chart = None
+        if new_n > 0 or old_n > 0:
+            new_chart = create_media_composition_chart(
+                {"신작": new_n, "구작": old_n}, title="신작·구작 구성")
+
+        charts = [c for c in (media_chart, new_chart) if c]
+        if not charts:
+            return
+        add_subsection_title(self.doc, "2", "출품 작품 구성")
+        for c in charts:
+            self.temp_files.append(c)
+        if len(charts) == 2:
+            add_images_2col(self.doc, charts)  # 한 줄에 2개
+        else:
+            add_image(self.doc, charts[0], is_chart=True)
+
+        # 서술 (차트→서술 원칙)
+        media_items = [(k, v) for k, v in media.items() if v]
+        media_items.sort(key=lambda kv: -kv[1])
+        parts = []
+        if media_items:
+            top = media_items[0]
+            parts.append(
+                f"출품작 {total}점의 매체 구성은 {top[0]}({top[1]}점, "
+                f"{top[1]/total*100:.0f}%)의 비중이 가장 큼.")
+        if new_n or old_n:
+            parts.append(
+                f"이 중 신작은 {new_n}점({new_n/total*100:.0f}%), "
+                f"구작은 {old_n}점으로 구성됨.")
+        if parts:
+            add_paragraph(self.doc, " ".join(parts), size=Fonts.BODY,
+                          space_after=Pt(6), line_spacing=1.5,
+                          first_line_indent=Cm(0.5))
 
     def _sub_rooms(self):
         add_subsection_title(self.doc, "1", "전시")
@@ -459,19 +515,58 @@ class ExhibitionReportGenerator:
     def _sub_visitor_composition(self):
         add_subsection_title(self.doc, "3", "관객 구성")
         vc = self.data.get("visitor_composition", {})
+        comp = self.data.get("comparison", {})
 
-        # 주차별 관객 추이 차트
+        # ── 주차별 관객 추이 (비교형: 같은 유형 평균·마지막 기준선) ──
         weekly = vc.get("weekly_visitors", {})
         if weekly and len(weekly) >= 2:
-            chart_path = create_weekly_visitors_chart(weekly, title="주차별 관객 추이")
+            ref_lines = comp.get("weekly_ref", []) or None
+            chart_path = create_weekly_visitors_chart(
+                weekly, title="주차별 관객 추이", ref_lines=ref_lines)
             self.temp_files.append(chart_path)
             add_image(self.doc, chart_path, is_chart=True)
+            # 서술 (차트→서술 원칙)
+            vals = list(weekly.values())
+            peak_week = max(weekly, key=weekly.get)
+            note = (f"주차별 관객은 {peak_week}에 최고 {max(vals):,}명을 기록함.")
+            wref = comp.get("weekly_ref", [])
+            if wref:
+                ref_txt = ", ".join(f"{lbl} 주당 {v:,.0f}명" for v, lbl, _ in wref)
+                note += f" 점선은 비교 기준({ref_txt})임."
+            add_paragraph(self.doc, note, size=Fonts.BODY, space_after=Pt(6),
+                          line_spacing=1.5, first_line_indent=Cm(0.5))
 
+        # ── 입장권별 관객 구성 (도넛, 구성) ──
         ticket_type = vc.get("ticket_type", {})
         if ticket_type:
             chart_path = create_visitor_pie_chart(ticket_type, title="입장권별 관객 구성")
             self.temp_files.append(chart_path)
             add_image(self.doc, chart_path, is_chart=True)
+            top = max(ticket_type, key=ticket_type.get)
+            tt_total = sum(ticket_type.values()) or 1
+            add_paragraph(
+                self.doc,
+                f"입장권별로는 {top}이(가) {ticket_type[top]:,}명"
+                f"({ticket_type[top]/tt_total*100:.0f}%)으로 가장 큰 비중을 차지함.",
+                size=Fonts.BODY, space_after=Pt(6), line_spacing=1.5,
+                first_line_indent=Cm(0.5))
+
+        # ── 유료 관객 비율 비교 (비교형: 이번/평균/마지막) ──
+        paid = comp.get("paid_ratio", [])
+        if paid and len(paid) >= 2:
+            bar = create_comparison_bar(paid, title="유료 관객 비율 비교", unit="%")
+            if bar:
+                self.temp_files.append(bar)
+                add_image(self.doc, bar, is_chart=True)
+                cur = next((v for lbl, v, isc in paid if isc), None)
+                refs = [(lbl, v) for lbl, v, isc in paid if not isc]
+                if cur is not None and refs:
+                    ref_txt = ", ".join(f"{lbl} {v:.0f}%" for lbl, v in refs)
+                    add_paragraph(
+                        self.doc,
+                        f"유료 관객 비율은 {cur:.0f}%로 {ref_txt}와 비교됨.",
+                        size=Fonts.BODY, space_after=Pt(6), line_spacing=1.5,
+                        first_line_indent=Cm(0.5))
 
         for item in vc.get("ticket_analysis", []):
             if item.startswith("→"):

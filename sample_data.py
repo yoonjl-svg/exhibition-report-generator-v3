@@ -100,6 +100,8 @@ SAMPLE_DATA = {
     "visitor_group": 2100,
     "opening_attendance": 420,
     "artwork_total": 68,
+    "artwork_new": 26,
+    "artwork_old": 42,
     "artwork_painting": 18,
     "artwork_sculpture": 8,
     "artwork_photo": 15,

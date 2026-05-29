@@ -451,6 +451,15 @@ def render(tab):
                          st.session_state.artwork_photo + st.session_state.artwork_installation +
                          st.session_state.artwork_media + st.session_state.artwork_other)
         st.session_state.artwork_total = artwork_total
+
+        # 신작 수 (구작 = 총 - 신작 자동) — 신작/구작 도넛용
+        nc1, nc2, _ = st.columns([1, 1, 8], gap="small")
+        with nc1:
+            st.number_input("신작 수", min_value=0, max_value=artwork_total or None,
+                            key="artwork_new", format="%d",
+                            help="새로 제작·커미션된 작품 수. 구작은 총 작품 수에서 자동 차감.")
+        st.session_state.artwork_old = max(0, artwork_total - st.session_state.get("artwork_new", 0))
+
         if artwork_total > 0:
             mc, _ = st.columns([1, 9])
             with mc:

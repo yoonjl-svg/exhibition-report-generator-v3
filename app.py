@@ -646,6 +646,8 @@ def init_session():
         "visitor_group": 0,
         "opening_attendance": 0,
         "artwork_total": 0,
+        "artwork_new": 0,
+        "artwork_old": 0,
         "artwork_painting": 0,
         "artwork_sculpture": 0,
         "artwork_photo": 0,

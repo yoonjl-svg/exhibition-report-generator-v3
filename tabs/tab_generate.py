@@ -385,10 +385,97 @@ def _render_preview_and_edit():
             st.rerun()
 
 
+def _build_comparison(load_ref, exhibition_type, s):
+    """비교형 차트용 기준치: 같은 유형 평균 / 같은 유형 마지막 전시.
+
+    반환:
+      {
+        "weekly_ref": [(주당값, 라벨, None), ...],   # 주차별 추이 기준선
+        "paid_ratio": [(라벨, 값%, is_current), ...] # 유료 비율 비교막대
+      }
+    데이터 부족 시 해당 항목은 빈 리스트.
+    """
+    out = {"weekly_ref": [], "paid_ratio": []}
+    if not load_ref:
+        return out
+    try:
+        import pandas as _pd
+        ref_df = load_ref()
+        if ref_df is None or len(ref_df) == 0:
+            return out
+        df = rd.filter_by_type(rd.exclude_type_zero(ref_df), exhibition_type)
+        if df is None or len(df) == 0:
+            return out
+
+        # 같은 유형 마지막 전시 (시작일 기준)
+        last_row = None
+        if "전시 기간_시작" in df.columns:
+            dd = df.copy()
+            dd["_dt"] = _pd.to_datetime(
+                dd["전시 기간_시작"].astype(str).str.replace(".", "-", regex=False),
+                errors="coerce")
+            dd = dd.dropna(subset=["_dt"]).sort_values("_dt")
+            if len(dd):
+                last_row = dd.iloc[-1]
+
+        def _avg(col):
+            if col not in df.columns:
+                return None
+            ser = _pd.to_numeric(df[col], errors="coerce").dropna()
+            return float(ser.mean()) if len(ser) else None
+
+        def _last(col):
+            if last_row is None or col not in last_row:
+                return None
+            v = _pd.to_numeric(last_row.get(col), errors="coerce")
+            return float(v) if _pd.notna(v) else None
+
+        # ── 주차별 기준선: 일평균 × 7 (주당 환산) ──
+        avg_daily = _avg("일평균 관객수")
+        last_daily = _last("일평균 관객수")
+        if avg_daily:
+            out["weekly_ref"].append((avg_daily * 7, "같은 유형 평균", None))
+        if last_daily:
+            out["weekly_ref"].append((last_daily * 7, "같은 유형 마지막", None))
+
+        # ── 유료 비율 비교 (유료/총 × 100) ──
+        def _paid_ratio_from(paid, total):
+            if paid and total and total > 0:
+                return paid / total * 100
+            return None
+
+        # 이번 전시: 유료 = 총 - 초대권(무료)
+        cur_total = s.total_visitors or 0
+        cur_paid = cur_total - (s.visitor_invitation or 0)
+        cur_ratio = _paid_ratio_from(cur_paid, cur_total)
+
+        avg_paid_ratio = None
+        if "유료 관객수" in df.columns and "총 관객수" in df.columns:
+            import numpy as _np
+            r = (_pd.to_numeric(df["유료 관객수"], errors="coerce") /
+                 _pd.to_numeric(df["총 관객수"], errors="coerce") * 100)
+            r = r.replace([_np.inf, -_np.inf], _np.nan).dropna()
+            avg_paid_ratio = float(r.mean()) if len(r) else None
+        last_paid_ratio = None
+        if last_row is not None:
+            lp, lt = _last("유료 관객수"), _last("총 관객수")
+            last_paid_ratio = _paid_ratio_from(lp, lt)
+
+        if cur_ratio is not None and (avg_paid_ratio or last_paid_ratio):
+            out["paid_ratio"].append(("이번 전시", cur_ratio, True))
+            if avg_paid_ratio is not None:
+                out["paid_ratio"].append(("같은 유형 평균", avg_paid_ratio, False))
+            if last_paid_ratio is not None:
+                out["paid_ratio"].append(("같은 유형 마지막", last_paid_ratio, False))
+        return out
+    except Exception:
+        return out
+
+
 def _collect_report_data(load_ref=None):
     """전체 데이터를 report_generator에 맞는 구조로 수집.
 
-    load_ref: 레퍼런스 DataFrame 로더 — (호환용 인자, 현재 미사용)
+    load_ref: 레퍼런스 DataFrame 로더 — 종합표·비교형 차트 기준치 계산용.
     """
     s = st.session_state
 
@@ -492,6 +579,8 @@ def _collect_report_data(load_ref=None):
         # 작품 정보 (v3 신규)
         "artworks": {
             "total": s.artwork_total,
+            "new": s.get("artwork_new", 0),
+            "old": s.get("artwork_old", max(0, s.artwork_total - s.get("artwork_new", 0))),
             "painting": s.artwork_painting,
             "sculpture": s.artwork_sculpture,
             "photo": s.artwork_photo,
@@ -526,6 +615,8 @@ def _collect_report_data(load_ref=None):
         "similar_comparison_table": sim_data,
         "similar_exhibitions": sim_rows,
         "analysis_data_flat": collect_analysis_data(),
+        # v5.3.63: 비교형 차트(주차 기준선·유료비율)용 — 같은 유형 평균/마지막
+        "comparison": _build_comparison(load_ref, s.get("exhibition_type"), s),
     }
 
     # 입장권별 관객

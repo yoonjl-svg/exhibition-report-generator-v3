@@ -165,16 +165,14 @@ def create_visitor_type_chart(data, title="유형별 관객 구성", output_path
 # 바 차트: 주별 관객 수
 # ──────────────────────────────────────────────
 
-def create_weekly_visitors_chart(data, title="주별 관객 수", output_path=None):
-    """주별 관객 수 바 차트 생성
+def create_weekly_visitors_chart(data, title="주별 관객 수", output_path=None,
+                                 ref_lines=None):
+    """주별 관객 수 영역·라인 차트.
 
     Args:
         data: dict, {"1주": 500, "2주": 620, ...}
-        title: 차트 제목
-        output_path: 저장 경로
-
-    Returns:
-        저장된 파일 경로
+        ref_lines: [(value, label, color), ...] — 비교 기준선(같은 유형 평균/마지막
+                   전시의 주당 환산 등). 없으면 자체 평균선 표시.
     """
     if output_path is None:
         output_path = tempfile.mktemp(suffix='.png')
@@ -191,10 +189,22 @@ def create_weekly_visitors_chart(data, title="주별 관객 수", output_path=No
     ax.fill_between(x, values, color=C_ACCENT, alpha=0.12, zorder=1)
     ax.plot(x, values, color=C_ACCENT, linewidth=2, marker='o', markersize=6,
             markerfacecolor='white', markeredgecolor=C_ACCENT,
-            markeredgewidth=1.5, zorder=3)
+            markeredgewidth=1.5, zorder=3, label="이번 전시")
 
-    # 평균 기준선
-    if values:
+    # 비교 기준선 (같은 유형 평균/마지막) — 없으면 자체 평균
+    drawn_ref = False
+    if ref_lines:
+        ref_colors = [C_ACCENT2, "#3f5e99"]
+        for i, (val, label, color) in enumerate(ref_lines):
+            if val is None or val <= 0:
+                continue
+            c = color or ref_colors[i % len(ref_colors)]
+            ax.axhline(val, color=c, linestyle='--', linewidth=1.2, alpha=0.85,
+                       zorder=2)
+            ax.text(x[-1], val, f' {label} {val:,.0f}', va='bottom', ha='right',
+                    fontsize=8.5, color=c, fontproperties=font_prop)
+            drawn_ref = True
+    if not drawn_ref and values:
         avg = sum(values) / len(values)
         ax.axhline(avg, color=C_ACCENT2, linestyle='--', linewidth=1.1,
                    alpha=0.8, zorder=2)
@@ -625,6 +635,52 @@ def create_financial_panel(fin, title="재정 지표 구조", output_path=None):
 
     fig.suptitle(title, fontproperties=_fp(CH_TITLE, bold=True), color=C_INK,
                  x=0.02, ha='left', y=1.02)
+    fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return output_path
+
+
+# ──────────────────────────────────────────────
+# 가로 막대: 이번 vs 기준 비교 (v5.3.63) — 유료 비율 등
+# ──────────────────────────────────────────────
+
+def create_comparison_bar(items, title="비교", unit="%", output_path=None):
+    """이번/같은 유형 평균/마지막 전시를 가로 막대로 비교.
+
+    items: [(label, value, is_current_bool), ...]  (value 단위는 unit)
+    이번 전시 막대는 녹색 강조, 기준은 회색.
+    """
+    items = [(lbl, v, cur) for (lbl, v, cur) in items if v is not None]
+    if len(items) < 2:
+        return None
+    if output_path is None:
+        output_path = tempfile.mktemp(suffix='.png')
+    fp = get_font_prop()
+    n = len(items)
+    fig, ax = plt.subplots(figsize=(8, 0.6 * n + 0.9))
+
+    ys = list(range(n))[::-1]
+    vmax = max(v for _, v, _ in items) * 1.18 or 1
+    for y, (lbl, v, is_cur) in zip(ys, items):
+        color = C_ACCENT if is_cur else "#c7cdc2"
+        ax.barh([y], [v], color=color, height=0.55, edgecolor='white', zorder=2)
+        val_txt = f"{v:.1f}{unit}" if unit == "%" else f"{v:,.0f}{unit}"
+        ax.text(v, y, f" {val_txt}", va='center', ha='left',
+                fontproperties=_fp(CH_CAPTION, bold=is_cur),
+                color=C_INK if is_cur else "#7a827a")
+    ax.set_yticks(ys)
+    ax.set_yticklabels([lbl for lbl, _, _ in items])
+    for tick, (_, _, is_cur) in zip(ax.get_yticklabels(), items):
+        tick.set_fontproperties(_fp(CH_CAPTION, bold=is_cur))
+        tick.set_color(C_INK if is_cur else "#7a827a")
+    ax.set_xlim(0, vmax)
+    ax.set_xticks([])
+    ax.set_title(title, fontproperties=_fp(12, bold=True), color=C_INK,
+                 loc='left', pad=10)
+    ax.tick_params(length=0)
+    for sp in ('top', 'right', 'bottom', 'left'):
+        ax.spines[sp].set_visible(False)
+    plt.tight_layout()
     fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
     plt.close(fig)
     return output_path
