@@ -1,7 +1,6 @@
 """탭 D: 보고서 미리보기 & 생성"""
 
 import os
-import json
 import tempfile
 import streamlit as st
 import pandas as pd
@@ -69,26 +68,16 @@ def render(tab, load_reference_data):
         if use_llm:
             st.info("AI 글쓰기 활성화 — 보고서 생성 시 Claude Opus가 분석 문단을 보고서 문체로 재작성합니다.")
 
-        col1, col2, _ = st.columns([1.5, 1.5, 7])
+        col1, _ = st.columns([1.5, 8.5])
         with col1:
             if st.button("보고서 생성", type="primary", use_container_width=True,
                          help="LLM이 분석 문단을 작성하고, 아래에 미리보기·편집 영역이 나타납니다."):
                 _generate_report(api_key=api_key if use_llm else None)
 
-        with col2:
-            if st.button("데이터 JSON 저장", use_container_width=True):
-                _save_json()
-
         # ── 미리보기 & 편집 & 다운로드 ──
         _render_preview_and_edit()
-
-        # JSON 불러오기
-        st.divider()
-        subsection("LOAD", "데이터 불러오기")
-        uploaded = st.file_uploader("이전 작업 JSON 파일", type=["json"], key="json_upload")
-        if uploaded:
-            if st.button("JSON 데이터 적용"):
-                _load_json(uploaded)
+        # 데이터 저장/불러오기는 워크스페이스(KB 저장)와 '가져오기' 모달로
+        # 일원화됨 — v5.3.59에서 보고서 탭의 JSON 저장·불러오기 제거.
 
 
 def _show_completeness_check():
@@ -542,57 +531,3 @@ def _collect_report_data():
     if s.visitor_discount > 0: data["visitor_composition"]["ticket_type"]["기타 할인"] = s.visitor_discount
 
     return data
-
-
-def _convert_dates(obj):
-    """중첩 구조 안의 date 객체를 ISO 문자열로 변환"""
-    if isinstance(obj, date):
-        return obj.isoformat()
-    if isinstance(obj, dict):
-        return {k: _convert_dates(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_convert_dates(item) for item in obj]
-    return obj
-
-
-def _save_json():
-    """현재 데이터를 JSON으로 저장"""
-    s = st.session_state
-    save_data = {}
-    skip_keys = {"analysis_result", "insight_selections", "insight_texts",
-                 "eval_positive_drafts", "eval_negative_drafts", "eval_improvement_drafts",
-                 "json_upload", "type_select"}
-
-    for key in s:
-        if key.startswith(("chk_", "txt_", "echk_", "etxt_", "custom_")):
-            continue
-        if key in skip_keys:
-            continue
-        val = s[key]
-        if isinstance(val, date):
-            save_data[key] = val.isoformat()
-        elif isinstance(val, (list, dict)):
-            save_data[key] = _convert_dates(val)
-        elif isinstance(val, (str, int, float, bool)):
-            save_data[key] = val
-
-    json_str = json.dumps(save_data, ensure_ascii=False, indent=2)
-    st.download_button(
-        "JSON 다운로드",
-        json_str,
-        file_name=f"report_data_{s.exhibition_title or 'v3'}.json",
-        mime="application/json",
-    )
-
-
-def _load_json(uploaded):
-    """JSON에서 데이터 복원 — pending 패턴으로 위젯 충돌 회피"""
-    try:
-        data = json.loads(uploaded.read())
-        # 위젯이 이미 렌더링된 상태이므로 직접 대입 불가.
-        # _pending_json에 저장 후 rerun → app.py의 init_session에서 적용
-        # (init_session이 report_state 등 미리보기 상태도 함께 무효화함)
-        st.session_state["_pending_json"] = data
-        st.rerun()
-    except Exception as e:
-        st.error(f"JSON 로드 오류: {e}")

@@ -630,13 +630,6 @@ class ExhibitionReportGenerator:
             return
 
         add_subsection_title(self.doc, "3", "관객 반응 종합")
-        add_paragraph(
-            self.doc,
-            "(큐레이터가 SNS·방명록·설문에서 선별 수집한 후기 기반. 통계적 대표성 없음.)",
-            size=Fonts.CAPTION,
-            color=Colors.MEDIUM_GRAY,
-            space_after=Pt(4),
-        )
         for para_text in llm_audience.split("\n\n"):
             para_text = para_text.strip()
             if para_text:
