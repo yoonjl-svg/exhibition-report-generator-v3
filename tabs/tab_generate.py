@@ -306,19 +306,26 @@ def _render_preview_and_edit():
         _pdata = dict(data)
         _pdata["llm_sections"] = edited
         _report_html = build_report_html(_pdata)
-        _html_js = _json.dumps(_report_html)  # 안전한 JS 문자열 리터럴
+        # JS 문자열 리터럴로 안전 인코딩 + </script>·</ 조기 종료 방지
+        _html_js = _json.dumps(_report_html).replace("</", "<\\/")
         st.markdown("---")
         subsection("", "보고서 미리보기")
         st.caption("Word로 생성될 내용과 동일한 미리보기를 새 창에서 엽니다.")
         _launcher = (
-            '<button onclick="var w=window.open(\'\',\'_blank\');'
-            'w.document.open();w.document.write(' + _html_js + ');'
-            'w.document.close();" '
-            'style="background:#255c4a;color:#fff;border:none;border-radius:8px;'
-            'padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;'
-            'font-family:sans-serif;">웹 미리보기 열기 (새 창)</button>'
-            '<div style="font-size:12px;color:#646b61;margin-top:6px;">'
-            '팝업이 차단되면 허용해 주세요.</div>'
+            "<script>\n"
+            "var REPORT_HTML = " + _html_js + ";\n"
+            "function openReport(){\n"
+            "  var w = window.open('', '_blank');\n"
+            "  if(!w){ alert('팝업이 차단되었습니다. 허용 후 다시 시도하세요.'); return; }\n"
+            "  w.document.open(); w.document.write(REPORT_HTML); w.document.close();\n"
+            "}\n"
+            "</script>\n"
+            "<button onclick=\"openReport()\" "
+            "style=\"background:#255c4a;color:#fff;border:none;border-radius:8px;"
+            "padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;"
+            "font-family:sans-serif;\">웹 미리보기 열기 (새 창)</button>"
+            "<div style=\"font-size:12px;color:#646b61;margin-top:6px;\">"
+            "팝업이 차단되면 허용해 주세요.</div>"
         )
         components.html(_launcher, height=70)
     except Exception as e:

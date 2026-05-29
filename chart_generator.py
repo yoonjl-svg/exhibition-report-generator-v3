@@ -691,7 +691,8 @@ def create_similar_trend_chart(current_data, similar_rows, current_start=None,
         return None
 
     fp = get_font_prop()
-    fig, ax = plt.subplots(figsize=(max(8, len(exs) * 1.5), 5.2))
+    # 넉넉한 가로폭 + 라벨 공간(예전 막대 차트 수준의 균형)
+    fig, ax = plt.subplots(figsize=(max(9.5, len(exs) * 1.9), 5.8))
 
     x = list(range(len(exs)))
     colors = C_CATEGORICAL
@@ -699,34 +700,37 @@ def create_similar_trend_chart(current_data, similar_rows, current_start=None,
         vals = [float(m.get(f) or 0) for _, _, m, _ in exs]
         mx = max(vals) or 1
         norm = [v / mx * 100 for v in vals]
-        ax.plot(x, norm, marker='o', markersize=5, linewidth=1.8,
+        ax.plot(x, norm, marker='o', markersize=7, linewidth=2.2,
                 color=colors[fi % len(colors)], label=field_labels[f],
-                markerfacecolor='white',
+                markerfacecolor='white', markeredgewidth=2,
                 markeredgecolor=colors[fi % len(colors)], zorder=2)
 
     # 이번 전시 위치 강조
     cur_idx = next((i for i, e in enumerate(exs) if e[3]), None)
     if cur_idx is not None:
-        ax.axvspan(cur_idx - 0.18, cur_idx + 0.18, color=C_ACCENT, alpha=0.07, zorder=1)
+        ax.axvspan(cur_idx - 0.22, cur_idx + 0.22, color=C_ACCENT, alpha=0.08, zorder=1)
+
+    def _short(name):
+        # '제목: 부제' → 주제목 우선, 16자 이내로
+        head = name.split(":")[0].strip() if ":" in name else name
+        head = head if len(head) <= 16 else head[:15] + "…"
+        return head
 
     ax.set_xticks(x)
-    labels = []
-    for name, _d, _m, is_cur in exs:
-        nm = name if len(name) <= 9 else name[:8] + "…"
-        # 이번 전시는 색·굵기·배경밴드로 구분(기호 prefix는 폰트 글리프 이슈로 제외)
-        labels.append(nm)
-    ax.set_xticklabels(labels, rotation=20, ha='right')
+    ax.set_xticklabels([_short(e[0]) for e in exs], rotation=25, ha='right')
     for tk, e in zip(ax.get_xticklabels(), exs):
-        tk.set_fontproperties(_fp(9, bold=e[3]))
-        tk.set_color(C_ACCENT if e[3] else "#646b61")
-    ax.set_ylim(0, 115)
-    ax.set_ylabel("지표별 최댓값 대비 (%)", fontproperties=_fp(10), color="#646b61")
+        tk.set_fontproperties(_fp(11, bold=e[3]))
+        tk.set_color(C_ACCENT if e[3] else "#3c403a")
+    ax.set_ylim(0, 116)
+    ax.set_ylabel("지표별 최댓값 대비 (%)", fontproperties=_fp(11), color="#646b61")
     ax.set_title(title, fontproperties=_fp(CH_TITLE, bold=True), color=C_INK,
-                 loc='left', pad=12)
-    ax.legend(prop=_fp(9), ncol=min(len(fields), 6), loc='upper center',
-              bbox_to_anchor=(0.5, -0.16), frameon=False)
+                 loc='left', pad=14)
+    ax.legend(prop=_fp(11), ncol=min(len(fields), 6), loc='upper center',
+              bbox_to_anchor=(0.5, -0.20), frameon=False, columnspacing=1.6,
+              handlelength=1.6)
     for sp in ('top', 'right'):
         ax.spines[sp].set_visible(False)
+    ax.tick_params(axis='y', labelsize=10, length=0)
     ax.grid(axis='y', alpha=0.15)
     if output_path is None:
         output_path = tempfile.mktemp(suffix='.png')
