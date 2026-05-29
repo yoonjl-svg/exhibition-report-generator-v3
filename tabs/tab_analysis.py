@@ -243,14 +243,15 @@ def render(tab, load_reference_data):
             chart_col, _ = st.columns([3, 2])
             with chart_col:
                 if result.similar_exhibitions:
-                    from chart_generator import create_similar_trend_chart
+                    from chart_generator import create_similar_smallmultiples
                     current = collect_analysis_data()
-                    trend_path = create_similar_trend_chart(
+                    trend_path = create_similar_smallmultiples(
                         current, result.similar_exhibitions, current_start=cur_start)
                     if trend_path:
                         st.image(trend_path, use_container_width=True)
-                        st.caption("지표별 군 내 최댓값을 100%로 정규화. 녹색 강조(밴드)가 "
-                                   "이번 전시. 유사도로 선정된 전시군의 시간순 추이임.")
+                        st.caption("지표별 실제 값의 시간순 추이(각 패널 독립 축). "
+                                   "녹색 점이 이번 전시. 유사도로 선정된 전시군이며 "
+                                   "전시명은 아래 표(동일 시간순)에서 확인.")
 
                 # 비교표 — 시간순 정렬(차트와 일치)
                 df_tbl = result.similar_comparison_table

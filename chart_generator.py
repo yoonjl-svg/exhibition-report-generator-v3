@@ -755,6 +755,106 @@ def create_similar_trend_chart(current_data, similar_rows, current_start=None,
 
 
 # ──────────────────────────────────────────────
+# 스몰 멀티플: 유사 전시 지표별 미니 추세 (v5.3.73)
+# ──────────────────────────────────────────────
+
+def create_similar_smallmultiples(current_data, similar_rows, current_start=None,
+                                  field_labels=None,
+                                  title="유사 전시 지표별 추이 (시간순)",
+                                  output_path=None):
+    """지표별 미니 추세 패널(2×3). 각 패널은 자기 지표의 실제 값(정규화 없음)을
+    시간순으로 보여주고, 이번 전시를 녹색 점으로 강조. 선 겹침 없음.
+    """
+    import numpy as np
+    from datetime import date as _date
+
+    if field_labels is None:
+        field_labels = {
+            "총 관객수": "관객수", "총 사용 예산": "예산",
+            "일평균 관객수": "일평균", "프로그램 총 수": "프로그램",
+            "언론 보도 건수": "언론보도", "출품 작품 수_총": "출품작품",
+        }
+
+    def _pdate(d):
+        if not d:
+            return None
+        try:
+            s = str(d)[:10].replace(".", "-").replace("/", "-")
+            p = [int(x) for x in s.split("-")[:3]]
+            return _date(p[0], p[1], p[2]) if len(p) == 3 else None
+        except (ValueError, TypeError):
+            return None
+
+    exs = [(current_data.get("전시 제목", "이번 전시"), _pdate(current_start),
+            current_data, True)]
+    for r in similar_rows:
+        exs.append((r.title, _pdate(getattr(r, "start", None)), r.metrics, False))
+    exs = [e for e in exs if e[1] is not None]
+    if len(exs) < 3:
+        return None
+    exs.sort(key=lambda e: e[1])
+
+    fields = [f for f in field_labels if current_data.get(f)]
+    if len(fields) < 2:
+        return None
+
+    def _fmt(v, f):
+        v = v or 0
+        if "예산" in f or "비용" in f:
+            return f"{v/1e8:.1f}억" if v >= 1e8 else f"{v/1e4:.0f}만"
+        if v >= 10000:
+            return f"{v/1000:.0f}천"
+        return f"{v:,.0f}"
+
+    ncol = 3
+    nrow = (len(fields) + ncol - 1) // ncol
+    fig, axes = plt.subplots(nrow, ncol, figsize=(10, 2.5 * nrow))
+    axes = np.array(axes).reshape(-1)
+    x = list(range(len(exs)))
+    cur_idx = next((i for i, e in enumerate(exs) if e[3]), None)
+
+    for ai, f in enumerate(fields):
+        ax = axes[ai]
+        vals = [float(m.get(f) or 0) for _, _, m, _ in exs]
+        ax.plot(x, vals, color="#b7c0b3", linewidth=1.3, zorder=1)
+        ax.scatter(x, vals, s=22, color="#b7c0b3", zorder=2,
+                   edgecolor='white', linewidth=0.8)
+        if cur_idx is not None:
+            ax.scatter([cur_idx], [vals[cur_idx]], s=70, color=C_ACCENT, zorder=3,
+                       edgecolor='white', linewidth=1.4)
+            ax.annotate(_fmt(vals[cur_idx], f), (cur_idx, vals[cur_idx]),
+                        textcoords="offset points", xytext=(0, 7), ha='center',
+                        fontproperties=_fp(9, bold=True), color=C_ACCENT)
+        ax.set_title(field_labels[f], fontproperties=_fp(11, bold=True),
+                     color=C_INK, loc='left', pad=6)
+        vmin, vmax = min(vals), max(vals)
+        pad = (vmax - vmin) * 0.25 or (vmax * 0.2 or 1)
+        ax.set_ylim(vmin - pad, vmax + pad * 1.4)
+        ax.set_yticks([vmin, vmax])
+        ax.set_yticklabels([_fmt(vmin, f), _fmt(vmax, f)],
+                           fontproperties=_fp(8), color="#9aa39a")
+        ax.set_xticks([])
+        ax.margins(x=0.08)
+        for sp in ('top', 'right'):
+            ax.spines[sp].set_visible(False)
+        for sp in ('left', 'bottom'):
+            ax.spines[sp].set_color("#e3e7df"); ax.spines[sp].set_linewidth(0.8)
+        ax.tick_params(length=0)
+
+    for j in range(len(fields), len(axes)):
+        axes[j].set_visible(False)
+
+    fig.suptitle("← 과거    전시 시간순    최근 →   (녹색 점 = 이번 전시)",
+                 fontproperties=_fp(9), color="#9aa39a", y=0.04)
+    fig.subplots_adjust(hspace=0.55, wspace=0.32, bottom=0.12, top=0.92)
+    if output_path is None:
+        output_path = tempfile.mktemp(suffix='.png')
+    fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return output_path
+
+
+# ──────────────────────────────────────────────
 # 가로 막대: 이번 vs 기준 비교 (v5.3.63) — 유료 비율 등
 # ──────────────────────────────────────────────
 
