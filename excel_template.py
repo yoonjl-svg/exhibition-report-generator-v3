@@ -222,7 +222,7 @@ def generate_template_xlsx() -> bytes:
 
     # ── 시트 6: 관객후기 ──
     ws6 = wb.create_sheet("관객후기")
-    headers = ["분류(긍정/부정/건의)", "내용", "출처"]
+    headers = ["분류(긍정/부정/기타)", "내용", "출처"]
     widths = [20, 60, 18]
     for i, (h, w) in enumerate(zip(headers, widths), start=1):
         ws6.cell(row=1, column=i, value=h)
@@ -248,7 +248,7 @@ def generate_template_xlsx() -> bytes:
         "▸ 프로그램 시트 — 한 행 = 한 프로그램. 필요한 만큼 행을 추가하세요",
         "▸ 인쇄물 시트 — 종류별로 한 행씩",
         "▸ 언론보도 시트 — A열 '인쇄' 또는 '온라인' 구분 명시",
-        "▸ 관객후기 시트 — A열 '긍정' / '부정' / '건의' 분류",
+        "▸ 관객후기 시트 — A열 '긍정' / '부정' / '기타' 분류",
         "",
         "주의:",
         "  - 날짜는 YYYY-MM-DD 형식을 권장합니다 (Excel 날짜 형식도 자동 인식)",

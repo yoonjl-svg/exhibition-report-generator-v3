@@ -593,12 +593,12 @@ def render(tab):
             st.number_input("팔로워 증가", min_value=0, key="sns_followers_gained", format="%d",
                             help="전시 기간 중 순증가")
         with cols[2]:
-            st.number_input("평균 좋아요", min_value=0, key="sns_avg_likes", format="%d")
+            st.number_input("평균 피드백", min_value=0, key="sns_avg_likes", format="%d")
         with cols[3]:
-            st.number_input("최고 좋아요", min_value=0, key="sns_best_likes", format="%d")
+            st.number_input("최대 피드백", min_value=0, key="sns_best_likes", format="%d")
         bc, _ = st.columns([4, 6])
         with bc:
-            st.text_input("최고 반응 게시물 내용", key="sns_best_post",
+            st.text_input("최대 피드백 게시물 내용", key="sns_best_post",
                           placeholder="예: 한강주조 겨울 에디션 게시물")
 
         _section_divider()
@@ -693,10 +693,14 @@ def render(tab):
         for i, review in enumerate(st.session_state.visitor_reviews):
             cols = st.columns([0.75, 4.8, 1, 3.45])
             with cols[0]:
+                _rev_opts = ["긍정", "부정", "기타"]
+                _rev_cur = review.get("category", "긍정")
+                # 구 데이터의 '건의'는 '기타'로 매핑
+                if _rev_cur == "건의":
+                    _rev_cur = "기타"
                 st.session_state.visitor_reviews[i]["category"] = st.selectbox(
-                    "분류", ["긍정", "부정", "건의"], key=f"rev_cat_{i}",
-                    index=["긍정", "부정", "건의"].index(review.get("category", "긍정"))
-                    if review.get("category", "긍정") in ["긍정", "부정", "건의"] else 0)
+                    "분류", _rev_opts, key=f"rev_cat_{i}",
+                    index=_rev_opts.index(_rev_cur) if _rev_cur in _rev_opts else 0)
             with cols[1]:
                 st.session_state.visitor_reviews[i]["content"] = st.text_input(
                     "내용", value=review.get("content", ""), key=f"rev_content_{i}")
