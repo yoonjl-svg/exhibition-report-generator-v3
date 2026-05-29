@@ -37,10 +37,10 @@ def render(records: List[Dict]):
     """워크스페이스에서 호출. records: 전체 전시 레코드 목록."""
     analyzable = [r for r in records if r.get("type") != 0]
     if len(analyzable) < 2:
-        st.info("📭 시계열·비교 분석은 최소 2건의 전시가 필요합니다. (분석 제외 전시는 집계에서 빠짐)")
+        st.info("시계열·비교 분석은 최소 2건의 전시가 필요합니다. (분석 제외 전시는 집계에서 빠짐)")
         return
 
-    tabs = st.tabs(["📈 누적 흐름", "📋 다중 전시 비교"])
+    tabs = st.tabs(["누적 흐름", "다중 전시 비교"])
 
     with tabs[0]:
         _render_trend(analyzable)
@@ -139,7 +139,7 @@ def _render_trend(records: List[Dict]):
         st.info("해당 유형의 전시가 없습니다.")
         return
 
-    st.caption(f"📊 {len(df)}건 전시의 시간축 추이 (시작일 기준)")
+    st.caption(f"{len(df)}건 전시의 시간축 추이 (시작일 기준)")
 
     # 6개 지표를 2행 x 3열 그리드로
     rows = [TREND_METRICS[i:i+3] for i in range(0, len(TREND_METRICS), 3)]

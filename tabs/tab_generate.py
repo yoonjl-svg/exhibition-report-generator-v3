@@ -22,39 +22,42 @@ def render(tab, load_reference_data):
             "분석 결과를 신문 기사 톤의 종합 보고서로 변환하고, 웹에서 검수 후 Word로 다운로드합니다.",
         )
 
-        # ── 데이터 완성도 체크 ──
-        _show_completeness_check()
+        # 가로 폭 원칙(CLAUDE.md): 상단 영역(완성도·구조·키입력)을 ~60% 안에
+        body_col, _ = st.columns([3, 2])
+        with body_col:
+            # ── 데이터 완성도 체크 ──
+            _show_completeness_check()
 
-        st.divider()
+            st.divider()
 
-        # ── 보고서 구조 미리보기 ──
-        subsection("STRUCTURE", "보고서 구조 미리보기")
-        st.caption("최종 보고서의 흐름을 미리 확인합니다. 분석 인사이트가 각 섹션에 배치된 모습을 볼 수 있습니다.")
+            # ── 보고서 구조 미리보기 ──
+            subsection("", "보고서 구조 미리보기")
+            st.caption("분석 인사이트가 각 섹션에 배치된 모습을 미리 확인합니다.")
 
-        _show_preview()
+            _show_preview()
 
-        st.divider()
+            st.divider()
 
-        # ── AI 글쓰기 설정 ──
-        subsection("AI WRITING", "AI 분석 글쓰기")
+            # ── AI 글쓰기 설정 ──
+            subsection("", "AI 분석 글쓰기")
 
-        if not HAS_ANTHROPIC:
-            st.warning("`anthropic` 패키지가 설치되지 않았습니다. `pip install anthropic`으로 설치하면 AI 글쓰기를 사용할 수 있습니다.")
+            if not HAS_ANTHROPIC:
+                st.warning("`anthropic` 패키지가 설치되지 않았습니다. `pip install anthropic`으로 설치하면 AI 글쓰기를 사용할 수 있습니다.")
 
-        api_key = st.text_input(
-            "Anthropic API 키",
-            type="password",
-            key="anthropic_api_key",
-            help="Claude API 키를 입력하면 보고서 생성 시 분석 문단을 보고서 문체로 자동 재작성합니다. 없으면 룰 기반 텍스트가 그대로 사용됩니다.",
-            placeholder="sk-ant-api03-..."
-        )
+            api_key = st.text_input(
+                "Anthropic API 키",
+                type="password",
+                key="anthropic_api_key",
+                help="Claude API 키를 입력하면 보고서 생성 시 분석 문단을 보고서 문체로 자동 재작성합니다. 없으면 룰 기반 텍스트가 그대로 사용됩니다.",
+                placeholder="sk-ant-api03-..."
+            )
 
         if api_key:
             is_valid, msg = validate_api_key(api_key)
             if is_valid:
-                st.caption(f"✅ {msg} — Opus 모델로 분석 문단을 재작성합니다.")
+                st.caption(f"{msg} — Opus 모델로 분석 문단을 재작성합니다.")
             else:
-                st.caption(f"⚠️ {msg}")
+                st.caption(f"{msg}")
 
         use_llm = bool(api_key and api_key.strip().startswith("sk-ant-"))
 
@@ -64,16 +67,16 @@ def render(tab, load_reference_data):
         subsection("GENERATE", "보고서 생성")
 
         if use_llm:
-            st.info("🤖 AI 글쓰기 활성화 — 보고서 생성 시 Claude Opus가 분석 문단을 보고서 문체로 재작성합니다.")
+            st.info("AI 글쓰기 활성화 — 보고서 생성 시 Claude Opus가 분석 문단을 보고서 문체로 재작성합니다.")
 
-        col1, col2 = st.columns(2)
+        col1, col2, _ = st.columns([1.5, 1.5, 7])
         with col1:
-            if st.button("📄 보고서 생성", type="primary", use_container_width=True,
+            if st.button("보고서 생성", type="primary", use_container_width=True,
                          help="LLM이 분석 문단을 작성하고, 아래에 미리보기·편집 영역이 나타납니다."):
                 _generate_report(api_key=api_key if use_llm else None)
 
         with col2:
-            if st.button("💾 데이터 JSON 저장", use_container_width=True):
+            if st.button("데이터 JSON 저장", use_container_width=True):
                 _save_json()
 
         # ── 미리보기 & 편집 & 다운로드 ──
@@ -174,7 +177,7 @@ def _show_preview():
     # VI. Executive Summary (교차 분석 + 자동 도출 평가 항목)
     with st.expander("**VI. Executive Summary**", expanded=True):
         _show_section_insights("evaluation")
-        st.caption("📝 보고서 생성 시 LLM이 위 인사이트를 종합하여 신문 기사 톤의 종합 의견을 자동 작성합니다.")
+        st.caption("보고서 생성 시 LLM이 위 인사이트를 종합하여 신문 기사 톤의 종합 의견을 자동 작성합니다.")
 
 
 def _show_section_insights(section):
@@ -195,10 +198,9 @@ def _show_section_insights(section):
 
     if selected:
         st.markdown("---")
-        st.caption("📊 데이터 기반 분석:")
+        st.caption("데이터 기반 분석:")
         for ins, text in selected:
-            icon = ae.CATEGORY_ICONS.get(ins.category, "")
-            st.markdown(f"> {icon} {text}")
+            st.markdown(f"> {text}")
 
 
 def _generate_report(api_key=None):
@@ -243,9 +245,9 @@ def _generate_report(api_key=None):
 
                 if llm_result.is_fallback:
                     if llm_result.error:
-                        st.warning(f"⚠️ AI 글쓰기 실패 — 룰 기반으로 대체합니다.\n{llm_result.error}")
+                        st.warning(f"AI 글쓰기 실패 — 룰 기반으로 대체합니다.\n{llm_result.error}")
                     else:
-                        st.info("ℹ️ 룰 기반 텍스트를 사용합니다.")
+                        st.info("룰 기반 텍스트를 사용합니다.")
                 else:
                     cost = estimate_cost(
                         llm_result.input_tokens,
@@ -255,11 +257,11 @@ def _generate_report(api_key=None):
                     )
                     cache_note = ""
                     if cost["cache_hit"]:
-                        cache_note = f" · 🟢 캐시 히트 {cost['cache_read_tokens']:,} 토큰 재사용"
+                        cache_note = f" · 캐시 히트 {cost['cache_read_tokens']:,} 토큰 재사용"
                     elif cost["cache_creation_tokens"]:
-                        cache_note = f" · 🆕 캐시 생성 {cost['cache_creation_tokens']:,} 토큰 (다음 호출부터 적용)"
+                        cache_note = f" · 캐시 생성 {cost['cache_creation_tokens']:,} 토큰 (다음 호출부터 적용)"
                     st.success(
-                        f"✅ AI 분석 글쓰기 완료 — "
+                        f"AI 분석 글쓰기 완료 — "
                         f"{cost['total_tokens']:,} 토큰 사용 "
                         f"(약 {cost['cost_krw']:.0f}원)"
                         f"{cache_note}"
@@ -278,7 +280,7 @@ def _generate_report(api_key=None):
         for sec in ["composition", "results", "promotion", "evaluation", "audience_response"]:
             st.session_state.pop(f"preview_edit_{sec}", None)
 
-        st.success("✅ 보고서가 준비되었습니다. 아래에서 미리보기·편집·다운로드하세요.")
+        st.success("보고서가 준비되었습니다. 아래에서 미리보기·편집·다운로드하세요.")
 
     except Exception as e:
         st.error(f"보고서 생성 오류: {e}")
@@ -300,54 +302,58 @@ def _render_preview_and_edit():
     original_sections = state["llm_sections_original"]
 
     st.markdown("---")
-    subsection("PREVIEW & EDIT", "보고서 미리보기 & 편집")
-    st.caption("LLM이 생성한 분석 문단을 검토·수정한 뒤 Word로 다운로드하세요. 텍스트 수정은 자동으로 다운로드에 반영됩니다.")
+    subsection("", "보고서 미리보기 & 편집")
+    st.caption("텍스트 수정은 자동으로 다운로드에 반영됩니다.")
 
-    # 핵심 수치 종합표 (자동 계산, 편집 불가)
-    summary = data.get("summary_metrics", [])
-    if summary:
-        with st.expander("📊 VI. 핵심 수치 종합표 (자동 계산)", expanded=False):
-            ref_label = summary[0].get("reference_label", "역대 전시")
-            st.caption(f"비교 기준: {ref_label} 평균")
-            df_summary = pd.DataFrame([
-                {
-                    "지표": m["label"],
-                    "본 전시": m["current_fmt"],
-                    "비교 평균": m["reference_avg_fmt"],
-                    "차이": m["diff_fmt"],
-                } for m in summary
-            ])
-            st.dataframe(df_summary, hide_index=True, use_container_width=True)
+    # 가로 폭 원칙(CLAUDE.md): 표·편집영역을 ~60% 컬럼 안에 렌더
+    edit_col, _ = st.columns([3, 2])
+    with edit_col:
+        # 핵심 수치 종합표 (자동 계산, 편집 불가)
+        summary = data.get("summary_metrics", [])
+        if summary:
+            with st.expander("VI. 핵심 수치 종합표 (자동 계산)", expanded=False):
+                ref_label = summary[0].get("reference_label", "역대 전시")
+                st.caption(f"비교 기준: {ref_label} 평균")
+                df_summary = pd.DataFrame([
+                    {
+                        "지표": m["label"],
+                        "본 전시": m["current_fmt"],
+                        "비교 평균": m["reference_avg_fmt"],
+                        "차이": m["diff_fmt"],
+                    } for m in summary
+                ])
+                st.dataframe(df_summary, hide_index=True, use_container_width=True)
 
-    # 편집 가능한 LLM 섹션 (보고서 등장 순서)
-    section_order = [
-        ("composition",       "III. 전시 구성 — 분석 문단"),
-        ("results",           "IV. 전시 결과 — 분석 문단"),
-        ("promotion",         "V. 홍보 — 분석 문단"),
-        ("evaluation",        "VI. Executive Summary — 종합 의견"),
-        ("audience_response", "VI. Executive Summary — 관객 반응 종합"),
-    ]
+        # 편집 가능한 LLM 섹션 (보고서 등장 순서)
+        section_order = [
+            ("composition",       "III. 전시 구성 — 분석 문단"),
+            ("results",           "IV. 전시 결과 — 분석 문단"),
+            ("promotion",         "V. 홍보 — 분석 문단"),
+            ("evaluation",        "VI. Executive Summary — 종합 의견"),
+            ("audience_response", "VI. Executive Summary — 관객 반응 종합"),
+        ]
 
-    st.markdown("#### ✏️ 분석 문단 편집")
-    has_editable = False
-    for key, label in section_order:
-        original = (original_sections.get(key) or "").strip()
-        if not original:
-            continue
-        has_editable = True
-        st.text_area(
-            label,
-            value=st.session_state.get(f"preview_edit_{key}", original),
-            key=f"preview_edit_{key}",
-            height=180,
-        )
+        st.markdown("**분석 문단 편집**")
+        has_editable = False
+        for key, label in section_order:
+            original = (original_sections.get(key) or "").strip()
+            if not original:
+                continue
+            has_editable = True
+            st.text_area(
+                label,
+                value=st.session_state.get(f"preview_edit_{key}", original),
+                key=f"preview_edit_{key}",
+                height=180,
+            )
 
-    if not has_editable:
-        st.info("ℹ️ 편집 가능한 LLM 생성 문단이 없습니다 (LLM 비활성화 또는 인사이트 없음). 본문은 룰 기반 텍스트로 채워집니다.")
+        if not has_editable:
+            st.info("편집 가능한 LLM 생성 문단이 없습니다 (LLM 비활성화 또는 인사이트 없음). 본문은 룰 기반 텍스트로 채워집니다.")
 
     # ── 액션 영역: Word 다운로드(자동 갱신) + 원본 복원 ──
+    # 가로 폭 원칙: 좌측 ~60% 안에 두 버튼 배치
     st.markdown("---")
-    col_dl, col_reset = st.columns([3, 1])
+    col_dl, col_reset, _ = st.columns([2.2, 1, 1.8])
 
     with col_dl:
         try:
@@ -369,7 +375,7 @@ def _render_preview_and_edit():
                 report_bytes = f.read()
 
             st.download_button(
-                "📥 편집 적용 Word 다운로드",
+                "편집 적용 Word 다운로드",
                 report_bytes,
                 file_name=f"전시보고서_{state['title']}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -382,7 +388,7 @@ def _render_preview_and_edit():
             st.code(traceback.format_exc())
 
     with col_reset:
-        if st.button("↻ 원본 복원", use_container_width=True, help="편집 사항을 모두 되돌립니다."):
+        if st.button("원본 복원", use_container_width=True, help="편집 사항을 모두 되돌립니다."):
             for key, _label in section_order:
                 st.session_state.pop(f"preview_edit_{key}", None)
             st.rerun()
@@ -572,7 +578,7 @@ def _save_json():
 
     json_str = json.dumps(save_data, ensure_ascii=False, indent=2)
     st.download_button(
-        "💾 JSON 다운로드",
+        "JSON 다운로드",
         json_str,
         file_name=f"report_data_{s.exhibition_title or 'v3'}.json",
         mime="application/json",

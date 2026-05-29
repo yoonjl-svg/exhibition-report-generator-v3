@@ -127,7 +127,7 @@ def render_sample_button():
     """사이드바에 '샘플 데이터 채우기' 버튼을 렌더 (테스트 전용)."""
     with st.sidebar:
         st.divider()
-        st.caption("🧪 테스트 도구")
+        st.caption("테스트 도구")
         if st.button("샘플 채우기", use_container_width=True,
                      help="(가)하이퍼 옐로우 데이터로 모든 필드를 채웁니다. 자동으로 상세 작업 모드로 진입합니다."):
             # 기존 JSON 로드와 동일한 메커니즘 사용 (위젯 키 충돌 회피)
@@ -138,4 +138,4 @@ def render_sample_button():
             st.session_state["current_exhibition_status"] = "draft"
             st.session_state["current_exhibition_type"] = 1   # 정기 기획전 기본
             st.rerun()
-        st.caption("⚠️ 공식 배포 시 제거")
+        st.caption("공식 배포 시 제거")

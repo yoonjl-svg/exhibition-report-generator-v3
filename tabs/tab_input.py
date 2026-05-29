@@ -111,7 +111,7 @@ def _show_import_warnings_if_any():
     warnings = st.session_state.pop("_excel_import_warnings", None)
     if warnings:
         for w in warnings:
-            st.warning(f"⚠️ {w}")
+            st.warning(f"{w}")
 
 
 def _apply_imported_data(data: dict, exhibition_type=None):
@@ -230,7 +230,7 @@ def render(tab):
                          placeholder="구정연, 이미래, 장서영")
             if st.session_state.period_start and st.session_state.period_end:
                 days = (st.session_state.period_end - st.session_state.period_start).days + 1
-                st.info(f"📅 전시 일수: **{days}일**")
+                st.info(f"전시 일수: **{days}일**")
 
         with c_team:
             r1c1, r1c2 = st.columns(2)
@@ -307,14 +307,14 @@ def render(tab):
         # 업로드된 예산 미리보기 (있을 때만)
         if st.session_state.get("budget_summary") and any(
                 x.get("category") for x in st.session_state.budget_summary):
-            with st.expander("📋 업로드된 예산 집행 내역", expanded=False):
+            with st.expander("업로드된 예산 집행 내역", expanded=False):
                 summary_df = pd.DataFrame(st.session_state.budget_summary)
                 summary_df = summary_df[summary_df["category"].astype(bool)]
                 st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
         if st.session_state.get("budget_details") and any(
                 x.get("subcategory") or x.get("detail") for x in st.session_state.budget_details):
-            with st.expander("📋 업로드된 예산 세부 내역", expanded=False):
+            with st.expander("업로드된 예산 세부 내역", expanded=False):
                 details_df = pd.DataFrame(st.session_state.budget_details)
                 details_df = details_df[details_df["subcategory"].astype(bool) | details_df["detail"].astype(bool)]
                 st.dataframe(details_df, use_container_width=True, hide_index=True)
@@ -366,9 +366,9 @@ def render(tab):
                       st.session_state.visitor_discover + st.session_state.visitor_discount)
         if ticket_sum > 0 and st.session_state.total_visitors > 0:
             if ticket_sum != st.session_state.total_visitors:
-                st.warning(f"⚠️ 입장권별 합계({ticket_sum:,}명)와 총 관객수({st.session_state.total_visitors:,}명)가 다릅니다.")
+                st.warning(f"입장권별 합계({ticket_sum:,}명)와 총 관객수({st.session_state.total_visitors:,}명)가 다릅니다.")
             else:
-                st.success(f"✅ 입장권별 합계 일치: {ticket_sum:,}명")
+                st.success(f"입장권별 합계 일치: {ticket_sum:,}명")
 
         # 주차별 관객 — 11주차, 1줄 배치 (좌측 클러스터 + gap small)
         st.markdown("**주차별 관객 수**")
@@ -419,7 +419,7 @@ def render(tab):
                     with col:
                         _render_room(idx, rooms[idx])
             _add_remove_buttons(
-                "➕ 전시실 추가", "➖ 마지막 제거",
+                "전시실 추가", "마지막 제거",
                 "add_room", "rm_room",
                 "rooms",
                 {"name": f"{len(st.session_state.rooms) + 1}전시실", "artists": ""},
@@ -491,7 +491,7 @@ def render(tab):
                     "비고", value=prog.get("note", ""), key=f"prog_note_{i}")
 
         _add_remove_buttons(
-            "➕ 프로그램 추가", "➖ 마지막 제거",
+            "프로그램 추가", "마지막 제거",
             "add_prog", "rm_prog",
             "related_programs",
             {"category": None, "title": "", "date": None, "participants": "", "note": ""},
@@ -536,7 +536,7 @@ def render(tab):
                     "비고", value=mat.get("note", ""), key=f"mat_note_{i}")
 
         _add_remove_buttons(
-            "➕ 인쇄물 추가", "➖ 마지막 제거",
+            "인쇄물 추가", "마지막 제거",
             "add_mat", "rm_mat",
             "printed_materials", {"type": None, "quantity": "", "note": ""},
         )
@@ -610,9 +610,9 @@ def render(tab):
         _has_press_data = any(p.get("outlet") for p in st.session_state.press_print) or \
                           any(p.get("outlet") for p in st.session_state.press_online)
         if _has_press_data:
-            st.info("💡 엑셀로 업로드한 언론보도 데이터가 있습니다. 아래에서 수정·추가 가능합니다.")
+            st.info("엑셀로 업로드한 언론보도 데이터가 있습니다. 아래에서 수정·추가 가능합니다.")
         else:
-            st.caption("상단의 '엑셀 일괄 업로드'로 일괄 입력도 가능합니다.")
+            st.caption("상단의 '가져오기'로 일괄 입력도 가능합니다.")
 
         # 보도 건수 자동 동기화 제안
         print_count = len([p for p in st.session_state.press_print if p.get("outlet")])
@@ -621,7 +621,7 @@ def render(tab):
         if list_total > 0 and st.session_state.press_count == 0:
             sc, _ = st.columns([3, 7])
             with sc:
-                if st.button(f"💡 보도 건수를 {list_total}건으로 자동 입력",
+                if st.button(f"보도 건수를 {list_total}건으로 자동 입력",
                              key="sync_press", use_container_width=True):
                     st.session_state.press_count = list_total
                     st.rerun()
@@ -650,7 +650,7 @@ def render(tab):
                         "비고", value=item.get("note", ""), key=f"pp_note_{i}")
 
             _add_remove_buttons(
-                "➕ 일간지 추가", "➖ 마지막 제거",
+                "일간지 추가", "마지막 제거",
                 "add_pp", "rm_pp",
                 "press_print", {"outlet": "", "date": None, "title": "", "note": ""},
                 page_full=False,
@@ -678,7 +678,7 @@ def render(tab):
                         "URL", value=item.get("url", ""), key=f"po_url_{i}")
 
             _add_remove_buttons(
-                "➕ 온라인 추가", "➖ 마지막 제거",
+                "온라인 추가", "마지막 제거",
                 "add_po", "rm_po",
                 "press_online", {"outlet": "", "date": None, "title": "", "url": ""},
                 page_full=False,
@@ -709,7 +709,7 @@ def render(tab):
                     "출처", value=review.get("source", ""), key=f"rev_source_{i}")
 
         _add_remove_buttons(
-            "➕ 후기 추가", "➖ 마지막 제거",
+            "후기 추가", "마지막 제거",
             "add_rev", "rm_rev",
             "visitor_reviews", {"category": "긍정", "content": "", "source": ""},
         )

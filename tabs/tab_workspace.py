@@ -62,7 +62,7 @@ def render(tab, load_reference_data):
         _render_action_bar()
 
         if not records:
-            st.info("📭 저장된 전시가 없습니다. 위에서 '신규 전시 만들기'를 클릭하세요.")
+            st.info("저장된 전시가 없습니다. 위에서 '새 전시 데이터 생성'을 클릭하세요.")
             return
 
         # ── 트렌드·비교 (확장 가능) ──
@@ -71,7 +71,7 @@ def render(tab, load_reference_data):
             tab_trend.render(records)
 
         st.divider()
-        eyebrow(f"DATA · {len(records)}개 전시 · KB 모드: {kb_store.get_mode()}")
+        eyebrow(f"{len(records)}개 전시 · KB 모드: {kb_store.get_mode()}")
 
         filtered = _apply_filters(records)
         if not filtered:
@@ -389,7 +389,6 @@ def _render_year_header(year_str: str, count: int):
     label = f"{year_str}년" if year_str != "미상" else year_str
     st.markdown(
         f'<div class="year-header">'
-        f'<div class="eyebrow">YEAR · {year_str}</div>'
         f'<div>'
         f'<span class="year-label">{label}</span>'
         f'<span class="year-count">· {count}건</span>'

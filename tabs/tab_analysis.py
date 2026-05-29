@@ -138,7 +138,7 @@ def render(tab, load_reference_data):
     with tab:
         ref_df = load_reference_data()
         if ref_df is None:
-            st.warning("⚠️ 레퍼런스 데이터를 찾을 수 없습니다.")
+            st.warning("레퍼런스 데이터를 찾을 수 없습니다.")
             return
 
         analysis_count = len(rd.exclude_type_zero(ref_df))

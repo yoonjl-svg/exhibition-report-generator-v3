@@ -750,7 +750,7 @@ def load_reference_data():
                 return df
     except Exception as e:
         # KB 사용 불가 시 조용히 xlsx 폴백 (개발 환경 호환)
-        st.caption(f"⚠️ KB 로드 실패 — xlsx 폴백 사용 ({type(e).__name__})")
+        st.caption(f"KB 로드 실패 — xlsx 폴백 사용 ({type(e).__name__})")
 
     # 2. xlsx 폴백
     xlsx_path = os.path.join(os.path.dirname(__file__), "exhibition_reference_data.xlsx")
@@ -797,23 +797,23 @@ with st.sidebar:
         if current_id:
             st.caption(f"id: `{current_id}`")
         else:
-            st.caption("⚠️ 미저장 (신규)")
+            st.caption("미저장 (신규)")
 
         st.divider()
 
         # 워크스페이스에 저장
-        if st.button("💾 워크스페이스에 저장", type="primary", use_container_width=True,
+        if st.button("워크스페이스에 저장", type="primary", use_container_width=True,
                      help="현재 작업 중인 전시 데이터를 KB에 영구 저장합니다."):
             try:
                 saved = kb_session.save_current_to_kb()
-                st.success(f"✅ 저장됨\n\n`{saved['id']}`\n\n{saved['modified_at']}")
+                st.success(f"저장됨\n\n`{saved['id']}`\n\n{saved['modified_at']}")
             except Exception as e:
                 st.error(f"저장 오류: {e}")
                 import traceback
                 st.code(traceback.format_exc())
 
         # 목록으로 돌아가기
-        if st.button("📚 워크스페이스 목록", use_container_width=True,
+        if st.button("워크스페이스 목록", use_container_width=True,
                      help="목록 화면으로 돌아갑니다. 저장하지 않은 변경은 메모리에 유지됩니다."):
             kb_session.enter_workspace_mode()
             st.rerun()
@@ -839,9 +839,9 @@ if app_mode == "workspace":
 else:
     # 상세 모드: 3탭 (v5.3.23 — 기본 정보+정량 데이터 통합)
     tab_input_t, tab_c, tab_d = st.tabs([
-        "📋 전시 데이터",
-        "🔍 분석 및 평가",
-        "📄 보고서 생성",
+        "전시 데이터",
+        "분석 및 평가",
+        "보고서 생성",
     ])
 
     tab_input.render(tab_input_t)
