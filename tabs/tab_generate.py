@@ -292,8 +292,9 @@ def _render_preview_and_edit():
     data = state["data"]
     original_sections = state["llm_sections_original"]
 
-    # ── HTML 웹 리포트 (화면 렌더) — 편집 내용 반영 ──
+    # ── 웹 미리보기: 새 탭으로 열기(인라인 iframe 미사용 — 본문 길이 보존) ──
     try:
+        import json as _json
         from html_report import build_report_html
         import streamlit.components.v1 as components
         edited = dict(original_sections)
@@ -304,15 +305,28 @@ def _render_preview_and_edit():
                 edited[_k] = st.session_state[_ek]
         _pdata = dict(data)
         _pdata["llm_sections"] = edited
+        _report_html = build_report_html(_pdata)
+        _html_js = _json.dumps(_report_html)  # 안전한 JS 문자열 리터럴
         st.markdown("---")
-        subsection("", "보고서 미리보기 (웹)")
-        components.html(build_report_html(_pdata), height=1700, scrolling=True)
+        subsection("", "보고서 미리보기")
+        st.caption("Word로 생성될 내용과 동일한 미리보기를 새 창에서 엽니다.")
+        _launcher = (
+            '<button onclick="var w=window.open(\'\',\'_blank\');'
+            'w.document.open();w.document.write(' + _html_js + ');'
+            'w.document.close();" '
+            'style="background:#255c4a;color:#fff;border:none;border-radius:8px;'
+            'padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;'
+            'font-family:sans-serif;">웹 미리보기 열기 (새 창)</button>'
+            '<div style="font-size:12px;color:#646b61;margin-top:6px;">'
+            '팝업이 차단되면 허용해 주세요.</div>'
+        )
+        components.html(_launcher, height=70)
     except Exception as e:
         st.caption(f"웹 미리보기 생성 실패: {type(e).__name__}: {e}")
 
     st.markdown("---")
     subsection("", "분석 문단 편집 & Word 다운로드")
-    st.caption("아래에서 문단을 수정하면 위 미리보기와 Word 다운로드에 함께 반영됩니다.")
+    st.caption("아래에서 문단을 수정하면 미리보기와 Word 다운로드에 함께 반영됩니다.")
 
     # 가로 폭 원칙(CLAUDE.md): 표·편집영역을 ~60% 컬럼 안에 렌더
     edit_col, _ = st.columns([3, 2])
