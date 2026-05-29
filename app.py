@@ -372,41 +372,30 @@ st.markdown("""
     .stNumberInput button {
         display: none !important;
     }
-    /* 모서리 잘림 방지: 테두리·라운드를 BaseWeb 래퍼에 통일하고
-       내부 input은 테두리 없이 투명. (이전엔 래퍼 radius + input 사각
-       테두리가 충돌해 모서리가 잘려 보였음) */
+    /* 모서리 잘림·겹침 동시 해결 (v5.3.51):
+       테두리·라운드는 BaseWeb 래퍼에만, 내부 input/textarea는 테두리 없이
+       투명. 내부에 사각 테두리가 없으므로 overflow:hidden 불필요 →
+       date_input의 달력 아이콘이 잘리거나 겹치지 않음.
+       높이는 고정(height) 대신 min-height만 — 고정 높이가 날짜칸 내용을
+       짓눌러 겹침을 유발했음. */
     .stTextInput div[data-baseweb="base-input"],
     .stNumberInput div[data-baseweb="base-input"],
     .stDateInput div[data-baseweb="base-input"],
+    .stTextArea div[data-baseweb="base-input"],
     .stTextInput div[data-baseweb="input"],
     .stNumberInput div[data-baseweb="input"],
     .stDateInput div[data-baseweb="input"] {
         border: 1px solid var(--line) !important;
         border-radius: 6px !important;
         background: var(--surface) !important;
-        overflow: hidden !important;
+        min-height: 36px !important;
     }
     .stTextInput input,
     .stNumberInput input,
-    .stDateInput input {
+    .stDateInput input,
+    .stTextArea textarea {
         border: none !important;
         background: transparent !important;
-    }
-    /* 입력창 높이 통일 — 텍스트·숫자·날짜 모두 동일한 얇은 두께로.
-       (date_input은 달력 아이콘 때문에 기본 높이가 더 두꺼워 들쭉날쭉했음) */
-    .stTextInput div[data-baseweb="base-input"],
-    .stNumberInput div[data-baseweb="base-input"],
-    .stDateInput div[data-baseweb="base-input"],
-    .stTextInput div[data-baseweb="input"],
-    .stNumberInput div[data-baseweb="input"],
-    .stDateInput div[data-baseweb="input"] {
-        min-height: 34px !important;
-        height: 34px !important;
-        align-items: center !important;
-    }
-    /* date_input의 달력 아이콘이 좁은 칸에서 텍스트와 겹치지 않도록 */
-    .stDateInput div[data-baseweb="input"] {
-        overflow: visible !important;
     }
     /* 위젯 수직 간격 압축 (겹침 방지를 위해 0.5rem 유지) */
     [data-testid="stVerticalBlock"] {
@@ -514,21 +503,13 @@ st.markdown("""
        입력 위젯은 흰색으로 명시적 분리하여 대비 확보.
        ═══════════════════════════════════════════════ */
 
-    /* textarea만 직접 테두리 (단일 요소라 모서리 충돌 없음).
-       text/number/date의 테두리는 위 '쫀쫀한 그리드' 블록에서 BaseWeb
-       래퍼에 통일 적용 — 여기서 input에 다시 border를 주면 모서리가
-       잘리므로 주지 않는다. */
-    .stTextArea textarea {
-        background: var(--surface) !important;
-        border: 1px solid var(--line) !important;
-    }
-    .stTextArea textarea:focus {
-        border-color: var(--accent) !important;
-    }
-    /* 포커스 시 래퍼 강조 */
+    /* text/number/date/textarea 모두 테두리는 BaseWeb 래퍼에 통일 적용
+       (위 '쫀쫀한 그리드' 블록). 여기서 요소에 다시 border를 주면 모서리가
+       잘리므로 주지 않는다. 포커스 강조만 래퍼 :focus-within으로. */
     .stTextInput div[data-baseweb="base-input"]:focus-within,
     .stNumberInput div[data-baseweb="base-input"]:focus-within,
     .stDateInput div[data-baseweb="base-input"]:focus-within,
+    .stTextArea div[data-baseweb="base-input"]:focus-within,
     .stTextInput div[data-baseweb="input"]:focus-within,
     .stNumberInput div[data-baseweb="input"]:focus-within,
     .stDateInput div[data-baseweb="input"]:focus-within {

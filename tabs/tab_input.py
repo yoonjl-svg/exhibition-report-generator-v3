@@ -249,7 +249,7 @@ def render(tab):
         with c_design:
             st.text_input("그래픽 디자인", key="graphic_designer",
                           placeholder="예: 페이퍼프레스")
-            st.text_input("공간 구성", key="space_designer",
+            st.text_input("공간 조성", key="space_designer",
                           placeholder="예: 석운동")
 
         with c_staff:
@@ -341,8 +341,9 @@ def render(tab):
                 st.caption("일평균: 기간 입력 시 자동")
 
         st.markdown("**입장권별 구성**")
-        # 8개 칸 균일 + 좌측 클러스터 (우측 spacer 7) — 더 조밀하게.
-        cols = st.columns([1, 1, 1, 1, 1, 1, 1, 1, 7], gap="small")
+        # 라벨 길이에 맞춘 너비 — 예술인패스·디스커버서울패스 라벨이 한 줄에
+        # 들어가도록 해당 칸을 넓힘. 우측 spacer로 좌측 클러스터 유지.
+        cols = st.columns([1, 1, 1.1, 1.5, 2.2, 1.3, 1.2, 1.3, 4], gap="small")
         with cols[0]:
             st.number_input("일반", min_value=0, key="visitor_general", format="%d")
         with cols[1]:
@@ -630,7 +631,8 @@ def render(tab):
         with col_print:
             st.markdown("**일간지 및 월간지**")
             for i, item in enumerate(st.session_state.press_print):
-                cols = st.columns([1.5, 1.5, 4, 2])
+                # 일자 칸 넓혀 날짜+달력 아이콘 겹침 방지
+                cols = st.columns([1.4, 1.8, 3.3, 1.8])
                 with cols[0]:
                     st.session_state.press_print[i]["outlet"] = st.text_input(
                         "매체명", value=item.get("outlet", ""), key=f"pp_outlet_{i}")
@@ -657,7 +659,8 @@ def render(tab):
         with col_online:
             st.markdown("**온라인 매체**")
             for i, item in enumerate(st.session_state.press_online):
-                cols = st.columns([1.5, 1.5, 3, 3])
+                # 일자 칸 넓혀 날짜+달력 아이콘 겹침 방지
+                cols = st.columns([1.4, 1.8, 2.8, 3])
                 with cols[0]:
                     st.session_state.press_online[i]["outlet"] = st.text_input(
                         "매체명", value=item.get("outlet", ""), key=f"po_outlet_{i}")
