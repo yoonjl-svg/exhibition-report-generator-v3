@@ -459,5 +459,26 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 
 /* SVG */
 .svgchart { width:100%; height:auto; display:block; }
+
+/* 인쇄용 툴바 */
+.toolbar { display:flex; justify-content:flex-end; margin-bottom:14px; }
+.toolbar button { background:#255c4a; color:#fff; border:none; border-radius:8px;
+  padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer;
+  font-family:inherit; }
+
+/* ── 인쇄 / PDF 저장 최적화 ── */
+@page { size: A4; margin: 16mm 14mm; }
+@media print {
+  body { background:#fff; }
+  .report { max-width:none; padding:0; }
+  .no-print { display:none !important; }
+  .card { box-shadow:none; border:1px solid #e3e7df; break-inside:avoid;
+    page-break-inside:avoid; }
+  .donut-grid, .donut-cell, .lolli, .tbl, .svgchart { break-inside:avoid;
+    page-break-inside:avoid; }
+  .sec-title { break-after:avoid; page-break-after:avoid; }
+}
 </style></head>
-<body><div class="report">{{BODY}}</div></body></html>"""
+<body><div class="report">
+<div class="toolbar no-print"><button onclick="window.print()">인쇄 / PDF로 저장</button></div>
+{{BODY}}</div></body></html>"""

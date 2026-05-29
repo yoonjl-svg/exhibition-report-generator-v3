@@ -310,7 +310,10 @@ def _render_preview_and_edit():
         _html_js = _json.dumps(_report_html).replace("</", "<\\/")
         st.markdown("---")
         subsection("", "보고서 미리보기")
-        st.caption("Word로 생성될 내용과 동일한 미리보기를 새 창에서 엽니다.")
+        st.caption("정본은 웹(HTML) 리포트입니다. 새 창에서 열어 검토하고, "
+                   "그 화면의 ‘인쇄 / PDF로 저장’으로 PDF를 만들 수 있습니다.")
+        _rtitle = (data.get("overview", {}).get("title")
+                   or data.get("exhibition_title") or "report")
         _launcher = (
             "<script>\n"
             "var REPORT_HTML = " + _html_js + ";\n"
@@ -328,6 +331,13 @@ def _render_preview_and_edit():
             "팝업이 차단되면 허용해 주세요.</div>"
         )
         components.html(_launcher, height=70)
+        # HTML 파일 다운로드(공유·보관용 — 어디서나 동일하게 열림)
+        dl_col, _ = st.columns([2, 8])
+        with dl_col:
+            st.download_button(
+                "HTML 파일 다운로드", _report_html,
+                file_name=f"전시보고서_{_rtitle}.html",
+                mime="text/html", use_container_width=True)
     except Exception as e:
         st.caption(f"웹 미리보기 생성 실패: {type(e).__name__}: {e}")
 
