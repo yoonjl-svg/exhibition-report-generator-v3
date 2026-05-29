@@ -292,9 +292,27 @@ def _render_preview_and_edit():
     data = state["data"]
     original_sections = state["llm_sections_original"]
 
+    # ── HTML 웹 리포트 (화면 렌더) — 편집 내용 반영 ──
+    try:
+        from html_report import build_report_html
+        import streamlit.components.v1 as components
+        edited = dict(original_sections)
+        for _k in ("composition", "results", "promotion", "evaluation",
+                   "audience_response"):
+            _ek = f"preview_edit_{_k}"
+            if _ek in st.session_state:
+                edited[_k] = st.session_state[_ek]
+        _pdata = dict(data)
+        _pdata["llm_sections"] = edited
+        st.markdown("---")
+        subsection("", "보고서 미리보기 (웹)")
+        components.html(build_report_html(_pdata), height=1700, scrolling=True)
+    except Exception as e:
+        st.caption(f"웹 미리보기 생성 실패: {type(e).__name__}: {e}")
+
     st.markdown("---")
-    subsection("", "보고서 미리보기 & 편집")
-    st.caption("텍스트 수정은 자동으로 다운로드에 반영됩니다.")
+    subsection("", "분석 문단 편집 & Word 다운로드")
+    st.caption("아래에서 문단을 수정하면 위 미리보기와 Word 다운로드에 함께 반영됩니다.")
 
     # 가로 폭 원칙(CLAUDE.md): 표·편집영역을 ~60% 컬럼 안에 렌더
     edit_col, _ = st.columns([3, 2])
