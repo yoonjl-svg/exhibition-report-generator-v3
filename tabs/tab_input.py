@@ -709,3 +709,6 @@ def render(tab):
             "add_rev", "rm_rev",
             "visitor_reviews", {"category": "긍정", "content": "", "source": ""},
         )
+
+        # 마지막 섹션 하단 여백 — 다른 섹션의 _section_divider 간격과 동일하게
+        st.markdown('<div style="margin-top: 18px;"></div>', unsafe_allow_html=True)
