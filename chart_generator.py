@@ -691,8 +691,8 @@ def create_similar_trend_chart(current_data, similar_rows, current_start=None,
         return None
 
     fp = get_font_prop()
-    # 넉넉한 가로폭 + 라벨 공간(예전 막대 차트 수준의 균형)
-    fig, ax = plt.subplots(figsize=(max(9.5, len(exs) * 1.9), 5.8))
+    # 넉넉한 가로폭 + 하단 라벨(가로·줄바꿈) 공간
+    fig, ax = plt.subplots(figsize=(max(10, len(exs) * 2.0), 6.2))
 
     x = list(range(len(exs)))
     colors = C_CATEGORICAL
@@ -708,28 +708,40 @@ def create_similar_trend_chart(current_data, similar_rows, current_start=None,
     # 이번 전시 위치 강조
     cur_idx = next((i for i, e in enumerate(exs) if e[3]), None)
     if cur_idx is not None:
-        ax.axvspan(cur_idx - 0.22, cur_idx + 0.22, color=C_ACCENT, alpha=0.08, zorder=1)
+        ax.axvspan(cur_idx - 0.24, cur_idx + 0.24, color=C_ACCENT, alpha=0.08, zorder=1)
 
-    def _short(name):
-        # '제목: 부제' → 주제목 우선, 16자 이내로
-        head = name.split(":")[0].strip() if ":" in name else name
-        head = head if len(head) <= 16 else head[:15] + "…"
-        return head
+    def _wrap(s, width=11):
+        # 전체 이름 표기(절단 없음) — 공백 기준 가로 줄바꿈, 긴 토큰은 강제 분할
+        lines, cur = [], ""
+        for tok in str(s).split(" "):
+            cand = (cur + " " + tok).strip() if cur else tok
+            if len(cand) <= width:
+                cur = cand
+            else:
+                if cur:
+                    lines.append(cur)
+                while len(tok) > width:
+                    lines.append(tok[:width]); tok = tok[width:]
+                cur = tok
+        if cur:
+            lines.append(cur)
+        return "\n".join(lines)
 
     ax.set_xticks(x)
-    ax.set_xticklabels([_short(e[0]) for e in exs], rotation=25, ha='right')
+    # 가로 표기(rotation 0), 표 본문과 같은 서체·크기(11) — 절단 없음
+    ax.set_xticklabels([_wrap(e[0]) for e in exs], rotation=0, ha='center')
     for tk, e in zip(ax.get_xticklabels(), exs):
         tk.set_fontproperties(_fp(11, bold=e[3]))
-        tk.set_color(C_ACCENT if e[3] else "#3c403a")
+        tk.set_color(C_ACCENT if e[3] else "#20231f")
     ax.set_ylim(0, 116)
     ax.set_ylabel("지표별 최댓값 대비 (%)", fontproperties=_fp(11), color="#646b61")
-    ax.set_title(title, fontproperties=_fp(CH_TITLE, bold=True), color=C_INK,
-                 loc='left', pad=14)
-    ax.legend(prop=_fp(11), ncol=min(len(fields), 6), loc='upper center',
-              bbox_to_anchor=(0.5, -0.20), frameon=False, columnspacing=1.6,
-              handlelength=1.6)
+    # 차트 제목은 탭의 '유사 전시 비교' 헤더와 중복 → 생략. 범례만 상단에.
+    ax.legend(prop=_fp(11), ncol=min(len(fields), 6), loc='lower center',
+              bbox_to_anchor=(0.5, 1.01), frameon=False, columnspacing=1.8,
+              handlelength=1.8)
     for sp in ('top', 'right'):
         ax.spines[sp].set_visible(False)
+    ax.tick_params(axis='x', length=0, pad=8)
     ax.tick_params(axis='y', labelsize=10, length=0)
     ax.grid(axis='y', alpha=0.15)
     if output_path is None:
