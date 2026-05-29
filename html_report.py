@@ -391,7 +391,10 @@ def build_report_html(data):
 
 _DOC = """<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
 <style>
-* { box-sizing: border-box; }
+/* 인쇄/PDF에서도 배경(도넛 conic-gradient·롤리팝·표 헤더 등)이 출력되도록 강제 */
+* { box-sizing: border-box;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
+html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { margin:0; background:#f4f6f2; color:#20231f;
   font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; }
 .report { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; }
@@ -469,6 +472,8 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 /* ── 인쇄 / PDF 저장 최적화 ── */
 @page { size: A4; margin: 16mm 14mm; }
 @media print {
+  /* 배경 강제 출력(도넛·롤리팝·표 헤더 등 색이 사라지지 않게) */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body { background:#fff; }
   .report { max-width:none; padding:0; }
   .no-print { display:none !important; }
