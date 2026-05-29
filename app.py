@@ -260,10 +260,20 @@ st.markdown("""
         margin-left: 6px;
     }
 
-    /* === Streamlit 위젯 미세 조정 === */
+    /* === Streamlit 탭 — 명확한 변별 (간격 + 활성/비활성 색) === */
     div[data-testid="stTabs"] button[data-baseweb="tab"] {
-        font-size: var(--font-l4);
+        font-size: var(--font-l3);      /* 14px로 살짝 키움 */
         font-weight: 600;
+        color: var(--muted);            /* 비활성 탭: 흐린 회색 */
+        padding-left: 2px !important;
+        padding-right: 2px !important;
+    }
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+        color: var(--accent) !important; /* 활성 탭: 녹색 강조 */
+        font-weight: 700;
+    }
+    div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+        color: var(--ink);
     }
     .stNumberInput > div > div > input { text-align: right; }
 
@@ -300,7 +310,7 @@ st.markdown("""
         padding-top: 4px;
         padding-bottom: 0;
         margin-bottom: 12px;
-        gap: 4px;
+        gap: 2rem !important;   /* 탭 간 명확한 간격 */
         box-shadow: 0 4px 8px -6px rgba(32, 35, 31, 0.1);
     }
 
@@ -456,9 +466,9 @@ st.markdown("""
         padding-top: 0.5rem !important;
     }
 
-    /* 탭 자체 헤더 — 본문에 더 가깝게 */
+    /* 탭 자체 헤더 — 탭 간 명확한 간격 */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
+        gap: 2rem !important;
     }
 
     /* st.divider — 마진 축소 */
