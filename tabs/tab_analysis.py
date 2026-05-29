@@ -76,10 +76,13 @@ def _evidence_rows(ins) -> list:
 
 
 def _render_insight_card(ins, key: str, show_evidence: bool):
-    """단일 인사이트를 카드로 렌더. 보고서 포함 체크 + 편집 텍스트 + 근거."""
+    """단일 인사이트를 카드로 렌더. 보고서 포함 체크 + 편집 텍스트 + 근거.
+
+    가로 폭 원칙(CLAUDE.md): 카드는 호출부에서 ~60% 컬럼 안에 렌더되어
+    풀폭으로 늘어나지 않는다. 이모지 없음.
+    """
     with st.container(border=True):
         # ── 헤더: 제목 + 칩들 ──
-        icon = ae.CATEGORY_ICONS.get(ins.category, "")
         chips = []
         pr_label, pr_kind = _PRIORITY_CHIP.get(ins.priority, ("참고", "low"))
         chips.append(chip(pr_label, pr_kind))
@@ -87,11 +90,11 @@ def _render_insight_card(ins, key: str, show_evidence: bool):
         chips.append(chip(sec_label))
         chips.append(chip(ins.category))
 
-        head_col, chip_col = st.columns([6, 4])
+        head_col, chip_col = st.columns([5, 5])
         with head_col:
             st.markdown(
                 f'<div style="font-size: 14px; font-weight: 700; color: #20231f; '
-                f'line-height: 1.35;">{icon} {ins.title}</div>',
+                f'line-height: 1.35;">{ins.title}</div>',
                 unsafe_allow_html=True,
             )
         with chip_col:
@@ -139,7 +142,7 @@ def render(tab, load_reference_data):
             return
 
         analysis_count = len(rd.exclude_type_zero(ref_df))
-        st.caption(f"📊 {analysis_count}개 과거 전시 데이터 기반 비교 분석")
+        st.caption(f"{analysis_count}개 과거 전시 데이터 기반 비교 분석")
 
         # ── 비교 대상 유형 + 분석 실행 ──
         col1, col2, _ = st.columns([2, 1, 3])
@@ -158,7 +161,7 @@ def render(tab, load_reference_data):
         with col2:
             st.write("")
             st.write("")
-            run_analysis = st.button("🔍 분석 실행", type="primary", use_container_width=True)
+            run_analysis = st.button("분석 실행", type="primary", use_container_width=True)
 
         # ── 분석 실행 ──
         if run_analysis:
@@ -201,22 +204,25 @@ def render(tab, load_reference_data):
         st.caption("체크박스로 보고서 포함 여부를 정하고, 텍스트를 직접 수정할 수 있습니다. "
                    "각 카드의 ‘근거’를 펼치면 해당 관찰이 도출된 수치를 확인할 수 있습니다.")
 
-        by_section = ae.get_insights_by_section(result)
-        for section_key in ["results", "composition", "promotion", "evaluation"]:
-            if section_key not in by_section:
-                continue
-            section_insights = by_section[section_key]
-            section_label = ae.SECTION_LABELS.get(section_key, section_key)
+        # 가로 폭 원칙(CLAUDE.md): 카드를 ~60% 컬럼 안에 렌더, 우측은 spacer.
+        card_col, _ = st.columns([3, 2])
+        with card_col:
+            by_section = ae.get_insights_by_section(result)
+            for section_key in ["results", "composition", "promotion", "evaluation"]:
+                if section_key not in by_section:
+                    continue
+                section_insights = by_section[section_key]
+                section_label = ae.SECTION_LABELS.get(section_key, section_key)
 
-            st.markdown(
-                f'<div style="margin: 14px 0 6px 0; font-size: 13px; '
-                f'font-weight: 600; color: #255c4a;">{section_label}에 배치 '
-                f'({len(section_insights)}건)</div>',
-                unsafe_allow_html=True,
-            )
-            for i, ins in enumerate(section_insights):
-                key = f"ins_{section_key}_{i}"
-                _render_insight_card(ins, key, show_evidence)
+                st.markdown(
+                    f'<div style="margin: 14px 0 6px 0; font-size: 13px; '
+                    f'font-weight: 600; color: #255c4a;">{section_label}에 배치 '
+                    f'({len(section_insights)}건)</div>',
+                    unsafe_allow_html=True,
+                )
+                for i, ins in enumerate(section_insights):
+                    key = f"ins_{section_key}_{i}"
+                    _render_insight_card(ins, key, show_evidence)
 
         # ═══════════════════════════════════════
         # PART 2: 유사 전시 비교
@@ -224,10 +230,13 @@ def render(tab, load_reference_data):
         if result.similar_comparison_table is not None:
             st.divider()
             subsection("", "유사 전시 비교")
-            if result.similar_exhibitions:
-                from chart_generator import create_similar_bar_chart
-                current = collect_analysis_data()
-                bar_path = create_similar_bar_chart(current, result.similar_exhibitions)
-                if bar_path:
-                    st.image(bar_path, use_container_width=True)
-            st.dataframe(result.similar_comparison_table, use_container_width=True, hide_index=True)
+            chart_col, _ = st.columns([3, 2])
+            with chart_col:
+                if result.similar_exhibitions:
+                    from chart_generator import create_similar_bar_chart
+                    current = collect_analysis_data()
+                    bar_path = create_similar_bar_chart(current, result.similar_exhibitions)
+                    if bar_path:
+                        st.image(bar_path, use_container_width=True)
+                st.dataframe(result.similar_comparison_table,
+                             use_container_width=True, hide_index=True)
