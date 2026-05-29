@@ -91,6 +91,56 @@ def _gh_headers() -> dict:
     }
 
 
+def _gh_check(r, *, context: str = "") -> None:
+    """GitHub 응답 상태코드를 사람이 읽을 수 있는 메시지로 변환.
+
+    401/403/404를 명확히 구분하여 사용자가 바로 조치할 수 있게 함.
+    정상(2xx)이면 아무것도 하지 않음.
+    """
+    if r.status_code < 400:
+        return
+
+    repo = _github_repo()
+    if r.status_code == 401:
+        raise RuntimeError(
+            "GitHub 인증 실패 (401 Bad credentials). "
+            "PAT(Personal Access Token)가 만료되었거나 폐기되었습니다.\n\n"
+            "해결: GitHub에서 새 토큰을 발급한 뒤 Streamlit Cloud의 "
+            "Settings → Secrets에서 KB_GITHUB_PAT 값을 교체하세요. "
+            f"(대상 저장소: {repo})"
+        )
+    if r.status_code == 403:
+        # rate limit vs 권한 부족 구분
+        remaining = r.headers.get("X-RateLimit-Remaining")
+        if remaining == "0":
+            raise RuntimeError(
+                "GitHub API 호출 한도 초과 (403 Rate limit). "
+                "잠시 후 다시 시도하세요."
+            )
+        raise RuntimeError(
+            "GitHub 접근 권한 부족 (403 Forbidden). "
+            f"PAT에 '{repo}' 저장소에 대한 Contents 읽기/쓰기 권한이 있는지 확인하세요."
+        )
+    if r.status_code == 404:
+        raise RuntimeError(
+            f"GitHub 저장소·경로를 찾을 수 없습니다 (404). "
+            f"저장소 '{repo}'와 경로 '{DATA_SUBPATH}', 브랜치 '{_github_branch()}'를 "
+            "확인하세요. (fine-grained PAT라면 해당 저장소가 토큰 접근 범위에 "
+            "포함되어 있어야 합니다.)"
+        )
+    # 그 외 — 원본 메시지 보존
+    detail = ""
+    try:
+        detail = r.json().get("message", "")
+    except Exception:
+        pass
+    raise RuntimeError(
+        f"GitHub API 오류 ({r.status_code})"
+        + (f": {detail}" if detail else "")
+        + (f" [{context}]" if context else "")
+    )
+
+
 def _gh_url(filename: str = "") -> str:
     repo = _github_repo()
     base = f"https://api.github.com/repos/{repo}/contents/{DATA_SUBPATH}"
@@ -245,7 +295,7 @@ def _list_github() -> list[dict]:
         params={"ref": _github_branch()},
         timeout=30,
     )
-    r.raise_for_status()
+    _gh_check(r, context="list")
     files = r.json()
     results = []
     for f in files:
@@ -268,7 +318,7 @@ def _get_github(slug: str) -> Optional[dict]:
     )
     if r.status_code == 404:
         return None
-    r.raise_for_status()
+    _gh_check(r, context=f"get {slug}")
     info = r.json()
     encoding = info.get("encoding", "base64")
     if encoding == "base64":
@@ -320,7 +370,7 @@ def _save_github(record: dict, commit_message: Optional[str] = None) -> None:
         json=payload,
         timeout=30,
     )
-    r.raise_for_status()
+    _gh_check(r, context=f"save {slug}")
 
 
 def _delete_github(slug: str) -> bool:
@@ -334,7 +384,7 @@ def _delete_github(slug: str) -> bool:
     )
     if existing.status_code == 404:
         return False
-    existing.raise_for_status()
+    _gh_check(existing, context=f"delete-lookup {slug}")
     sha = existing.json().get("sha")
 
     r = requests.delete(

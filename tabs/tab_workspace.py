@@ -294,8 +294,23 @@ def _safe_list():
     try:
         return kb_store.list_exhibitions()
     except Exception as e:
-        st.error(f"전시 목록 로드 실패: {e}")
-        st.caption("KB 모드 확인 필요. 로컬 개발은 ../exhibition-report-generator-v5 클론 위치를 확인하세요.")
+        msg = str(e)
+        st.error(f"전시 목록 로드 실패\n\n{msg}")
+        # 모드별 추가 안내
+        try:
+            mode = kb_store.get_mode()
+        except Exception:
+            mode = "unknown"
+        if mode == "github":
+            st.caption(
+                "GitHub 모드입니다. 위 메시지가 401(인증 실패)이면 "
+                "Streamlit Cloud의 Settings → Secrets에서 `KB_GITHUB_PAT`를 "
+                "새 토큰으로 교체해야 합니다."
+            )
+        else:
+            st.caption(
+                "로컬 모드입니다. ../exhibition-report-generator-v5 클론 위치를 확인하세요."
+            )
         return None
 
 
