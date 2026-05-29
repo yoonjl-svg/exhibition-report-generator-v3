@@ -14,14 +14,15 @@ build_report_html(data) -> str  (self-contained HTML 문서; components.html로 
 import html as _html
 
 # 미술관 톤 팔레트
-ACCENT = "#255c4a"
-ACCENT2 = "#b4512a"
-ACCENT3 = "#3f5e99"
+ACCENT = "#255c4a"      # 브랜드 녹색(유지)
+ACCENT2 = "#a05c44"     # 기준 아래(롤리팝) — 약간 채도 낮춘 테라코타
+ACCENT3 = "#5d7593"     # 보조 기준선 — 약간 채도 낮춘 블루
 INK = "#20231f"
 MUTED = "#7a827a"
 LINE = "#d9ddd4"
 SOFT = "#eef2ea"
-CAT = ["#255c4a", "#b4512a", "#3f5e99", "#8a6d3b", "#6d6a8c", "#4a7c59"]
+# 컬러칩: 동계열(녹색–세이지–틸–토프) 저채도. 명도 교차로 인접 슬라이스 구분.
+CAT = ["#2f5d4e", "#7c9c8b", "#4a7c6a", "#a7b3a0", "#5f8088", "#8c8270"]
 
 
 def _esc(s):
@@ -215,7 +216,7 @@ def build_report_html(data):
     B = []
     # ── 헤더 ──
     B.append(f"""<div class="rep-head">
-      <div class="eyebrow">EXHIBITION REPORT</div>
+      <div class="eyebrow">Ilmin Museum of Art</div>
       <div class="rep-title">《{_esc(title)}》</div>
       <div class="rep-meta">{_esc(period)}</div>
     </div>""")
@@ -398,31 +399,36 @@ html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { margin:0; background:#f4f6f2; color:#20231f;
   font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; }
 .report { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; }
-.rep-head { padding: 8px 4px 18px; border-bottom: 2px solid #255c4a; margin-bottom: 20px; }
-.eyebrow { color:#255c4a; font-size:11px; font-weight:700; letter-spacing:.1em; }
-.rep-title { font-size:26px; font-weight:800; margin:6px 0 4px; letter-spacing:-.01em; }
-.rep-meta { color:#646b61; font-size:13px; }
-.card { background:#fff; border:1px solid #e3e7df; border-radius:12px;
-  padding:20px 22px; margin-bottom:18px; box-shadow:0 1px 3px rgba(32,35,31,.04); }
-.fig-title { font-size:16px; font-weight:700; color:#20231f; margin-bottom:4px; }
-.fig-title.sm { font-size:13px; text-align:center; margin-bottom:10px; }
-.fig-sub { font-size:12px; color:#7a827a; margin-bottom:18px; }
-.body { font-size:14px; line-height:1.7; color:#2c302b; margin:10px 0 0; }
-.sec-title { font-size:18px; font-weight:800; color:#255c4a; margin-bottom:12px;
-  padding-bottom:8px; border-bottom:1px solid #e3e7df; }
-.subhead { font-size:14px; font-weight:700; color:#20231f; margin:18px 0 8px; }
-.kvlist { display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; }
+/* ── 편집 위계(통일) ──
+   1) 전시명(rep-title) = 유일한 최대 강조
+   2) 섹션(sec-title) 16/600  3) 소제목(subhead) 13/600
+   4) 본문 14/400  5) 캡션·보조 12/400 muted
+   볼드는 '전시명·섹션·소제목·데이터 값·표 머리글'에만. 나머지는 regular. */
+.rep-head { padding: 6px 2px 16px; border-bottom: 1.5px solid #255c4a; margin-bottom: 22px; }
+.eyebrow { color:#255c4a; font-size:11px; font-weight:600; letter-spacing:.12em; }
+.rep-title { font-size:23px; font-weight:700; margin:6px 0 4px; letter-spacing:-.01em; color:#20231f; }
+.rep-meta { color:#8a918a; font-size:12.5px; }
+.card { background:#fff; border:1px solid #e8ebe5; border-radius:10px;
+  padding:20px 22px; margin-bottom:16px; box-shadow:0 1px 2px rgba(32,35,31,.03); }
+.fig-title { font-size:13px; font-weight:600; color:#3c403a; margin-bottom:4px; }
+.fig-title.sm { font-size:12px; text-align:center; margin-bottom:10px; color:#646b61; }
+.fig-sub { font-size:12px; color:#9aa39a; margin-bottom:18px; font-weight:400; }
+.body { font-size:13.5px; line-height:1.7; color:#3c403a; margin:10px 0 0; font-weight:400; }
+.sec-title { font-size:16px; font-weight:600; color:#255c4a; margin-bottom:14px;
+  padding-bottom:7px; border-bottom:1px solid #e8ebe5; letter-spacing:-.01em; }
+.subhead { font-size:13px; font-weight:600; color:#3c403a; margin:18px 0 8px; }
+.kvlist { display:grid; grid-template-columns:1fr 1fr; gap:5px 24px; }
 @media (max-width:560px){ .kvlist{ grid-template-columns:1fr; } }
 .kv { display:flex; gap:10px; font-size:13px; padding:3px 0;
   border-bottom:1px dotted #eef1ec; }
-.kv .k { color:#7a827a; min-width:90px; }
+.kv .k { color:#9aa39a; min-width:90px; font-weight:400; }
 .kv .v { color:#20231f; font-weight:600; }
 .tbl { width:100%; border-collapse:collapse; font-size:13px; margin:6px 0; }
-.tbl th { background:#eef2ea; color:#255c4a; font-weight:700; text-align:left;
-  padding:7px 10px; border-bottom:1px solid #d9ddd4; }
-.tbl td { padding:7px 10px; border-bottom:1px solid #eef1ec; color:#2c302b; }
+.tbl th { background:#f1f4ee; color:#4a5450; font-weight:600; text-align:left;
+  padding:7px 10px; border-bottom:1px solid #e3e7df; }
+.tbl td { padding:7px 10px; border-bottom:1px solid #eef1ec; color:#3c403a; }
 .ins { margin:8px 0 0; padding-left:20px; }
-.ins li { font-size:13.5px; line-height:1.6; color:#2c302b; margin:4px 0; }
+.ins li { font-size:13.5px; line-height:1.65; color:#3c403a; margin:4px 0; }
 
 /* 롤리팝 */
 .lolli-wrap { position:relative; padding-top:22px; }
@@ -431,7 +437,7 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .lolli-scale span { position:absolute; transform:translateX(-50%); }
 .lolli { display:grid; grid-template-columns:170px 1fr; align-items:center;
   gap:14px; margin:7px 0; }
-.lolli-label { font-size:13px; font-weight:700; line-height:1.3; }
+.lolli-label { font-size:13px; font-weight:600; line-height:1.3; color:#3c403a; }
 .lolli-label .cap { display:block; font-size:11px; font-weight:400; color:#9aa39a; }
 .lolli-track { position:relative; height:22px; }
 .lolli-track::before { content:""; position:absolute; top:50%; left:0; right:0;
