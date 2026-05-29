@@ -341,8 +341,8 @@ def render(tab):
                 st.caption("일평균: 기간 입력 시 자동")
 
         st.markdown("**입장권별 구성**")
-        # 8개 칸 균일 + 좌측 클러스터 (우측 spacer 4) + gap small로 쫀쫀하게.
-        cols = st.columns([1, 1, 1, 1, 1, 1, 1, 1, 4], gap="small")
+        # 8개 칸 균일 + 좌측 클러스터 (우측 spacer 7) — 더 조밀하게.
+        cols = st.columns([1, 1, 1, 1, 1, 1, 1, 1, 7], gap="small")
         with cols[0]:
             st.number_input("일반", min_value=0, key="visitor_general", format="%d")
         with cols[1]:
@@ -371,7 +371,7 @@ def render(tab):
 
         # 주차별 관객 — 11주차, 1줄 배치 (좌측 클러스터 + gap small)
         st.markdown("**주차별 관객 수**")
-        week_cols = st.columns([1] * 11 + [3], gap="small")
+        week_cols = st.columns([1] * 11 + [6], gap="small")
         weekly = st.session_state.get("weekly_visitors", {})
         new_weekly = {}
         for i in range(11):
@@ -431,8 +431,8 @@ def render(tab):
         # 4. 출품 작품 — 6 매체 × 좁은 컬럼
         # ════════════════════════════════════════
         subsection("", "출품 작품 (매체별)")
-        # 6개 narrow + 큰 spacer
-        cols = st.columns([1, 1, 1, 1, 1, 1, 4], gap="small")
+        # 6개 narrow + 큰 spacer — 더 조밀하게
+        cols = st.columns([1, 1, 1, 1, 1, 1, 8], gap="small")
         with cols[0]:
             st.number_input("회화", min_value=0, key="artwork_painting", format="%d")
         with cols[1]:

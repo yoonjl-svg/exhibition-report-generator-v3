@@ -357,34 +357,54 @@ st.markdown("""
         font-size: var(--font-l5) !important;
     }
 
-    /* 입력 필드 자체의 vertical padding 축소 */
+    /* 입력 필드 자체의 vertical padding 축소 — 더 조밀하게 (6→4px) */
     .stTextInput > div > div > input,
     .stNumberInput > div > div > input,
     .stDateInput > div > div > input {
-        padding-top: 6px !important;
-        padding-bottom: 6px !important;
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
     }
 
-    /* ═══ '쫀쫀한 그리드' 테마 (v5.3.48) ═══
-       number_input의 −/+ 스테퍼 버튼 제거 — 시각 노이즈·폭 낭비 제거.
-       숫자는 직접 타이핑. */
+    /* ═══ '쫀쫀한 그리드' 테마 (v5.3.49) ═══
+       number_input의 −/+ 스테퍼 버튼 제거 — 시각 노이즈·폭 낭비 제거. */
     [data-testid="stNumberInputStepUp"],
     [data-testid="stNumberInputStepDown"],
     .stNumberInput button {
         display: none !important;
     }
-    /* 스테퍼 제거 후 입력칸이 컨테이너를 꽉 채우도록 */
-    .stNumberInput > div > div {
+    /* 모서리 잘림 방지: 테두리·라운드를 BaseWeb 래퍼에 통일하고
+       내부 input은 테두리 없이 투명. (이전엔 래퍼 radius + input 사각
+       테두리가 충돌해 모서리가 잘려 보였음) */
+    .stTextInput div[data-baseweb="base-input"],
+    .stNumberInput div[data-baseweb="base-input"],
+    .stDateInput div[data-baseweb="base-input"],
+    .stTextInput div[data-baseweb="input"],
+    .stNumberInput div[data-baseweb="input"],
+    .stDateInput div[data-baseweb="input"] {
+        border: 1px solid var(--line) !important;
         border-radius: 6px !important;
+        background: var(--surface) !important;
+        overflow: hidden !important;
     }
-    /* 반복 숫자 그리드의 위젯 수직 간격 추가 압축 */
+    .stTextInput input,
+    .stNumberInput input,
+    .stDateInput input {
+        border: none !important;
+        background: transparent !important;
+    }
+    /* 위젯 수직 간격 압축 (겹침 방지를 위해 0.5rem 유지) */
     [data-testid="stVerticalBlock"] {
-        gap: 0.45rem;
+        gap: 0.5rem;
     }
-    /* 라벨-입력 간격 더 타이트하게 */
+    /* 라벨-입력 간격 */
     label[data-testid="stWidgetLabel"],
     [data-testid="stWidgetLabel"] p {
-        margin-bottom: 2px !important;
+        margin-bottom: 3px !important;
+    }
+    /* file_uploader 버튼이 인접 요소와 겹치지 않도록 최소 여백 */
+    [data-testid="stFileUploader"] {
+        margin-top: 2px !important;
+        margin-bottom: 4px !important;
     }
 
     /* textarea — 패딩·라인 높이 정리 (font-size는 위 통일 규칙에서 처리) */
@@ -478,18 +498,24 @@ st.markdown("""
        입력 위젯은 흰색으로 명시적 분리하여 대비 확보.
        ═══════════════════════════════════════════════ */
 
-    /* 입력 필드 (text, number, date, textarea) 배경 흰색 */
-    .stTextInput input,
-    .stNumberInput input,
-    .stDateInput input,
+    /* textarea만 직접 테두리 (단일 요소라 모서리 충돌 없음).
+       text/number/date의 테두리는 위 '쫀쫀한 그리드' 블록에서 BaseWeb
+       래퍼에 통일 적용 — 여기서 input에 다시 border를 주면 모서리가
+       잘리므로 주지 않는다. */
     .stTextArea textarea {
         background: var(--surface) !important;
         border: 1px solid var(--line) !important;
     }
-    .stTextInput input:focus,
-    .stNumberInput input:focus,
-    .stDateInput input:focus,
     .stTextArea textarea:focus {
+        border-color: var(--accent) !important;
+    }
+    /* 포커스 시 래퍼 강조 */
+    .stTextInput div[data-baseweb="base-input"]:focus-within,
+    .stNumberInput div[data-baseweb="base-input"]:focus-within,
+    .stDateInput div[data-baseweb="base-input"]:focus-within,
+    .stTextInput div[data-baseweb="input"]:focus-within,
+    .stNumberInput div[data-baseweb="input"]:focus-within,
+    .stDateInput div[data-baseweb="input"]:focus-within {
         border-color: var(--accent) !important;
     }
 
@@ -508,10 +534,16 @@ st.markdown("""
         background: transparent !important;
         border: none !important;
         padding: 0 !important;
-        min-height: 0 !important;
+        min-height: 40px !important;   /* 버튼 높이 확보 — 0이면 버튼이 인접 요소와 겹침 */
+        display: flex !important;
+        align-items: center !important;
     }
     [data-testid="stFileUploaderDropzoneInstructions"] {
         display: none !important;
+    }
+    /* 업로드 버튼 자체 컴팩트 */
+    [data-testid="stFileUploader"] button {
+        margin: 0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
