@@ -700,9 +700,9 @@ def create_similar_trend_chart(current_data, similar_rows, current_start=None,
         vals = [float(m.get(f) or 0) for _, _, m, _ in exs]
         mx = max(vals) or 1
         norm = [v / mx * 100 for v in vals]
-        ax.plot(x, norm, marker='o', markersize=7, linewidth=2.2,
+        ax.plot(x, norm, marker='o', markersize=4.5, linewidth=1.3,
                 color=colors[fi % len(colors)], label=field_labels[f],
-                markerfacecolor='white', markeredgewidth=2,
+                markerfacecolor='white', markeredgewidth=1.3,
                 markeredgecolor=colors[fi % len(colors)], zorder=2)
 
     # 이번 전시 위치 강조
@@ -728,22 +728,25 @@ def create_similar_trend_chart(current_data, similar_rows, current_start=None,
         return "\n".join(lines)
 
     ax.set_xticks(x)
-    # 가로 표기(rotation 0), 표 본문과 같은 서체·크기(11) — 절단 없음
+    # 가로 표기(rotation 0), 표 본문 수준의 작은 서체(9.5), 볼드 없음 — 절단 없음
     ax.set_xticklabels([_wrap(e[0]) for e in exs], rotation=0, ha='center')
     for tk, e in zip(ax.get_xticklabels(), exs):
-        tk.set_fontproperties(_fp(11, bold=e[3]))
-        tk.set_color(C_ACCENT if e[3] else "#20231f")
+        tk.set_fontproperties(_fp(9.5))  # 볼드 제거(이번 전시는 색으로만 구분)
+        tk.set_color(C_ACCENT if e[3] else "#3c403a")
     ax.set_ylim(0, 116)
-    ax.set_ylabel("지표별 최댓값 대비 (%)", fontproperties=_fp(11), color="#646b61")
-    # 차트 제목은 탭의 '유사 전시 비교' 헤더와 중복 → 생략. 범례만 상단에.
-    ax.legend(prop=_fp(11), ncol=min(len(fields), 6), loc='lower center',
-              bbox_to_anchor=(0.5, 1.01), frameon=False, columnspacing=1.8,
-              handlelength=1.8)
+    ax.set_ylabel("지표별 최댓값 대비 (%)", fontproperties=_fp(9.5), color="#646b61")
+    # 차트 제목은 탭의 '유사 전시 비교' 헤더와 중복 → 생략. 범례만 상단에(가늘게).
+    ax.legend(prop=_fp(9.5), ncol=min(len(fields), 6), loc='lower center',
+              bbox_to_anchor=(0.5, 1.01), frameon=False, columnspacing=1.6,
+              handlelength=1.6)
     for sp in ('top', 'right'):
         ax.spines[sp].set_visible(False)
+    for sp in ('left', 'bottom'):
+        ax.spines[sp].set_color("#d9ddd4")
+        ax.spines[sp].set_linewidth(0.8)
     ax.tick_params(axis='x', length=0, pad=8)
-    ax.tick_params(axis='y', labelsize=10, length=0)
-    ax.grid(axis='y', alpha=0.15)
+    ax.tick_params(axis='y', labelsize=9, length=0, colors="#646b61")
+    ax.grid(axis='y', alpha=0.12, linewidth=0.7)
     if output_path is None:
         output_path = tempfile.mktemp(suffix='.png')
     fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
