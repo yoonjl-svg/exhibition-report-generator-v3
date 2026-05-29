@@ -25,11 +25,11 @@ _SECTION_CHIP = {
     "evaluation": "평가",
 }
 
-# priority → (칩 라벨, 칩 kind)
+# priority → (칩 라벨, 칩 kind) — 전용 클래스로 빨강/주황/노랑 변별
 _PRIORITY_CHIP = {
-    1: ("주목", "high"),
-    2: ("보통", "medium"),
-    3: ("참고", "low"),
+    1: ("중요", "pri-1"),
+    2: ("보통", "pri-2"),
+    3: ("참고", "pri-3"),
 }
 
 
@@ -196,11 +196,15 @@ def render(tab, load_reference_data):
         # PART 1: 분석 인사이트 (카드 + 근거)
         # ═══════════════════════════════════════
         st.divider()
-        hc1, hc2 = st.columns([3, 1])
-        with hc1:
-            subsection("", f"분석 인사이트 ({len(result.insights)}건)")
-        with hc2:
-            show_evidence = st.toggle("근거 모두 펼치기", value=False, key="show_all_evidence")
+        # 헤더·토글을 카드와 동일한 ~60% 폭 안에 둠 (가로 폭 원칙)
+        head_wrap, _ = st.columns([3, 2])
+        with head_wrap:
+            hc1, hc2 = st.columns([2, 1])
+            with hc1:
+                subsection("", f"분석 인사이트 ({len(result.insights)}건)")
+            with hc2:
+                show_evidence = st.toggle("근거 모두 펼치기", value=False,
+                                          key="show_all_evidence")
         st.caption("체크박스로 보고서 포함 여부를 정하고, 텍스트를 직접 수정할 수 있습니다. "
                    "각 카드의 ‘근거’를 펼치면 해당 관찰이 도출된 수치를 확인할 수 있습니다.")
 

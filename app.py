@@ -156,6 +156,11 @@ st.markdown("""
     .chip.low, .chip.draft { background: #eef1f6; color: var(--accent-3); }
     .chip.archived { background: #ececea; color: var(--muted); }
 
+    /* 인사이트 주목도 칩 — 빨강(중요)/주황(보통)/노랑(참고) 변별 */
+    .chip.pri-1 { background: #fbe6e3; color: #b3261e; }
+    .chip.pri-2 { background: #fbeede; color: #b4661a; }
+    .chip.pri-3 { background: #f8f2d8; color: #8a7414; }
+
     /* === L3 — Exhibition Card 제목 === */
     .exhibition-card-title {
         font-size: var(--font-l3);
