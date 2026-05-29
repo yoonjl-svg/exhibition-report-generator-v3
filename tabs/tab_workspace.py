@@ -477,10 +477,15 @@ def _render_card(rec):
             f'<div class="eyebrow">{year} · {status_label}</div>'
             f'<div class="exhibition-card-title">《{title}》</div>'
             f'<div class="exhibition-card-meta">{ps} ~ {pe}</div>'
-            f'<div style="margin: 6px 0;">{chips_html}</div>'
-            f'{metrics_html}',
+            f'<div style="margin: 6px 0;">{chips_html}</div>',
             unsafe_allow_html=True,
         )
-        if st.button("편집 →", key=f"ws_edit_{rec['id']}", use_container_width=True):
-            kb_session.enter_detail_mode(record=rec)
-            st.rerun()
+        # 메트릭(좌, 넓게) + 편집 버튼(우, 최소 폭) 한 줄 배치
+        m_col, e_col = st.columns([3, 1])
+        with m_col:
+            st.markdown(metrics_html, unsafe_allow_html=True)
+        with e_col:
+            if st.button("편집", key=f"ws_edit_{rec['id']}",
+                         use_container_width=True):
+                kb_session.enter_detail_mode(record=rec)
+                st.rerun()
