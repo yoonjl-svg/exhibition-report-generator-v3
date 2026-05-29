@@ -91,7 +91,12 @@ st.markdown("""
         color: var(--l5-color);
         font-size: var(--font-l5);
         margin: 0 0 14px 0;
-        line-height: 1.45;
+        padding-top: 6px;       /* 첫 줄 글자 윗부분 클리핑 방지(상단 여유) */
+        line-height: 1.5;
+    }
+    /* 부제 line-height를 전역 markdown p 규칙보다 우선 적용(한글 상단 여백) */
+    [data-testid="stMarkdownContainer"] p.main-subtitle {
+        line-height: 1.6 !important;
     }
 
     /* === L2 — 섹션 헤더 === */

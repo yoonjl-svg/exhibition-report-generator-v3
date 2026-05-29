@@ -22,6 +22,8 @@ SAMPLE_DATA = {
     "curatorial_team": "큐레토리얼팀",
     "pr_person": "정수빈",
     "sponsors": "일민문화재단, 한국문화예술위원회",
+    "graphic_designer": "페이퍼프레스",
+    "space_designer": "석운동",
     "theme_text": (
         "《하이퍼 옐로우》는 노란색의 감각적·상징적 의미를 동시대 미술의 맥락에서 탐구하는 대규모 기획전이다. "
         "노란색은 경고와 환희, 금과 빛, 위험과 희망이라는 양가적 의미를 동시에 내포한다. "
@@ -116,10 +118,18 @@ SAMPLE_DATA = {
     "press_count": 32,
     "sns_posts": 24,
     "sns_feedback": 580,
+    "sns_followers": 12500,
+    "sns_followers_gained": 1800,
+    "sns_avg_likes": 320,
+    "sns_best_likes": 1450,
+    "sns_best_post": "올라퍼 엘리아슨 빛 설치 전경 공개 게시물",
     "web_invitation_count": 5200,
     "newsletter_open_rate": 32.7,
     "membership_count": 245,
-    "weekly_visitors": {"1주": 1950, "2주": 2400, "3주": 2850, "4주": 2600, "5주": 2900, "6주": 2500},
+    # 전시 기간 66일 ≈ 10주, 합계 = 총 관객수 15,200명과 일치
+    "weekly_visitors": {"1주": 1500, "2주": 1700, "3주": 1900, "4주": 1750,
+                         "5주": 1650, "6주": 1600, "7주": 1500, "8주": 1300,
+                         "9주": 1200, "10주": 1100},
 }
 
 
