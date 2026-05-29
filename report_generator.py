@@ -23,6 +23,7 @@ from styles import (
 from chart_generator import (
     create_weekly_visitors_chart,
     create_media_composition_chart,
+    create_keymetrics_lollipop,
 )
 
 
@@ -632,10 +633,32 @@ class ExhibitionReportGenerator:
     def _section_6_evaluation(self):
         add_section_title(self.doc, "VI", "Executive Summary")
 
-        # 1. 핵심 수치 종합표 — 중립적·정밀한 표가 보고서엔 가장 읽기 쉬움
-        #    (v5.3.62: 차트 과잉을 정리하고 표로 환원. 롤리팝·재정패널·산점도·
-        #     트렌드·유사막대는 보고서에서 제외 — 분석은 워크스페이스 뷰에서 제공)
-        self._insert_summary_metrics_table()
+        # 1. 기준 대비 핵심 지표 — 롤리팝(웹 미리보기와 동일). 데이터 부족 시 표로 폴백.
+        lolli_rows = []
+        for m in self.data.get("summary_metrics", []):
+            cur, ref = m.get("current"), m.get("reference_avg")
+            if cur is not None and ref:
+                lolli_rows.append({
+                    "label": m["label"],
+                    "current_fmt": m.get("current_fmt", ""),
+                    "reference_fmt": m.get("reference_avg_fmt", ""),
+                    "ratio": cur / ref * 100,
+                })
+        ref_label = (self.data.get("summary_metrics") or [{}])[0].get(
+            "reference_label", "역대 전시")
+        lolli_chart = create_keymetrics_lollipop(
+            lolli_rows, title="기준 대비 핵심 지표") if lolli_rows else None
+        if lolli_chart:
+            self.temp_files.append(lolli_chart)
+            add_subsection_title(self.doc, "1", "기준 대비 핵심 지표")
+            add_paragraph(
+                self.doc,
+                f"(비교 기준 {ref_label} 평균을 100으로 환산. 점이 본 전시 위치 · "
+                "기준 위=녹색, 아래=테라코타. 평가가 아닌 위치 표시.)",
+                size=Fonts.CAPTION, color=Colors.MEDIUM_GRAY, space_after=Pt(4))
+            add_image(self.doc, lolli_chart, is_chart=True)
+        else:
+            self._insert_summary_metrics_table()
 
         # 2. 종합 의견 (LLM)
         add_subsection_title(self.doc, "2", "종합 의견")

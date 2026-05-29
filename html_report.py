@@ -69,11 +69,9 @@ def _lollipop(summary_metrics):
     scale = f"""<div class="lolli-scale"><span>0</span>
         <span style="left:{base_pct:.1f}%">100</span>
         <span style="right:0">{xmax:.0f}</span></div>"""
-    return f"""<div class="card">
-      <div class="fig-title">기준 대비 핵심 지표</div>
+    return f"""<div class="subhead">기준 대비 핵심 지표</div>
       <div class="fig-sub">비교 기준 평균을 100으로 환산. 점이 본 전시 위치 · 기준 위=녹색, 아래=테라코타</div>
-      <div class="lolli-wrap">{scale}{''.join(items)}</div>
-    </div>"""
+      <div class="lolli-wrap">{scale}{''.join(items)}</div>"""
 
 
 def _donut(title, data_dict, unit="점"):
@@ -146,10 +144,11 @@ def _svg_weekly(weekly, ref_lines):
     </svg>"""
 
 
-def _section(title, body):
+def _section(title, body, num=None):
     if not body:
         return ""
-    return f'<div class="card"><div class="fig-title">{_esc(title)}</div>{body}</div>'
+    head = f'{num}. {title}' if num else title
+    return f'<div class="card"><div class="sec-title">{_esc(head)}</div>{body}</div>'
 
 
 def _para(text):
@@ -159,110 +158,230 @@ def _para(text):
     return "".join(f'<p class="body">{_esc(p)}</p>' for p in paras)
 
 
+def _table(headers, rows):
+    """간단 표 HTML."""
+    rows = [r for r in rows if any(str(c).strip() for c in r)]
+    if not rows:
+        return ""
+    th = "".join(f"<th>{_esc(h)}</th>" for h in headers)
+    trs = "".join(
+        "<tr>" + "".join(f"<td>{_esc(c)}</td>" for c in r) + "</tr>"
+        for r in rows)
+    return f'<table class="tbl"><thead><tr>{th}</tr></thead><tbody>{trs}</tbody></table>'
+
+
+def _kv(pairs):
+    """라벨·값 목록(개요용). pairs=[(label, value), ...] 빈 값 제외."""
+    items = [(k, v) for k, v in pairs if v not in (None, "", [])]
+    if not items:
+        return ""
+    rows = "".join(
+        f'<div class="kv"><span class="k">{_esc(k)}</span>'
+        f'<span class="v">{_esc(v)}</span></div>' for k, v in items)
+    return f'<div class="kvlist">{rows}</div>'
+
+
+def _subhead(text):
+    return f'<div class="subhead">{_esc(text)}</div>'
+
+
+def _insights_html(data, section_key):
+    """해당 섹션의 분석 서술 — LLM 산문 우선, 없으면 룰 기반 불릿(Word와 동일 규칙)."""
+    llm = (data.get("llm_sections", {}) or {}).get(section_key, "")
+    if llm and llm.strip():
+        return _para(llm)
+    items = data.get("section_insights", {}).get(section_key, [])
+    if not items:
+        return ""
+    lis = "".join(f'<li>{_esc(i.get("text",""))}</li>' for i in items if i.get("text"))
+    return f'<ul class="ins">{lis}</ul>' if lis else ""
+
+
 # ──────────────────────────────────────────────
 # 메인
 # ──────────────────────────────────────────────
 
 def build_report_html(data):
-    """전체 data dict → self-contained HTML 문서 문자열."""
+    """전체 data dict → self-contained HTML 문서. Word 보고서(I~VI)를 그대로 미러링.
+
+    동일 내용·동일 차트 디자인(롤리팝·도넛·주차 SVG)으로 Word와 일치.
+    """
     ov = data.get("overview", {})
     title = ov.get("title") or data.get("exhibition_title") or "(제목 미입력)"
     period = ov.get("period", "")
     artists = ov.get("artists", [])
     artists_str = ", ".join(artists) if isinstance(artists, list) else str(artists)
 
-    blocks = []
-
+    B = []
     # ── 헤더 ──
-    blocks.append(f"""<div class="rep-head">
+    B.append(f"""<div class="rep-head">
       <div class="eyebrow">EXHIBITION REPORT</div>
       <div class="rep-title">《{_esc(title)}》</div>
-      <div class="rep-meta">{_esc(period)}{(' · ' + _esc(artists_str)) if artists_str else ''}</div>
+      <div class="rep-meta">{_esc(period)}</div>
     </div>""")
 
-    # ── 핵심 지표 롤리팝 ──
-    blocks.append(_lollipop(data.get("summary_metrics", [])))
+    # ── I. 전시 개요 ──
+    B.append(_section("전시 개요", _kv([
+        ("전시 제목", f"《{title}》"), ("전시 기간", period),
+        ("참여 작가", artists_str),
+        ("책임기획", ov.get("chief_curator")), ("기획", ov.get("curators")),
+        ("진행", ov.get("coordinators")), ("학예팀", ov.get("curatorial_team")),
+        ("홍보", ov.get("pr")), ("후원", ov.get("sponsors")),
+        ("총 사용 예산", ov.get("total_budget")),
+        ("총 수입", ov.get("total_revenue")),
+        ("총 관객수", ov.get("visitors")),
+    ]), num="I"))
 
-    # ── 전시 구성: 매체 + 신작 도넛 (2-up) ──
+    # ── II. 전시 주제와 내용 ──
+    B.append(_section("전시 주제와 내용", _para(data.get("theme_text", "")), num="II"))
+
+    # ── III. 전시 구성 ──
+    iii = []
+    rooms = data.get("rooms", [])
+    if rooms:
+        iii.append(_subhead("전시실"))
+        iii.append(_table(["전시실", "참여 작가"],
+                          [[r.get("name", ""),
+                            (", ".join(r["artists"]) if isinstance(r.get("artists"), list)
+                             else r.get("artists", ""))] for r in rooms]))
+    # 출품 작품 구성 (도넛 2-up)
     art = data.get("artworks", {})
     media = {"회화": art.get("painting", 0), "조각": art.get("sculpture", 0),
              "사진": art.get("photo", 0), "설치": art.get("installation", 0),
              "미디어": art.get("media", 0), "기타": art.get("other", 0)}
-    donuts = []
-    md = _donut("출품 매체 구성", media, "점")
-    if md:
-        donuts.append(md)
-    nw = art.get("new", 0) or 0
-    od = art.get("old", 0) or 0
-    nd = _donut("신작·구작 구성", {"신작": nw, "구작": od}, "점")
-    if nd:
-        donuts.append(nd)
+    donuts = [c for c in (
+        _donut("출품 매체 구성", media, "점"),
+        _donut("신작·구작 구성", {"신작": art.get("new", 0) or 0,
+                                  "구작": art.get("old", 0) or 0}, "점"),
+    ) if c]
     if donuts:
+        iii.append(_subhead("출품 작품 구성"))
+        iii.append(f'<div class="donut-grid">{"".join(donuts)}</div>')
         total = art.get("total", 0)
-        top = max(media.items(), key=lambda kv: kv[1]) if any(media.values()) else None
-        cap = ""
-        if top and total:
+        if any(media.values()) and total:
+            top = max(media.items(), key=lambda kv: kv[1])
             cap = (f"출품작 {total}점의 매체 구성은 {top[0]}({top[1]}점, "
                    f"{top[1]/total*100:.0f}%) 비중이 가장 큼.")
+            nw, od = art.get("new", 0) or 0, art.get("old", 0) or 0
             if nw or od:
                 cap += f" 신작 {nw}점, 구작 {od}점."
-        blocks.append(f"""<div class="card">
-          <div class="fig-title">출품 작품 구성</div>
-          <div class="donut-grid">{''.join(donuts)}</div>
-          {('<p class="body">' + _esc(cap) + '</p>') if cap else ''}
-        </div>""")
+            iii.append(f'<p class="body">{_esc(cap)}</p>')
+    # 프로그램
+    progs = data.get("related_programs", [])
+    if progs:
+        iii.append(_subhead("전시 연계 프로그램"))
+        iii.append(_table(["구분", "제목", "참여 인원", "비고"],
+                          [[p.get("category", ""), p.get("title", ""),
+                            p.get("participants", ""), p.get("note", "")] for p in progs]))
+    # 인쇄물
+    mats = data.get("printed_materials", [])
+    if mats:
+        iii.append(_subhead("인쇄물 및 굿즈"))
+        iii.append(_table(["종류", "수량", "비고"],
+                          [[m.get("type", ""), m.get("quantity", ""), m.get("note", "")]
+                           for m in mats]))
+    iii.append(_insights_html(data, "composition"))
+    B.append(_section("전시 구성", "".join(iii), num="III"))
 
-    # ── 관객: 주차별 추이(SVG) ──
+    # ── IV. 전시 결과 ──
+    iv = []
+    rev = data.get("revenue", {})
+    iv.append(_kv([
+        ("총 사용 예산", data.get("budget", {}).get("total_spent")),
+        ("총 수입", rev.get("total_revenue")),
+        ("총 관객수", rev.get("total_visitors")),
+        ("일평균 관객", rev.get("daily_average")),
+    ]))
+    # 주차별 추이 SVG
     vc = data.get("visitor_composition", {})
     weekly = vc.get("weekly_visitors", {})
     comp = data.get("comparison", {})
     svg = _svg_weekly(weekly, comp.get("weekly_ref"))
     if svg:
+        iv.append(_subhead("주차별 관객 추이"))
+        iv.append(svg)
         peak = max(weekly, key=weekly.get)
         wcap = f"주차별 관객은 {peak}에 최고 {max(weekly.values()):,}명을 기록함."
         wref = comp.get("weekly_ref", [])
         if wref:
             wcap += " 점선은 " + ", ".join(
                 f"{lbl} 주당 {v:,.0f}명" for v, lbl, _ in wref) + "."
-        blocks.append(f"""<div class="card">
-          <div class="fig-title">주차별 관객 추이</div>{svg}
-          <p class="body">{_esc(wcap)}</p>
-        </div>""")
-
-    # ── 관객: 입장권 + 유료무료 도넛 (2-up) ──
+        iv.append(f'<p class="body">{_esc(wcap)}</p>')
+    # 입장권 + 유료무료 도넛
     tt = vc.get("ticket_type", {})
     if tt:
         free = tt.get("초대권", 0) or 0
         paid = sum(v for k, v in tt.items() if k != "초대권")
-        cells = [_donut("입장권별 관객 구성", tt, "명")]
-        pf = _donut("유료·무료 비율", {"유료": paid, "무료·초대": free}, "명")
-        if pf:
-            cells.append(pf)
-        cells = [c for c in cells if c]
-        top = max(tt, key=tt.get)
-        tt_total = sum(tt.values()) or 1
-        cap = (f"입장권별로는 {top}이(가) {tt[top]:,}명"
-               f"({tt[top]/tt_total*100:.0f}%)으로 가장 큼.")
-        if paid + free:
-            cap += f" 유료 관객 {paid:,}명({paid/(paid+free)*100:.0f}%)."
-        blocks.append(f"""<div class="card">
-          <div class="fig-title">관객 구성</div>
-          <div class="donut-grid">{''.join(cells)}</div>
-          <p class="body">{_esc(cap)}</p>
-        </div>""")
+        cells = [c for c in (
+            _donut("입장권별 관객 구성", tt, "명"),
+            _donut("유료·무료 비율", {"유료": paid, "무료·초대": free}, "명"),
+        ) if c]
+        if cells:
+            iv.append(_subhead("관객 구성"))
+            iv.append(f'<div class="donut-grid">{"".join(cells)}</div>')
+            top = max(tt, key=tt.get)
+            tt_total = sum(tt.values()) or 1
+            cap = (f"입장권별로는 {top}이(가) {tt[top]:,}명"
+                   f"({tt[top]/tt_total*100:.0f}%)으로 가장 큼.")
+            if paid + free:
+                cap += f" 유료 관객 {paid:,}명({paid/(paid+free)*100:.0f}%)."
+            iv.append(f'<p class="body">{_esc(cap)}</p>')
+    iv.append(_insights_html(data, "results"))
+    B.append(_section("전시 결과", "".join(iv), num="IV"))
 
-    # ── 종합 의견 (LLM/룰) ──
-    llm = data.get("llm_sections", {}) or {}
-    eval_text = (llm.get("evaluation") or "").strip()
-    if not eval_text:
-        si = data.get("section_insights", {}).get("evaluation", [])
-        eval_text = "\n\n".join(i.get("text", "") for i in si)
-    blocks.append(_section("종합 의견", _para(eval_text)))
+    # ── V. 홍보 방식 및 언론 보도 ──
+    v = []
+    promo = data.get("promotion", {})
+    promo_rows = [(lbl, promo.get(k, "")) for k, lbl in
+                  [("advertising", "광고"), ("press_release", "보도자료"),
+                   ("web_invitation", "웹 초청장"), ("newsletter", "뉴스레터"),
+                   ("sns", "SNS"), ("other", "그 외")] if promo.get(k)]
+    if promo_rows:
+        v.append(_subhead("홍보 방식"))
+        v.append(_kv(promo_rows))
+    press = data.get("press_coverage", {})
+    pm = press.get("print_media", [])
+    if pm:
+        v.append(_subhead("일간지·월간지"))
+        v.append(_table(["매체명", "일자", "제목", "비고"],
+                        [[p.get("outlet", ""), p.get("date", ""), p.get("title", ""),
+                          p.get("note", "")] for p in pm]))
+    om = press.get("online_media", [])
+    if om:
+        v.append(_subhead("온라인 매체"))
+        v.append(_table(["매체명", "일자", "제목", "URL"],
+                        [[p.get("outlet", ""), p.get("date", ""), p.get("title", ""),
+                          p.get("url", "")] for p in om]))
+    if data.get("membership"):
+        v.append(_subhead("멤버십 커뮤니케이션"))
+        v.append(_para(data.get("membership")))
+    v.append(_insights_html(data, "promotion"))
+    if "".join(v).strip():
+        B.append(_section("홍보 방식 및 언론 보도", "".join(v), num="V"))
 
-    aud = (llm.get("audience_response") or "").strip()
-    blocks.append(_section("관객 반응 종합", _para(aud)))
+    # ── VI. Executive Summary ──
+    vi = []
+    lp = _lollipop(data.get("summary_metrics", []))
+    if lp:
+        vi.append(lp)  # _lollipop은 자체 card이므로 그대로
+    vi.append(_subhead("종합 의견"))
+    vi.append(_insights_html(data, "evaluation") or '<p class="body">—</p>')
+    aud = _insights_html(data, "audience_response")
+    if aud:
+        vi.append(_subhead("관객 반응 종합"))
+        vi.append(aud)
+    # 데이터 도출 평가 항목
+    ev = data.get("evaluation", {})
+    for key, label in [("positive", "긍정 평가"), ("negative", "부정 평가"),
+                       ("improvements", "개선 방안")]:
+        vals = ev.get(key, [])
+        if vals:
+            vi.append(_subhead(label))
+            vi.append('<ul class="ins">' +
+                      "".join(f"<li>{_esc(x)}</li>" for x in vals) + "</ul>")
+    B.append(_section("Executive Summary", "".join(vi), num="VI"))
 
-    body = "\n".join(b for b in blocks if b)
+    body = "\n".join(b for b in B if b)
     return _DOC.replace("{{BODY}}", body)
 
 
@@ -286,6 +405,21 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .fig-title.sm { font-size:13px; text-align:center; margin-bottom:10px; }
 .fig-sub { font-size:12px; color:#7a827a; margin-bottom:18px; }
 .body { font-size:14px; line-height:1.7; color:#2c302b; margin:10px 0 0; }
+.sec-title { font-size:18px; font-weight:800; color:#255c4a; margin-bottom:12px;
+  padding-bottom:8px; border-bottom:1px solid #e3e7df; }
+.subhead { font-size:14px; font-weight:700; color:#20231f; margin:18px 0 8px; }
+.kvlist { display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; }
+@media (max-width:560px){ .kvlist{ grid-template-columns:1fr; } }
+.kv { display:flex; gap:10px; font-size:13px; padding:3px 0;
+  border-bottom:1px dotted #eef1ec; }
+.kv .k { color:#7a827a; min-width:90px; }
+.kv .v { color:#20231f; font-weight:600; }
+.tbl { width:100%; border-collapse:collapse; font-size:13px; margin:6px 0; }
+.tbl th { background:#eef2ea; color:#255c4a; font-weight:700; text-align:left;
+  padding:7px 10px; border-bottom:1px solid #d9ddd4; }
+.tbl td { padding:7px 10px; border-bottom:1px solid #eef1ec; color:#2c302b; }
+.ins { margin:8px 0 0; padding-left:20px; }
+.ins li { font-size:13.5px; line-height:1.6; color:#2c302b; margin:4px 0; }
 
 /* 롤리팝 */
 .lolli-wrap { position:relative; padding-top:22px; }
