@@ -22,16 +22,7 @@ from styles import (
 )
 from chart_generator import (
     create_visitor_pie_chart,
-    create_budget_comparison_chart,
-    create_visitor_type_chart,
     create_weekly_visitors_chart,
-    create_similar_bar_chart,
-    create_media_composition_chart,
-    create_budget_structure_chart,
-    create_efficiency_scatter_chart,
-    create_trend_chart,
-    create_keymetrics_lollipop,
-    create_financial_panel,
 )
 
 
@@ -327,19 +318,6 @@ class ExhibitionReportGenerator:
         add_section_title(self.doc, "III", "전시 구성")
 
         self._sub_rooms()
-
-        # 출품 매체 구성 도넛 (회화/조각/사진/설치/미디어/기타)
-        artworks = self.data.get("artworks", {})
-        media = {
-            "회화": artworks.get("painting", 0), "조각": artworks.get("sculpture", 0),
-            "사진": artworks.get("photo", 0), "설치": artworks.get("installation", 0),
-            "미디어": artworks.get("media", 0), "기타": artworks.get("other", 0),
-        }
-        media_chart = create_media_composition_chart(media, title="출품 매체 구성")
-        if media_chart:
-            self.temp_files.append(media_chart)
-            add_image(self.doc, media_chart, is_chart=True)
-
         self._sub_programs()
         self._sub_staff()
         self._sub_materials()
@@ -439,15 +417,6 @@ class ExhibitionReportGenerator:
                             bold_value=True, underline_value=True)
         for note in budget.get("breakdown_notes", []):
             add_bullet_sub(self.doc, note)
-
-        # 예산 구조 가로 막대 (전시비/부대비 + 계획 기준선)
-        struct = budget.get("structure", {})
-        bs_chart = create_budget_structure_chart(
-            struct.get("exhibition", 0), struct.get("supplementary", 0),
-            planned=struct.get("planned", 0), title="예산 구조 (전시비·부대비)")
-        if bs_chart:
-            self.temp_files.append(bs_chart)
-            add_image(self.doc, bs_chart, is_chart=True)
 
         summary = budget.get("summary", [])
         if summary:
@@ -573,82 +542,19 @@ class ExhibitionReportGenerator:
     def _section_6_evaluation(self):
         add_section_title(self.doc, "VI", "Executive Summary")
 
-        viz = self.data.get("viz", {})
+        # 1. 핵심 수치 종합표 — 중립적·정밀한 표가 보고서엔 가장 읽기 쉬움
+        #    (v5.3.62: 차트 과잉을 정리하고 표로 환원. 롤리팝·재정패널·산점도·
+        #     트렌드·유사막대는 보고서에서 제외 — 분석은 워크스페이스 뷰에서 제공)
+        self._insert_summary_metrics_table()
 
-        # 1. 기준 대비 핵심 지표 (롤리팝) — 없으면 종합표로 폴백
-        lolli = viz.get("lollipop")
-        lolli_chart = create_keymetrics_lollipop(lolli, title="기준 대비 핵심 지표") if lolli else None
-        if lolli_chart:
-            self.temp_files.append(lolli_chart)
-            add_subsection_title(self.doc, "1", "기준 대비 핵심 지표")
-            add_paragraph(
-                self.doc,
-                "(비교 기준 평균을 100으로 환산해 단위가 다른 지표를 한 화면에서 비교. "
-                "점이 본 전시 위치. 기준 위=녹색, 아래=테라코타. 평가가 아닌 위치 표시.)",
-                size=Fonts.CAPTION, color=Colors.MEDIUM_GRAY, space_after=Pt(4))
-            add_image(self.doc, lolli_chart, is_chart=True)
-        else:
-            self._insert_summary_metrics_table()
-
-        # 2. 재정 지표 구조 (멀티패널)
-        fin = viz.get("financial")
-        fin_chart = create_financial_panel(fin, title="재정 지표 구조") if fin else None
-        if fin_chart:
-            self.temp_files.append(fin_chart)
-            add_subsection_title(self.doc, "2", "재정 지표 구조")
-            add_image(self.doc, fin_chart, is_chart=True)
-
-        # 3. 종합 의견 (LLM, v4 단계 5a)
-        add_subsection_title(self.doc, "3", "종합 의견")
+        # 2. 종합 의견 (LLM)
+        add_subsection_title(self.doc, "2", "종합 의견")
         self._insert_section_insights("evaluation")
 
-        # 3. 관객 반응 종합 (LLM, v4 단계 6) — 후기가 있을 때만 자동 표시
+        # 3. 관객 반응 종합 (LLM) — 후기가 있을 때만 자동 표시
         self._insert_audience_response()
 
-        # 4. 유사 전시 비교 (그래프) — 분석 탭에서 유사 전시가 도출된 경우
-        sim_rows = self.data.get("similar_exhibitions", [])
-        current_flat = self.data.get("analysis_data_flat", {})
-        if sim_rows and current_flat:
-            chart_path = create_similar_bar_chart(
-                current_flat, sim_rows,
-                title="유사 전시 비교 (정규화 0~1 기준)",
-            )
-            if chart_path:
-                add_subsection_title(self.doc, "5", "유사 전시 비교")
-                add_paragraph(
-                    self.doc,
-                    "(축별 최댓값을 1로 정규화하여 다른 스케일의 지표를 한 그래프에서 비교. 본 전시 막대 위에 실제 수치 표기)",
-                    size=Fonts.CAPTION,
-                    color=Colors.MEDIUM_GRAY,
-                    space_after=Pt(4),
-                )
-                add_image(self.doc, chart_path, is_chart=True)
-
-        # 4-b. 역대 전시 분포 속 위치 (효율 산점도 + 시계열 트렌드)
-        ref_points = self.data.get("reference_points", [])
-        current_point = self.data.get("current_point", {})
-        if ref_points and current_point:
-            scatter = create_efficiency_scatter_chart(
-                current_point, ref_points,
-                title="예산 대비 관객 (역대 전시 분포)")
-            if scatter:
-                self.temp_files.append(scatter)
-                add_subsection_title(self.doc, "6", "역대 전시 대비 위치")
-                add_paragraph(
-                    self.doc,
-                    "(역대 전시를 예산·관객 평면에 배치하고 본 전시를 강조 표시. "
-                    "점선은 역대 평균. 좌상단일수록 예산 대비 관객이 많음.)",
-                    size=Fonts.CAPTION, color=Colors.MEDIUM_GRAY, space_after=Pt(4))
-                add_image(self.doc, scatter, is_chart=True)
-
-            trend = create_trend_chart(
-                current_point, ref_points, metric_key="visitors",
-                metric_label="총 관객수", unit="명")
-            if trend:
-                self.temp_files.append(trend)
-                add_image(self.doc, trend, is_chart=True)
-
-        # 5. 데이터 도출 평가 항목 (자동 산출, 항목 있을 때만 표시)
+        # 4. 데이터 도출 평가 항목 (자동 산출, 항목 있을 때만 표시)
         evaluation = self.data.get("evaluation", {})
         reviews = self.data.get("visitor_reviews", [])
         positive_reviews = [r for r in reviews if r.get("category", "").strip() in ("긍정", "긍정적")]
@@ -659,7 +565,7 @@ class ExhibitionReportGenerator:
         improvements = evaluation.get("improvements", [])
 
         if positive or negative or improvements or positive_reviews or negative_reviews:
-            add_subsection_title(self.doc, "5", "데이터 도출 평가 항목")
+            add_subsection_title(self.doc, "4", "데이터 도출 평가 항목")
 
             sub_num = 1
             if positive or positive_reviews:
@@ -703,7 +609,7 @@ class ExhibitionReportGenerator:
         if not llm_audience:
             return
 
-        add_subsection_title(self.doc, "4", "관객 반응 종합")
+        add_subsection_title(self.doc, "3", "관객 반응 종합")
         for para_text in llm_audience.split("\n\n"):
             para_text = para_text.strip()
             if para_text:

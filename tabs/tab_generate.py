@@ -214,15 +214,6 @@ def _generate_report(api_key=None, load_ref=None):
             )
         except Exception:
             data["summary_metrics"] = []
-            ref_df_for_summary = None
-
-        # ── 시각화 페이로드(롤리팝·재정패널) 구성 (v5.3.61) ──
-        try:
-            data["viz"] = _build_viz_payload(
-                s, data["summary_metrics"], ref_df_for_summary,
-                s.get("exhibition_type", None))
-        except Exception:
-            data["viz"] = {}
 
         # ── LLM 분석 글쓰기 ──
         if api_key:
@@ -394,91 +385,10 @@ def _render_preview_and_edit():
             st.rerun()
 
 
-def _build_viz_payload(s, summary_metrics, ref_df, exhibition_type):
-    """롤리팝·재정패널용 시각화 데이터 구성.
-
-    - lollipop: summary_metrics에서 (현재/기준×100) 비율 행 생성
-    - financial: 총예산·총수입·집행률·관객당비용의 이번/기준 쌍
-    """
-    import pandas as _pd
-    import numpy as _np
-
-    # 롤리팝 행
-    lolli = []
-    by_label = {}
-    for m in (summary_metrics or []):
-        by_label[m["label"]] = m
-        cur, ref = m.get("current"), m.get("reference_avg")
-        if cur is not None and ref:
-            lolli.append({
-                "label": m["label"],
-                "current_fmt": m.get("current_fmt", ""),
-                "reference_fmt": m.get("reference_avg_fmt", ""),
-                "ratio": cur / ref * 100,
-            })
-
-    # 재정 패널
-    def _avg(col):
-        if ref_df is None or col not in getattr(ref_df, "columns", []):
-            return None
-        ser = _pd.to_numeric(ref_df[col], errors="coerce").dropna()
-        return float(ser.mean()) if len(ser) >= 2 else None
-
-    budget_m = by_label.get("총 사용 예산", {})
-    cost_m = by_label.get("관객당 비용", {})
-    exec_cur = (s.total_budget / s.budget_planned * 100) \
-        if (s.total_budget and s.budget_planned) else None
-
-    # 예산 집행률 기준 평균 — 레퍼런스가 비율(1.10)로 저장된 경우 퍼센트로 정규화
-    exec_ref = _avg("예산 집행률")
-    if exec_ref is not None and exec_ref < 5:
-        exec_ref *= 100
-
-    financial = {
-        "budget": {"current": budget_m.get("current"), "ref": budget_m.get("reference_avg")},
-        "revenue": {"current": s.total_revenue or None, "ref": _avg("총수입")},
-        "exec_rate": {"current": exec_cur, "ref": exec_ref},
-        "cost": {"current": cost_m.get("current"), "ref": cost_m.get("reference_avg")},
-    }
-    return {"lollipop": lolli, "financial": financial}
-
-
-def _build_reference_points(load_ref):
-    """역대 18개 전시 점 [{title, start, budget, visitors, participants}] 구성.
-
-    효율 산점도·시계열 트렌드 차트 입력. 로더 없거나 실패 시 빈 리스트.
-    """
-    if not load_ref:
-        return []
-    try:
-        import pandas as _pd
-        ref_df = load_ref()
-        if ref_df is None or len(ref_df) == 0:
-            return []
-        df = rd.exclude_type_zero(ref_df)
-        pts = []
-        for _, r in df.iterrows():
-            def _num(col):
-                v = r.get(col)
-                return float(v) if v is not None and _pd.notna(v) else None
-            start = r.get("전시 기간_시작")
-            pts.append({
-                "title": str(r.get("전시 제목", "") or ""),
-                "start": str(start)[:10] if start is not None and _pd.notna(start) else None,
-                "budget": _num("총 사용 예산"),
-                "visitors": _num("총 관객수"),
-                "participants": _num("프로그램 참여 인원"),
-            })
-        return pts
-    except Exception:
-        return []
-
-
 def _collect_report_data(load_ref=None):
     """전체 데이터를 report_generator에 맞는 구조로 수집.
 
-    load_ref: 레퍼런스 DataFrame 로더 — 역대 18개 전시 점(reference_points)을
-    구성해 효율 산점도·시계열 트렌드 차트에 사용.
+    load_ref: 레퍼런스 DataFrame 로더 — (호환용 인자, 현재 미사용)
     """
     s = st.session_state
 
@@ -564,12 +474,6 @@ def _collect_report_data(load_ref=None):
             "arrow_notes": [n for n in s.budget_arrow_notes if n.strip()],
             "chart_data": {},
             "details": [d for d in s.budget_details if d.get("subcategory") or d.get("detail")],
-            # v5.3.60: 예산 구조 차트용 원시값
-            "structure": {
-                "exhibition": s.budget_exhibition or 0,
-                "supplementary": s.budget_supplementary or 0,
-                "planned": s.budget_planned or 0,
-            },
         },
         "revenue": {
             "total_visitors": fmt_number(s.total_visitors, "명"),
@@ -622,15 +526,6 @@ def _collect_report_data(load_ref=None):
         "similar_comparison_table": sim_data,
         "similar_exhibitions": sim_rows,
         "analysis_data_flat": collect_analysis_data(),
-        # v5.3.60: 역대 분포 차트(효율 산점도·시계열 트렌드)용 데이터
-        "reference_points": _build_reference_points(load_ref),
-        "current_point": {
-            "title": s.exhibition_title or "이번 전시",
-            "budget": s.total_budget or None,
-            "visitors": s.total_visitors or None,
-            "participants": s.program_participants or None,
-            "start": s.period_start.isoformat() if s.period_start else None,
-        },
     }
 
     # 입장권별 관객
