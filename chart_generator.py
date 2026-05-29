@@ -641,6 +641,101 @@ def create_financial_panel(fin, title="재정 지표 구조", output_path=None):
 
 
 # ──────────────────────────────────────────────
+# 유사 전시 시간순 추세선 (v5.3.68) — x=전시(시간순), 선=지표
+# ──────────────────────────────────────────────
+
+def create_similar_trend_chart(current_data, similar_rows, current_start=None,
+                               field_labels=None, title="유사 전시 비교 (시간순 추이)",
+                               output_path=None):
+    """유사 전시군을 시간순으로 배열하고 지표별 추세선을 그림.
+
+    각 지표는 해당 군 내 최댓값=100%로 정규화(스케일 다른 지표 동시 비교).
+    이번 전시는 x축 라벨 강조 + 점 강조.
+    """
+    import numpy as np
+    from datetime import date as _date
+
+    if field_labels is None:
+        field_labels = {
+            "총 관객수": "관객수", "총 사용 예산": "예산",
+            "프로그램 총 수": "프로그램", "언론 보도 건수": "언론보도",
+            "출품 작품 수_총": "출품작품", "일평균 관객수": "일평균",
+        }
+
+    def _pdate(d):
+        if not d:
+            return None
+        try:
+            s = str(d)[:10].replace(".", "-").replace("/", "-")
+            p = [int(x) for x in s.split("-")[:3]]
+            return _date(p[0], p[1], p[2]) if len(p) == 3 else None
+        except (ValueError, TypeError):
+            return None
+
+    # 전시 목록: (이름, 날짜, metrics, is_current)
+    exs = []
+    cur_name = current_data.get("전시 제목", "이번 전시")
+    exs.append((cur_name, _pdate(current_start), current_data, True))
+    for r in similar_rows:
+        exs.append((r.title, _pdate(getattr(r, "start", None)), r.metrics, False))
+
+    # 날짜 있는 것만, 시간순 정렬
+    exs = [e for e in exs if e[1] is not None]
+    if len(exs) < 3:
+        return None
+    exs.sort(key=lambda e: e[1])
+
+    # 사용할 지표(이번 전시에 값이 있는 것)
+    fields = [f for f in field_labels if current_data.get(f)]
+    if len(fields) < 2:
+        return None
+
+    fp = get_font_prop()
+    fig, ax = plt.subplots(figsize=(max(8, len(exs) * 1.5), 5.2))
+
+    x = list(range(len(exs)))
+    colors = C_CATEGORICAL
+    for fi, f in enumerate(fields):
+        vals = [float(m.get(f) or 0) for _, _, m, _ in exs]
+        mx = max(vals) or 1
+        norm = [v / mx * 100 for v in vals]
+        ax.plot(x, norm, marker='o', markersize=5, linewidth=1.8,
+                color=colors[fi % len(colors)], label=field_labels[f],
+                markerfacecolor='white',
+                markeredgecolor=colors[fi % len(colors)], zorder=2)
+
+    # 이번 전시 위치 강조
+    cur_idx = next((i for i, e in enumerate(exs) if e[3]), None)
+    if cur_idx is not None:
+        ax.axvspan(cur_idx - 0.18, cur_idx + 0.18, color=C_ACCENT, alpha=0.07, zorder=1)
+
+    ax.set_xticks(x)
+    labels = []
+    for name, _d, _m, is_cur in exs:
+        nm = name if len(name) <= 9 else name[:8] + "…"
+        # 이번 전시는 색·굵기·배경밴드로 구분(기호 prefix는 폰트 글리프 이슈로 제외)
+        labels.append(nm)
+    ax.set_xticklabels(labels, rotation=20, ha='right')
+    for tk, e in zip(ax.get_xticklabels(), exs):
+        tk.set_fontproperties(_fp(9, bold=e[3]))
+        tk.set_color(C_ACCENT if e[3] else "#646b61")
+    ax.set_ylim(0, 115)
+    ax.set_ylabel("지표별 최댓값 대비 (%)", fontproperties=_fp(10), color="#646b61")
+    ax.set_title(title, fontproperties=_fp(CH_TITLE, bold=True), color=C_INK,
+                 loc='left', pad=12)
+    ax.legend(prop=_fp(9), ncol=min(len(fields), 6), loc='upper center',
+              bbox_to_anchor=(0.5, -0.16), frameon=False)
+    for sp in ('top', 'right'):
+        ax.spines[sp].set_visible(False)
+    ax.grid(axis='y', alpha=0.15)
+    if output_path is None:
+        output_path = tempfile.mktemp(suffix='.png')
+    fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return output_path
+
+
+# ──────────────────────────────────────────────
 # 가로 막대: 이번 vs 기준 비교 (v5.3.63) — 유료 비율 등
 # ──────────────────────────────────────────────
 

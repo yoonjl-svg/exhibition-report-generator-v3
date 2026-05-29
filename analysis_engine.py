@@ -61,6 +61,7 @@ class SimilarExhibitionRow:
     title: str
     similarity: float
     metrics: dict = field(default_factory=dict)
+    start: Optional[str] = None  # 전시 시작일(YYYY-MM-DD) — 시간순 정렬용
 
 
 @dataclass
@@ -569,8 +570,11 @@ def _build_similar(cur, df, top_n=5):
         for f, u in COMPARISON_FIELDS:
             v = row.get(f)
             if pd.notna(v): metrics[f] = v
+        _start = row.get("전시 기간_시작")
+        _start = str(_start)[:10].replace(".", "-") if pd.notna(_start) else None
         rows.append(SimilarExhibitionRow(
-            title=row["전시 제목"], similarity=row.get("_similarity_score", 0), metrics=metrics))
+            title=row["전시 제목"], similarity=row.get("_similarity_score", 0),
+            metrics=metrics, start=_start))
 
     table_data = {"전시명": [cur.get("전시 제목", "현재 전시")]}
     for f, u in COMPARISON_FIELDS:
