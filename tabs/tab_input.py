@@ -463,8 +463,9 @@ def render(tab):
         subsection("", "전시 연계 프로그램")
 
         # 상세 행 (반복)
+        # 일자는 YYYY/MM/DD+달력 아이콘 폭 확보(1.3), 참여 인원은 라벨 한 줄(1.0)
         for i, prog in enumerate(st.session_state.related_programs):
-            cols = st.columns([0.75, 3, 1, 0.4, 2, 2.85])
+            cols = st.columns([0.9, 3, 1.3, 1.0, 2, 1.8])
             with cols[0]:
                 cat_options = ["아티스트 토크", "강연", "워크숍", "스크리닝", "퍼포먼스", "기타"]
                 cat_val = prog.get("category")

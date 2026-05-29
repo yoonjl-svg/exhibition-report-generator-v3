@@ -392,6 +392,22 @@ st.markdown("""
         border: none !important;
         background: transparent !important;
     }
+    /* 입력창 높이 통일 — 텍스트·숫자·날짜 모두 동일한 얇은 두께로.
+       (date_input은 달력 아이콘 때문에 기본 높이가 더 두꺼워 들쭉날쭉했음) */
+    .stTextInput div[data-baseweb="base-input"],
+    .stNumberInput div[data-baseweb="base-input"],
+    .stDateInput div[data-baseweb="base-input"],
+    .stTextInput div[data-baseweb="input"],
+    .stNumberInput div[data-baseweb="input"],
+    .stDateInput div[data-baseweb="input"] {
+        min-height: 34px !important;
+        height: 34px !important;
+        align-items: center !important;
+    }
+    /* date_input의 달력 아이콘이 좁은 칸에서 텍스트와 겹치지 않도록 */
+    .stDateInput div[data-baseweb="input"] {
+        overflow: visible !important;
+    }
     /* 위젯 수직 간격 압축 (겹침 방지를 위해 0.5rem 유지) */
     [data-testid="stVerticalBlock"] {
         gap: 0.5rem;
