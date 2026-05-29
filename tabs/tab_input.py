@@ -264,7 +264,7 @@ def render(tab):
 
         # ── 예산 — '전시 기본' 헤더 아래, 1행 5열로 통일 ──
         # 순서: 예산 계획액 → 전시 사용 → 부대 사용 → 입장 수입 → 기타 수입
-        cols = st.columns([1.3, 1.3, 1.3, 1.3, 1.3, 3.5])
+        cols = st.columns([1.3, 1.3, 1.3, 1.3, 1.3, 3.5], gap="small")
         with cols[0]:
             st.number_input("예산 계획액 (원)", min_value=0, step=1_000_000,
                             key="budget_planned", format="%d")
@@ -341,8 +341,8 @@ def render(tab):
                 st.caption("일평균: 기간 입력 시 자동")
 
         st.markdown("**입장권별 구성**")
-        # 8개 칸 너비 통일 ('일반' 기준 1.0). 우측 2.0은 spacer.
-        cols = st.columns([1, 1, 1, 1, 1, 1, 1, 1, 2])
+        # 8개 칸 균일 + 좌측 클러스터 (우측 spacer 4) + gap small로 쫀쫀하게.
+        cols = st.columns([1, 1, 1, 1, 1, 1, 1, 1, 4], gap="small")
         with cols[0]:
             st.number_input("일반", min_value=0, key="visitor_general", format="%d")
         with cols[1]:
@@ -369,9 +369,9 @@ def render(tab):
             else:
                 st.success(f"✅ 입장권별 합계 일치: {ticket_sum:,}명")
 
-        # 주차별 관객 — 11주차, 1줄 배치
+        # 주차별 관객 — 11주차, 1줄 배치 (좌측 클러스터 + gap small)
         st.markdown("**주차별 관객 수**")
-        week_cols = st.columns(11)
+        week_cols = st.columns([1] * 11 + [3], gap="small")
         weekly = st.session_state.get("weekly_visitors", {})
         new_weekly = {}
         for i in range(11):
@@ -432,7 +432,7 @@ def render(tab):
         # ════════════════════════════════════════
         subsection("", "출품 작품 (매체별)")
         # 6개 narrow + 큰 spacer
-        cols = st.columns([1, 1, 1, 1, 1, 1, 4])
+        cols = st.columns([1, 1, 1, 1, 1, 1, 4], gap="small")
         with cols[0]:
             st.number_input("회화", min_value=0, key="artwork_painting", format="%d")
         with cols[1]:
@@ -497,7 +497,7 @@ def render(tab):
 
         # 프로그램 요약 수치
         st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
-        cols = st.columns([1, 1, 1, 1, 1, 5])
+        cols = st.columns([1, 1, 1, 1, 1, 5], gap="small")
         with cols[0]:
             st.number_input("프로그램 수", min_value=0, key="program_count", format="%d")
         with cols[1]:
@@ -564,7 +564,7 @@ def render(tab):
         # 11. 홍보 지표
         # ════════════════════════════════════════
         subsection("", "홍보 지표")
-        cols = st.columns([1.2, 1.2, 1.2, 6.4])
+        cols = st.columns([1.2, 1.2, 1.2, 6.4], gap="small")
         with cols[0]:
             st.number_input("언론 보도 건수", min_value=0, key="press_count", format="%d",
                             help="일간지+온라인 합계. 본 섹션 하단 보도 리스트와 연동.")
@@ -574,7 +574,7 @@ def render(tab):
             st.number_input("뉴스레터 오픈율 (%)", min_value=0.0, max_value=100.0,
                             step=0.1, key="newsletter_open_rate", format="%.1f")
 
-        cols = st.columns([1.2, 1.2, 1.2, 6.4])
+        cols = st.columns([1.2, 1.2, 1.2, 6.4], gap="small")
         with cols[0]:
             st.number_input("SNS 게시", min_value=0, key="sns_posts", format="%d")
         with cols[1]:
@@ -584,7 +584,7 @@ def render(tab):
 
         st.markdown("**SNS 상세 통계**")
         st.caption("인스타그램 기준 정량 지표.")
-        cols = st.columns([1, 1, 1, 1, 6])
+        cols = st.columns([1, 1, 1, 1, 6], gap="small")
         with cols[0]:
             st.number_input("팔로워", min_value=0, key="sns_followers", format="%d")
         with cols[1]:

@@ -365,6 +365,28 @@ st.markdown("""
         padding-bottom: 6px !important;
     }
 
+    /* ═══ '쫀쫀한 그리드' 테마 (v5.3.48) ═══
+       number_input의 −/+ 스테퍼 버튼 제거 — 시각 노이즈·폭 낭비 제거.
+       숫자는 직접 타이핑. */
+    [data-testid="stNumberInputStepUp"],
+    [data-testid="stNumberInputStepDown"],
+    .stNumberInput button {
+        display: none !important;
+    }
+    /* 스테퍼 제거 후 입력칸이 컨테이너를 꽉 채우도록 */
+    .stNumberInput > div > div {
+        border-radius: 6px !important;
+    }
+    /* 반복 숫자 그리드의 위젯 수직 간격 추가 압축 */
+    [data-testid="stVerticalBlock"] {
+        gap: 0.45rem;
+    }
+    /* 라벨-입력 간격 더 타이트하게 */
+    label[data-testid="stWidgetLabel"],
+    [data-testid="stWidgetLabel"] p {
+        margin-bottom: 2px !important;
+    }
+
     /* textarea — 패딩·라인 높이 정리 (font-size는 위 통일 규칙에서 처리) */
     .stTextArea textarea {
         padding-top: 8px !important;
