@@ -72,7 +72,8 @@ def render(tab, load_reference_data):
         with col1:
             if st.button("보고서 생성", type="primary", use_container_width=True,
                          help="LLM이 분석 문단을 작성하고, 아래에 미리보기·편집 영역이 나타납니다."):
-                _generate_report(api_key=api_key if use_llm else None)
+                _generate_report(api_key=api_key if use_llm else None,
+                                 load_ref=load_reference_data)
 
         # ── 미리보기 & 편집 & 다운로드 ──
         _render_preview_and_edit()
@@ -192,19 +193,20 @@ def _show_section_insights(section):
             st.markdown(f"> {text}")
 
 
-def _generate_report(api_key=None):
+def _generate_report(api_key=None, load_ref=None):
     """보고서 데이터 준비 (LLM 글쓰기 + 종합표 계산) → session_state 저장.
 
     Word 생성은 미리보기·편집 UI(_render_preview_and_edit)에서 즉시 수행.
+    load_ref: 레퍼런스 DataFrame 로더(render에서 전달). 종합표·차트용.
     """
     try:
-        data = _collect_report_data()
+        data = _collect_report_data(load_ref)
         s = st.session_state
 
         # ── 핵심 수치 종합표 먼저 계산 ──
         # LLM 사용 여부와 무관하게 항상 계산. LLM에도 전달해 종합 의견에서 일관성 보장.
         try:
-            ref_df_for_summary = load_reference_data()
+            ref_df_for_summary = load_ref() if load_ref else None
             summary_analysis_data = collect_analysis_data()
             exhibition_type_val = s.get("exhibition_type", None)
             data["summary_metrics"] = ae.compute_summary_metrics(
@@ -383,8 +385,43 @@ def _render_preview_and_edit():
             st.rerun()
 
 
-def _collect_report_data():
-    """전체 데이터를 report_generator에 맞는 구조로 수집"""
+def _build_reference_points(load_ref):
+    """역대 18개 전시 점 [{title, start, budget, visitors, participants}] 구성.
+
+    효율 산점도·시계열 트렌드 차트 입력. 로더 없거나 실패 시 빈 리스트.
+    """
+    if not load_ref:
+        return []
+    try:
+        import pandas as _pd
+        ref_df = load_ref()
+        if ref_df is None or len(ref_df) == 0:
+            return []
+        df = rd.exclude_type_zero(ref_df)
+        pts = []
+        for _, r in df.iterrows():
+            def _num(col):
+                v = r.get(col)
+                return float(v) if v is not None and _pd.notna(v) else None
+            start = r.get("전시 기간_시작")
+            pts.append({
+                "title": str(r.get("전시 제목", "") or ""),
+                "start": str(start)[:10] if start is not None and _pd.notna(start) else None,
+                "budget": _num("총 사용 예산"),
+                "visitors": _num("총 관객수"),
+                "participants": _num("프로그램 참여 인원"),
+            })
+        return pts
+    except Exception:
+        return []
+
+
+def _collect_report_data(load_ref=None):
+    """전체 데이터를 report_generator에 맞는 구조로 수집.
+
+    load_ref: 레퍼런스 DataFrame 로더 — 역대 18개 전시 점(reference_points)을
+    구성해 효율 산점도·시계열 트렌드 차트에 사용.
+    """
     s = st.session_state
 
     # 전시 기간
@@ -469,6 +506,12 @@ def _collect_report_data():
             "arrow_notes": [n for n in s.budget_arrow_notes if n.strip()],
             "chart_data": {},
             "details": [d for d in s.budget_details if d.get("subcategory") or d.get("detail")],
+            # v5.3.60: 예산 구조 차트용 원시값
+            "structure": {
+                "exhibition": s.budget_exhibition or 0,
+                "supplementary": s.budget_supplementary or 0,
+                "planned": s.budget_planned or 0,
+            },
         },
         "revenue": {
             "total_visitors": fmt_number(s.total_visitors, "명"),
@@ -521,6 +564,15 @@ def _collect_report_data():
         "similar_comparison_table": sim_data,
         "similar_exhibitions": sim_rows,
         "analysis_data_flat": collect_analysis_data(),
+        # v5.3.60: 역대 분포 차트(효율 산점도·시계열 트렌드)용 데이터
+        "reference_points": _build_reference_points(load_ref),
+        "current_point": {
+            "title": s.exhibition_title or "이번 전시",
+            "budget": s.total_budget or None,
+            "visitors": s.total_visitors or None,
+            "participants": s.program_participants or None,
+            "start": s.period_start.isoformat() if s.period_start else None,
+        },
     }
 
     # 입장권별 관객

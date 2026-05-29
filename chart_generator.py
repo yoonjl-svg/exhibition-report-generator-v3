@@ -61,6 +61,21 @@ def get_font_prop():
 
 
 # ──────────────────────────────────────────────
+# 미술관 톤 팔레트 (v5.3.60) — 보고서 차트 색 통일
+# ──────────────────────────────────────────────
+
+C_ACCENT = "#255c4a"     # 메인 강조 (녹색)
+C_ACCENT2 = "#b4512a"    # 보조 강조 (테라코타)
+C_ACCENT3 = "#3f5e99"    # 추가 강조 (블루)
+C_INK = "#20231f"
+C_MUTED = "#9aa39a"      # 역대 전시 점 등 흐린 회색
+C_GRID = "#d9ddd4"       # 격자·기준선
+# 범주형(매체 구성 등) — 미술관 톤 확장 팔레트
+C_CATEGORICAL = ["#255c4a", "#b4512a", "#3f5e99", "#8a6d3b",
+                 "#6d6a8c", "#4a7c59", "#a8632c", "#5a6e80"]
+
+
+# ──────────────────────────────────────────────
 # 파이차트: 관객 구성 (입장권별)
 # ──────────────────────────────────────────────
 
@@ -87,9 +102,8 @@ def create_visitor_pie_chart(data, title="관객 구성", output_path=None):
     values = list(data.values())
     total = sum(values)
 
-    # 색상 팔레트
-    colors = ['#4472C4', '#ED7D31', '#A5A5A5', '#FFC000', '#5B9BD5',
-              '#70AD47', '#264478', '#9B59B6'][:len(labels)]
+    # 색상 팔레트 (미술관 톤)
+    colors = C_CATEGORICAL[:len(labels)]
 
     def autopct_func(pct):
         absolute = int(round(pct / 100.0 * total))
@@ -167,19 +181,30 @@ def create_weekly_visitors_chart(data, title="주별 관객 수", output_path=No
 
     font_prop = get_font_prop()
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(10, 4.6))
 
     weeks = list(data.keys())
     values = list(data.values())
-    x = range(len(weeks))
+    x = list(range(len(weeks)))
 
-    bars = ax.bar(x, values, color='#4472C4', width=0.6, edgecolor='white', linewidth=0.5)
+    # 영역 + 라인 + 마커 (추세감) — 미술관 톤
+    ax.fill_between(x, values, color=C_ACCENT, alpha=0.12, zorder=1)
+    ax.plot(x, values, color=C_ACCENT, linewidth=2, marker='o', markersize=6,
+            markerfacecolor='white', markeredgecolor=C_ACCENT,
+            markeredgewidth=1.5, zorder=3)
+
+    # 평균 기준선
+    if values:
+        avg = sum(values) / len(values)
+        ax.axhline(avg, color=C_ACCENT2, linestyle='--', linewidth=1.1,
+                   alpha=0.8, zorder=2)
+        ax.text(x[0], avg, f' 평균 {avg:,.0f}', va='bottom', ha='left',
+                fontsize=8.5, color=C_ACCENT2, fontproperties=font_prop)
 
     # 값 표시
-    for bar, val in zip(bars, values):
-        ax.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + max(values) * 0.02,
-                f'{val:,}', ha='center', va='bottom', fontsize=9,
-                fontproperties=font_prop)
+    for xi, val in zip(x, values):
+        ax.text(xi, val + max(values) * 0.03, f'{val:,}', ha='center',
+                va='bottom', fontsize=9, fontproperties=font_prop, color=C_INK)
 
     ax.set_xticks(x)
     if font_prop:
@@ -231,9 +256,9 @@ def create_budget_comparison_chart(categories, planned, actual,
     width = 0.35
 
     bars1 = ax.bar([i - width / 2 for i in x], planned, width,
-                   label='계획', color='#4472C4', edgecolor='white')
+                   label='계획', color=C_ACCENT3, edgecolor='white')
     bars2 = ax.bar([i + width / 2 for i in x], actual, width,
-                   label='집행', color='#ED7D31', edgecolor='white')
+                   label='집행', color=C_ACCENT, edgecolor='white')
 
     ax.set_xticks(x)
     if font_prop:
@@ -363,7 +388,7 @@ def create_similar_bar_chart(current_data, similar_rows, field_labels=None,
 
     fig, ax = plt.subplots(figsize=(max(8, n * 1.8), 5))
 
-    colors = ['#1a73e8', '#e8453c', '#f9a825', '#4caf50']
+    colors = [C_ACCENT, C_ACCENT2, C_ACCENT3, "#8a6d3b"]
 
     for idx, (norm_vals, raw_vals, name) in enumerate(
             zip(normalized, all_series, series_names)):
@@ -385,7 +410,7 @@ def create_similar_bar_chart(current_data, similar_rows, field_labels=None,
                     display = f"{raw_v:,.0f}"
                 ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
                         display, ha='center', va='bottom', fontsize=8,
-                        fontproperties=font_prop, color='#1a73e8', fontweight='bold')
+                        fontproperties=font_prop, color=C_ACCENT, fontweight='bold')
 
     ax.set_xticks(x)
     if font_prop:
@@ -412,6 +437,256 @@ def create_similar_bar_chart(current_data, similar_rows, field_labels=None,
         output_path = os.path.join(tempfile.gettempdir(), "similar_bar.png")
     fig.savefig(output_path, dpi=150, bbox_inches='tight',
                 facecolor='white', edgecolor='none')
+    plt.close(fig)
+    return output_path
+
+
+# ──────────────────────────────────────────────
+# 도넛: 출품 매체 구성 (v5.3.60 신규)
+# ──────────────────────────────────────────────
+
+def create_media_composition_chart(media_dict, title="출품 매체 구성", output_path=None):
+    """매체별 작품 수 도넛 차트.
+
+    media_dict: {"회화": 18, "조각": 8, ...} (0은 자동 제외)
+    """
+    data = {k: v for k, v in media_dict.items() if v and v > 0}
+    if len(data) < 2:
+        return None
+    if output_path is None:
+        output_path = tempfile.mktemp(suffix='.png')
+    fp = get_font_prop()
+    fig, ax = plt.subplots(figsize=(6.5, 5))
+    labels = list(data.keys())
+    values = list(data.values())
+    total = sum(values)
+    colors = C_CATEGORICAL[:len(labels)]
+
+    def autopct(pct):
+        return f'{pct:.0f}%' if pct >= 6 else ''
+
+    wedges, _t, autotexts = ax.pie(
+        values, labels=None, autopct=autopct, startangle=90, colors=colors,
+        pctdistance=0.78,
+        wedgeprops=dict(width=0.42, edgecolor='white', linewidth=2))
+    for at in autotexts:
+        at.set_fontsize(9); at.set_color('white'); at.set_fontweight('bold')
+        if fp: at.set_fontproperties(fp)
+    # 중앙 총계
+    ax.text(0, 0, f'{total}점', ha='center', va='center',
+            fontsize=15, fontweight='bold', color=C_INK,
+            fontproperties=fp if fp else None)
+    legend_labels = [f'{l} {v}점' for l, v in zip(labels, values)]
+    ax.legend(wedges, legend_labels, loc="center left",
+              bbox_to_anchor=(1, 0, 0.4, 1), fontsize=9, prop=fp)
+    ax.set_title(title, fontsize=13, fontweight='bold', pad=16,
+                 fontproperties=fp if fp else None)
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return output_path
+
+
+# ──────────────────────────────────────────────
+# 가로 막대: 예산 구조 (v5.3.60 신규)
+# ──────────────────────────────────────────────
+
+def create_budget_structure_chart(exhibition, supplementary, planned=None,
+                                   title="예산 구조", output_path=None):
+    """전시비/부대비 구성을 가로 스택 막대로, 계획액은 기준선으로 표시.
+
+    exhibition, supplementary, planned: 원 단위 숫자
+    """
+    total = (exhibition or 0) + (supplementary or 0)
+    if total <= 0:
+        return None
+    if output_path is None:
+        output_path = tempfile.mktemp(suffix='.png')
+    fp = get_font_prop()
+    fig, ax = plt.subplots(figsize=(9, 2.4))
+
+    def eok(v):  # 억 단위
+        return (v or 0) / 1e8
+
+    e, s = eok(exhibition), eok(supplementary)
+    ax.barh([0], [e], color=C_ACCENT, edgecolor='white', height=0.5, label='전시비')
+    ax.barh([0], [s], left=[e], color=C_ACCENT2, edgecolor='white', height=0.5, label='부대비')
+    # 세그먼트 값 라벨
+    if e > 0:
+        ax.text(e / 2, 0, f'전시비\n{e:.2f}억 ({exhibition/total*100:.0f}%)',
+                ha='center', va='center', color='white', fontsize=9,
+                fontweight='bold', fontproperties=fp if fp else None)
+    if s > 0:
+        ax.text(e + s / 2, 0, f'부대비\n{s:.2f}억 ({supplementary/total*100:.0f}%)',
+                ha='center', va='center', color='white', fontsize=9,
+                fontweight='bold', fontproperties=fp if fp else None)
+    # 계획액 기준선
+    if planned and planned > 0:
+        px = eok(planned)
+        ax.axvline(px, color=C_INK, linestyle='--', linewidth=1.2)
+        ax.text(px, 0.42, f'계획 {px:.2f}억', ha='center', va='bottom',
+                fontsize=8.5, color=C_INK, fontproperties=fp if fp else None)
+    ax.set_xlim(0, max(eok(total), eok(planned) if planned else 0) * 1.15)
+    ax.set_yticks([])
+    ax.set_xlabel('금액 (억원)', fontproperties=fp if fp else None, fontsize=9)
+    ax.set_title(title, fontsize=13, fontweight='bold', pad=12,
+                 fontproperties=fp if fp else None)
+    for sp in ('top', 'right', 'left'):
+        ax.spines[sp].set_visible(False)
+    ax.grid(axis='x', alpha=0.2)
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return output_path
+
+
+# ──────────────────────────────────────────────
+# 산점도(사분면): 예산 대비 관객 효율 — 역대 분포 속 위치 (v5.3.60 신규)
+# ──────────────────────────────────────────────
+
+def create_efficiency_scatter_chart(current, ref_points,
+                                    title="예산 대비 관객 (역대 전시 분포)",
+                                    output_path=None):
+    """x=예산, y=관객 산점도. 역대 18개 전시 분포 + 이번 전시 강조,
+    평균선으로 4분면 구획.
+
+    current: {"title", "budget", "visitors"}
+    ref_points: [{"title","budget","visitors"}, ...]
+    """
+    import numpy as np
+    pts = [(p.get("budget"), p.get("visitors"), p.get("title", ""))
+           for p in (ref_points or [])
+           if p.get("budget") and p.get("visitors")]
+    if len(pts) < 3:
+        return None
+    if output_path is None:
+        output_path = tempfile.mktemp(suffix='.png')
+    fp = get_font_prop()
+    fig, ax = plt.subplots(figsize=(8, 5.6))
+
+    xs = np.array([p[0] for p in pts], dtype=float)
+    ys = np.array([p[1] for p in pts], dtype=float)
+    ax.scatter(xs / 1e8, ys, s=48, color=C_MUTED, alpha=0.65,
+               edgecolor='white', linewidth=0.6, zorder=2, label='역대 전시')
+    # 평균 사분면 기준선
+    mx, my = float(xs.mean()), float(ys.mean())
+    ax.axvline(mx / 1e8, color=C_GRID, linestyle='--', linewidth=1, zorder=1)
+    ax.axhline(my, color=C_GRID, linestyle='--', linewidth=1, zorder=1)
+    ax.text(mx / 1e8, ax.get_ylim()[1], ' 평균 예산', va='top', ha='left',
+            fontsize=8, color=C_MUTED, fontproperties=fp if fp else None)
+
+    cb, cv = current.get("budget"), current.get("visitors")
+    if cb and cv:
+        ax.scatter([cb / 1e8], [cv], s=200, color=C_ACCENT, edgecolor='white',
+                   linewidth=1.6, zorder=4, label='이번 전시')
+        ax.annotate(
+            (current.get("title", "이번 전시") or "이번 전시")[:14],
+            (cb / 1e8, cv), textcoords="offset points", xytext=(9, 9),
+            fontsize=10, fontweight='bold', color=C_ACCENT,
+            fontproperties=fp if fp else None)
+
+    ax.set_xlabel("총 사용 예산 (억원)", fontproperties=fp if fp else None, fontsize=10)
+    ax.set_ylabel("총 관객수 (명)", fontproperties=fp if fp else None, fontsize=10)
+    ax.set_title(title, fontsize=13, fontweight='bold', pad=14,
+                 fontproperties=fp if fp else None)
+    ax.legend(prop=fp, fontsize=9, loc='lower right')
+    ax.get_yaxis().set_major_formatter(
+        plt.FuncFormatter(lambda v, _p: f'{int(v):,}'))
+    for sp in ('top', 'right'):
+        ax.spines[sp].set_visible(False)
+    ax.grid(alpha=0.12)
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return output_path
+
+
+# ──────────────────────────────────────────────
+# 라인: 역대 전시 지표 시계열 — 이번 전시 강조 (v5.3.60 신규)
+# ──────────────────────────────────────────────
+
+def create_trend_chart(current, ref_points, metric_key="visitors",
+                       metric_label="총 관객수", unit="명",
+                       title=None, output_path=None):
+    """역대 전시를 시작일 순으로 늘어놓고 지표 추이를 라인으로, 이번 전시를 강조.
+
+    current/ref_points 항목: {"start"(YYYY-MM-DD), metric_key, "title"}
+    """
+    from datetime import date as _date
+
+    def _parse(d):
+        if not d:
+            return None
+        if isinstance(d, _date):
+            return d
+        # "2021.10.01", "2021-10-01", "2021/10/01" 등 구분자 정규화
+        s = str(d)[:10].replace('.', '-').replace('/', '-').strip('-')
+        parts = [p for p in s.split('-') if p]
+        if len(parts) >= 3:
+            try:
+                return _date(int(parts[0]), int(parts[1]), int(parts[2]))
+            except (ValueError, TypeError):
+                return None
+        return None
+
+    rows = []
+    for p in (ref_points or []):
+        dt = _parse(p.get("start"))
+        v = p.get(metric_key)
+        if dt and v:
+            rows.append((dt, float(v), p.get("title", "")))
+    if len(rows) < 3:
+        return None
+    rows.sort(key=lambda r: r[0])
+
+    if title is None:
+        title = f"역대 전시 {metric_label} 추이"
+    if output_path is None:
+        output_path = tempfile.mktemp(suffix='.png')
+    fp = get_font_prop()
+    fig, ax = plt.subplots(figsize=(9, 4.6))
+
+    xs = [r[0] for r in rows]
+    ys = [r[1] for r in rows]
+    ax.plot(xs, ys, color=C_MUTED, linewidth=1.6, marker='o', markersize=5,
+            markerfacecolor='white', markeredgecolor=C_MUTED, zorder=2,
+            label='역대 전시')
+    # 평균선
+    import numpy as np
+    avg = float(np.mean(ys))
+    ax.axhline(avg, color=C_ACCENT2, linestyle='--', linewidth=1.1, alpha=0.8,
+               zorder=1)
+    ax.text(xs[0], avg, f' 평균 {avg:,.0f}{unit}', va='bottom', ha='left',
+            fontsize=8.5, color=C_ACCENT2, fontproperties=fp if fp else None)
+
+    # 이번 전시 강조
+    cdt = _parse(current.get("start"))
+    cv = current.get(metric_key)
+    if cdt and cv:
+        ax.scatter([cdt], [float(cv)], s=170, color=C_ACCENT, edgecolor='white',
+                   linewidth=1.6, zorder=4, label='이번 전시')
+        ax.annotate((current.get("title", "이번 전시") or "이번 전시")[:14],
+                    (cdt, float(cv)), textcoords="offset points", xytext=(8, 9),
+                    fontsize=10, fontweight='bold', color=C_ACCENT,
+                    fontproperties=fp if fp else None)
+
+    ax.set_ylabel(f"{metric_label} ({unit})", fontproperties=fp if fp else None,
+                  fontsize=10)
+    ax.set_title(title, fontsize=13, fontweight='bold', pad=14,
+                 fontproperties=fp if fp else None)
+    ax.legend(prop=fp, fontsize=9, loc='best')
+    ax.get_yaxis().set_major_formatter(
+        plt.FuncFormatter(lambda v, _p: f'{int(v):,}'))
+    import matplotlib.dates as mdates
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    for lbl in ax.get_xticklabels():
+        if fp:
+            lbl.set_fontproperties(fp)
+    for sp in ('top', 'right'):
+        ax.spines[sp].set_visible(False)
+    ax.grid(axis='y', alpha=0.15)
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
     plt.close(fig)
     return output_path
 

@@ -26,6 +26,10 @@ from chart_generator import (
     create_visitor_type_chart,
     create_weekly_visitors_chart,
     create_similar_bar_chart,
+    create_media_composition_chart,
+    create_budget_structure_chart,
+    create_efficiency_scatter_chart,
+    create_trend_chart,
 )
 
 
@@ -321,6 +325,19 @@ class ExhibitionReportGenerator:
         add_section_title(self.doc, "III", "전시 구성")
 
         self._sub_rooms()
+
+        # 출품 매체 구성 도넛 (회화/조각/사진/설치/미디어/기타)
+        artworks = self.data.get("artworks", {})
+        media = {
+            "회화": artworks.get("painting", 0), "조각": artworks.get("sculpture", 0),
+            "사진": artworks.get("photo", 0), "설치": artworks.get("installation", 0),
+            "미디어": artworks.get("media", 0), "기타": artworks.get("other", 0),
+        }
+        media_chart = create_media_composition_chart(media, title="출품 매체 구성")
+        if media_chart:
+            self.temp_files.append(media_chart)
+            add_image(self.doc, media_chart, is_chart=True)
+
         self._sub_programs()
         self._sub_staff()
         self._sub_materials()
@@ -420,6 +437,15 @@ class ExhibitionReportGenerator:
                             bold_value=True, underline_value=True)
         for note in budget.get("breakdown_notes", []):
             add_bullet_sub(self.doc, note)
+
+        # 예산 구조 가로 막대 (전시비/부대비 + 계획 기준선)
+        struct = budget.get("structure", {})
+        bs_chart = create_budget_structure_chart(
+            struct.get("exhibition", 0), struct.get("supplementary", 0),
+            planned=struct.get("planned", 0), title="예산 구조 (전시비·부대비)")
+        if bs_chart:
+            self.temp_files.append(bs_chart)
+            add_image(self.doc, bs_chart, is_chart=True)
 
         summary = budget.get("summary", [])
         if summary:
@@ -573,6 +599,30 @@ class ExhibitionReportGenerator:
                     space_after=Pt(4),
                 )
                 add_image(self.doc, chart_path, is_chart=True)
+
+        # 4-b. 역대 전시 분포 속 위치 (효율 산점도 + 시계열 트렌드)
+        ref_points = self.data.get("reference_points", [])
+        current_point = self.data.get("current_point", {})
+        if ref_points and current_point:
+            scatter = create_efficiency_scatter_chart(
+                current_point, ref_points,
+                title="예산 대비 관객 (역대 전시 분포)")
+            if scatter:
+                self.temp_files.append(scatter)
+                add_subsection_title(self.doc, "5", "역대 전시 대비 위치")
+                add_paragraph(
+                    self.doc,
+                    "(역대 전시를 예산·관객 평면에 배치하고 본 전시를 강조 표시. "
+                    "점선은 역대 평균. 좌상단일수록 예산 대비 관객이 많음.)",
+                    size=Fonts.CAPTION, color=Colors.MEDIUM_GRAY, space_after=Pt(4))
+                add_image(self.doc, scatter, is_chart=True)
+
+            trend = create_trend_chart(
+                current_point, ref_points, metric_key="visitors",
+                metric_label="총 관객수", unit="명")
+            if trend:
+                self.temp_files.append(trend)
+                add_image(self.doc, trend, is_chart=True)
 
         # 5. 데이터 도출 평가 항목 (자동 산출, 항목 있을 때만 표시)
         evaluation = self.data.get("evaluation", {})
