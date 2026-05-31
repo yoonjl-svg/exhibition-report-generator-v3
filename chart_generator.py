@@ -815,16 +815,16 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
     recent2 = dated[-2:]  # 오래된 → 새 순
 
     # 시리즈 구성 (라벨, 값[fields], 색, 현재여부)
-    GRAY = "#dde1d9"
+    GRAY = "#cfcfcf"  # 순수 회색(비교 메타데이터) — 색조 없음
     recent_colors = [_desat("#b4512a", 0.5), _desat("#3f5e99", 0.5)]  # 채도 -50%
     series = [("유사 전시 평균", avg_vals, GRAY, False)]
     for i, (r, _d) in enumerate(recent2):
         vals = [float(r.metrics.get(f) or 0) for f in fields]
-        nm = r.title if len(r.title) <= 12 else r.title[:11] + "…"
+        nm = r.title if len(r.title) <= 10 else r.title[:10] + "…"
         series.append((nm, vals, recent_colors[i % 2], False))
     cur_vals = [float(current_data.get(f) or 0) for f in fields]
     cur_title = current_data.get("전시 제목", "현재 전시")
-    cur_nm = cur_title if len(cur_title) <= 12 else cur_title[:11] + "…"
+    cur_nm = cur_title if len(cur_title) <= 10 else cur_title[:10] + "…"
     series.append((cur_nm, cur_vals, C_ACCENT, True))
 
     if len(series) < 2:
@@ -834,47 +834,55 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
     n = len(fields)
     maxv = [max(s[1][i] for s in series) or 1 for i in range(n)]
 
-    fp = get_font_prop()
+    # ── 스타일: 기존 create_similar_bar_chart와 동일하게 ──
+    font_prop = get_font_prop()
     nser = len(series)
     x = np.arange(n)
-    bw = 0.8 / nser
-    fig, ax = plt.subplots(figsize=(max(9, n * 1.8), 5.0))
+    bar_width = 0.7 / nser
+    fig, ax = plt.subplots(figsize=(max(8, n * 1.8), 5))
 
     for si, (name, vals, color, is_cur) in enumerate(series):
-        offset = (si - nser / 2 + 0.5) * bw
+        offset = (si - nser / 2 + 0.5) * bar_width
         norm = [vals[i] / maxv[i] for i in range(n)]
-        bars = ax.bar(x + offset, norm, bw, label=name, color=color,
-                      edgecolor='white', linewidth=0.6,
-                      alpha=1.0 if is_cur else 0.95, zorder=3 if is_cur else 2)
+        bars = ax.bar(x + offset, norm, bar_width, label=name, color=color,
+                      edgecolor='white', linewidth=0.5,
+                      alpha=1.0 if is_cur else 0.85)
         if is_cur:
-            for bar, raw in zip(bars, vals):
-                if raw >= 1e8:
-                    disp = f"{raw/1e8:.1f}억"
-                elif raw >= 1e4:
-                    disp = f"{raw/1e4:.0f}만"
+            for bar, raw_v in zip(bars, vals):
+                if raw_v >= 100_000_000:
+                    display = f"{raw_v/100_000_000:.1f}억"
+                elif raw_v >= 10_000:
+                    display = f"{raw_v/10_000:.0f}만"
                 else:
-                    disp = f"{raw:,.0f}"
+                    display = f"{raw_v:,.0f}"
                 ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
-                        disp, ha='center', va='bottom', fontproperties=_fp(9, bold=True),
-                        color=C_ACCENT)
+                        display, ha='center', va='bottom', fontsize=8,
+                        fontproperties=font_prop, color=C_ACCENT, fontweight='bold')
 
+    labels = [field_labels[f] for f in fields]
     ax.set_xticks(x)
-    ax.set_xticklabels([field_labels[f] for f in fields], fontproperties=_fp(11))
-    for tk in ax.get_xticklabels():
-        tk.set_color("#3c403a")
+    if font_prop:
+        ax.set_xticklabels(labels, fontproperties=font_prop, fontsize=10)
+        ax.set_title(title, fontsize=13, fontweight='bold', fontproperties=font_prop, pad=15)
+        ax.legend(prop=font_prop, fontsize=9, loc='upper right')
+    else:
+        ax.set_xticklabels(labels, fontsize=10)
+        ax.set_title(title, fontsize=13, fontweight='bold', pad=15)
+        ax.legend(fontsize=9, loc='upper right')
+
     ax.set_ylim(0, 1.3)
-    ax.set_yticks([])
-    ax.legend(prop=_fp(10), ncol=min(nser, 4), loc='lower center',
-              bbox_to_anchor=(0.5, 1.01), frameon=False, columnspacing=1.6,
-              handlelength=1.4)
-    for sp in ('top', 'right', 'left'):
-        ax.spines[sp].set_visible(False)
-    ax.spines['bottom'].set_color("#d9ddd4")
-    ax.tick_params(length=0)
-    ax.grid(axis='y', alpha=0.0)
+    ax.set_ylabel('')
+    ax.set_yticklabels([])
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.tick_params(left=False)
+    ax.grid(axis='y', alpha=0.2)
+    plt.tight_layout()
     if output_path is None:
-        output_path = tempfile.mktemp(suffix='.png')
-    fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
+        output_path = os.path.join(tempfile.gettempdir(), "similar_cmp.png")
+    fig.savefig(output_path, dpi=150, bbox_inches='tight',
+                facecolor='white', edgecolor='none')
     plt.close(fig)
     return output_path
 

@@ -253,16 +253,20 @@ def render(tab, load_reference_data):
                                    "유사 전시 평균(회색)·유사 최근 2개와 비교. "
                                    "현재 막대 위는 실제 값.")
 
-                # 비교표 — 시간순 정렬(차트와 일치)
+                # 비교표 — 시작일(yyyy-mm) 컬럼 추가 + 시간순 정렬
                 df_tbl = result.similar_comparison_table
                 try:
-                    date_map = {r.title: (r.start or "9999")
+                    date_map = {r.title: (r.start or "")
                                 for r in (result.similar_exhibitions or [])}
                     cur_title = collect_analysis_data().get("전시 제목") or "현재 전시"
-                    date_map[cur_title] = cur_start or "9999"
+                    date_map[cur_title] = cur_start or ""
                     df_tbl = df_tbl.copy()
-                    df_tbl["_d"] = df_tbl["전시명"].map(lambda t: date_map.get(t, "9999"))
-                    df_tbl = df_tbl.sort_values("_d").drop(columns=["_d"])
+                    df_tbl["_d"] = df_tbl["전시명"].map(lambda t: date_map.get(t, ""))
+                    df_tbl = df_tbl.sort_values("_d", kind="stable")
+                    # 시작일(yyyy-mm) 컬럼을 전시명 왼쪽에 삽입
+                    df_tbl.insert(0, "시작일",
+                                  df_tbl["_d"].map(lambda s: str(s)[:7] if s else "—"))
+                    df_tbl = df_tbl.drop(columns=["_d"])
                 except Exception:
                     pass
                 st.dataframe(df_tbl, use_container_width=True, hide_index=True)
