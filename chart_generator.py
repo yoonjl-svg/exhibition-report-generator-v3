@@ -784,8 +784,8 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
 
     if field_labels is None:
         field_labels = {
-            "총 관객수": "총 관객", "일평균 관객수": "일평균 관객",
-            "총 사용 예산": "사용 예산", "프로그램 총 수": "총 프로그램",
+            "총 관객수": "총 관객(만 명)", "일평균 관객수": "일평균 관객",
+            "총 사용 예산": "사용 예산(억 원)", "프로그램 총 수": "총 프로그램",
             "언론 보도 건수": "언론 보도", "출품 작품 수_총": "작품 수",
         }
     fields = [f for f in field_labels if current_data.get(f)]
@@ -845,11 +845,13 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
     bar_width = slot           # 막대끼리 맞닿게(간격 0). 외곽선 막대는 zorder로 보호
     fig, ax = plt.subplots(figsize=(max(8, n * 1.8), 5))
 
-    def _fmt(raw_v):
-        if raw_v >= 100_000_000:
-            return f"{raw_v/100_000_000:.1f}억"
-        if raw_v >= 10_000:
-            return f"{raw_v/10_000:.0f}만"
+    def _fmt(raw_v, fld):
+        # 총 관객: 백 명 단위 내림 → 1만=1.00 (예 8654→0.86)
+        if fld == "총 관객수":
+            return f"{(raw_v // 100) / 100:.2f}"
+        # 사용 예산: 백만 원 단위 내림 → 1억=1.00 (예 2.1억→2.10)
+        if fld == "총 사용 예산":
+            return f"{(raw_v // 1_000_000) / 100:.2f}"
         return f"{raw_v:,.0f}"
 
     for si, (name, vals, color, is_cur, style) in enumerate(series):
@@ -868,11 +870,11 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
                           edgecolor=color, linewidth=1.3, zorder=2)
         # 모든 막대 위 실제 수치 표기 (현재=녹색 강조, 그 외=검은 글자)
         lbl_color = C_ACCENT if is_cur else C_INK
-        lbl_size = 8 if is_cur else 7
+        lbl_size = 11 if is_cur else 10
         lbl_weight = 'bold' if is_cur else 'normal'
-        for bar, raw_v in zip(bars, vals):
+        for bar, raw_v, fld in zip(bars, vals, fields):
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
-                    _fmt(raw_v), ha='center', va='bottom', fontsize=lbl_size,
+                    _fmt(raw_v, fld), ha='center', va='bottom', fontsize=lbl_size,
                     fontproperties=font_prop, color=lbl_color, fontweight=lbl_weight)
 
     labels = [field_labels[f] for f in fields]
