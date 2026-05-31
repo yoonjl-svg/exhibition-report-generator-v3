@@ -842,7 +842,7 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
     nser = len(series)
     x = np.arange(n)
     slot = 0.7 / nser          # 막대 중심 간격
-    bar_width = slot * 0.78    # 막대 폭 < 간격 → 막대 사이 여백 확보(외곽선 식별)
+    bar_width = slot * 0.89    # 막대 폭 < 간격 → 막대 사이 여백(외곽선 식별, 좁게)
     fig, ax = plt.subplots(figsize=(max(8, n * 1.8), 5))
 
     def _fmt(raw_v):
@@ -863,8 +863,8 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
             bars = ax.bar(x + offset, norm, bar_width, label=name, color=color,
                           edgecolor='white', linewidth=0.5,
                           alpha=1.0 if is_cur else 0.95)
-        # 모든 막대 위 실제 수치 표기 (현재=녹색 강조, 그 외=중립 회색)
-        lbl_color = C_ACCENT if is_cur else "#8a8a8a"
+        # 모든 막대 위 실제 수치 표기 (현재=녹색 강조, 그 외=검은 글자)
+        lbl_color = C_ACCENT if is_cur else C_INK
         lbl_size = 8 if is_cur else 7
         lbl_weight = 'bold' if is_cur else 'normal'
         for bar, raw_v in zip(bars, vals):
