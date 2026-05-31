@@ -860,9 +860,10 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
             bars = ax.bar(x + offset, norm, bar_width, label=name,
                           facecolor='none', edgecolor=GRAY_OUTLINE, linewidth=1.3)
         else:
+            # 채움 막대 — 외곽선을 채움색과 동일하게(동일 1.3pt) 두어
+            # 외곽선 막대와 막대 외곽 footprint를 정확히 일치 → 간격 동일
             bars = ax.bar(x + offset, norm, bar_width, label=name, color=color,
-                          edgecolor='white', linewidth=0.5,
-                          alpha=1.0 if is_cur else 0.95)
+                          edgecolor=color, linewidth=1.3)
         # 모든 막대 위 실제 수치 표기 (현재=녹색 강조, 그 외=검은 글자)
         lbl_color = C_ACCENT if is_cur else C_INK
         lbl_size = 8 if is_cur else 7
