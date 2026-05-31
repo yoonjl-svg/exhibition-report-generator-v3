@@ -870,7 +870,7 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
                           edgecolor=color, linewidth=1.3, zorder=2)
         # 모든 막대 위 실제 수치 표기 (현재=녹색 강조, 그 외=검은 글자)
         lbl_color = C_ACCENT if is_cur else C_INK
-        lbl_size = 11 if is_cur else 10
+        lbl_size = 9.5 if is_cur else 8.5
         lbl_weight = 'bold' if is_cur else 'normal'
         for bar, raw_v, fld in zip(bars, vals, fields):
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,

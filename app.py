@@ -67,6 +67,15 @@ st.markdown("""
         --l5-color: #252a28;
     }
 
+    /* === 차트·이미지 전체화면 확대 버튼 제거 ===
+       (호버 시 우상단에 뜨는 확대 버튼. 확대 후 원복 안 되는
+        Streamlit 버그 회피 — 기능 자체를 비활성화) */
+    [data-testid="StyledFullScreenButton"],
+    button[title="View fullscreen"],
+    button[title="Exit fullscreen"] {
+        display: none !important;
+    }
+
     /* === L5 — Eyebrow 라벨 (모든 섹션 위에, 11px로 가독성 ↑) === */
     .eyebrow {
         color: var(--accent);
