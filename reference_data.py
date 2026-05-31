@@ -467,6 +467,24 @@ def get_type_label(exhibition_type) -> str:
     return labels.get(t, "기존 전시")
 
 
+def get_type_name(exhibition_type) -> str:
+    """유형 번호를 분류명으로 변환 (UI 선택지용).
+
+      1 → 정기 기획전
+      2 → 특별전
+      3 → 기타
+      None → 전체
+    """
+    if exhibition_type is None:
+        return "전체"
+    try:
+        t = int(float(exhibition_type))
+    except (ValueError, TypeError):
+        return "전체"
+    names = {1: "정기 기획전", 2: "특별전", 3: "기타"}
+    return names.get(t, "기타")
+
+
 def get_type_count(df: pd.DataFrame, exhibition_type) -> int:
     """특정 유형의 전시 수를 반환합니다."""
     if exhibition_type is None or EXHIBITION_TYPE_COL not in df.columns:

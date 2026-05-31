@@ -163,9 +163,18 @@ def is_notable_rank(rank, total):
     return (rank / total <= 0.34) or ((total - rank + 1) / total <= 0.34)
 
 
-def _short_title(t, n=18):
+def _main_title(t):
+    """전시 제목에서 주 제목만 추출(부제목 제거). 길이 제한 없음.
+
+    ':'(전각 '：' 포함)를 주/부 제목 경계로 보고 그 앞부분만 사용.
+    제목 괄호·따옴표(《》「」『』""'')는 정리하여 잘림 없이 깔끔하게 표기.
+    """
     t = (t or "").strip()
-    return t if len(t) <= n else t[:n] + "…"
+    for sep in (":", "："):
+        if sep in t:
+            t = t.split(sep)[0]
+            break
+    return t.strip().strip("《》「」『』\"'“”‘’ ").strip()
 
 
 def _recent_compares(df, field, k=2):
@@ -223,7 +232,7 @@ def _make_insight(
         parts.append(f"(기존 전시 중 {rank}위)")
     if recent:
         cmp_str = ", ".join(
-            f"{_short_title(t)} {fmt_narrative(val, unit)}" for t, val in recent
+            f"{_main_title(t)} {fmt_narrative(val, unit)}" for t, val in recent
         )
         parts.append(f"(比 {cmp_str})")
     if parts:

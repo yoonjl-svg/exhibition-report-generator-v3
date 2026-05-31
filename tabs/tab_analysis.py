@@ -170,7 +170,8 @@ def render(tab, load_reference_data):
             if type_col in ref_df.columns and ref_df[type_col].notna().any():
                 valid_types = sorted([t for t in ref_df[type_col].dropna().unique() if int(t) != 0])
                 options = ["전체 (유형 0 제외)"] + [
-                    f"{int(t)}유형 ({rd.get_type_count(ref_df, t)}개)" for t in valid_types]
+                    f"{rd.get_type_name(t)} ({rd.get_type_count(ref_df, t)}개)"
+                    for t in valid_types]
                 idx = st.selectbox("비교 대상 유형", range(len(options)),
                                    format_func=lambda i: options[i], key="type_select")
                 exhibition_type = valid_types[idx - 1] if idx > 0 else None
