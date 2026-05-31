@@ -253,7 +253,7 @@ def render(tab, load_reference_data):
                                    "유사 전시 평균(회색)·유사 최근 2개와 비교. "
                                    "현재 막대 위는 실제 값.")
 
-                # 비교표 — 시작일(yyyy-mm) 컬럼 추가 + 시간순 정렬
+                # 비교표 — 날짜(yyyy-mm) 추가 + 최신 전시 상단 + 헤더 리네이밍
                 df_tbl = result.similar_comparison_table
                 try:
                     date_map = {r.title: (r.start or "")
@@ -262,11 +262,17 @@ def render(tab, load_reference_data):
                     date_map[cur_title] = cur_start or ""
                     df_tbl = df_tbl.copy()
                     df_tbl["_d"] = df_tbl["전시명"].map(lambda t: date_map.get(t, ""))
-                    df_tbl = df_tbl.sort_values("_d", kind="stable")
-                    # 시작일(yyyy-mm) 컬럼을 전시명 왼쪽에 삽입
-                    df_tbl.insert(0, "시작일",
+                    # 최신 전시부터 상단 (내림차순)
+                    df_tbl = df_tbl.sort_values("_d", ascending=False, kind="stable")
+                    df_tbl.insert(0, "날짜",
                                   df_tbl["_d"].map(lambda s: str(s)[:7] if s else "—"))
                     df_tbl = df_tbl.drop(columns=["_d"])
+                    # 헤더 리네이밍 (요청 명칭)
+                    df_tbl = df_tbl.rename(columns={
+                        "총 관객수": "총 관객", "일평균 관객수": "일평균 관객",
+                        "총 사용 예산": "사용 예산", "프로그램 총 수": "총 프로그램",
+                        "언론 보도 건수": "언론 보도", "출품 작품 수_총": "작품 수",
+                    })
                 except Exception:
                     pass
                 st.dataframe(df_tbl, use_container_width=True, hide_index=True)

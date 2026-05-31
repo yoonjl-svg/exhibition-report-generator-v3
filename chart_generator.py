@@ -769,12 +769,13 @@ def _desat(hexcol, factor=0.5):
 
 
 def create_similar_compare_bar(current_data, similar_rows, current_start=None,
-                               field_labels=None, title="유사 전시 비교",
+                               field_labels=None, title="",
                                output_path=None):
     """지표별 그룹 막대: [유사 전시 평균 · 유사 최근 2개 · 현재 전시].
 
-    - 현재 전시: 강조(브랜드 녹색, 풀 채도). 나머지는 채도 낮춤.
-    - 유사 평균: 아주 연한 회색. 최근 2개: 각자 색(채도 −50%).
+    - 현재 전시: 강조(브랜드 녹색). 유사 평균: 외곽선만(채움 없음).
+      최근 2개: 오래된=연한 회색, 최근=진한 회색.
+    - 지표 순서: 관객수 → 일평균 → 예산 → 프로그램 → 언론보도 → 작품수.
     - 시간순: 평균(기준) → 최근(오래된) → 최근(새) → 현재(가장 최근).
     - 스케일이 다른 지표 비교 위해 지표별 최댓값=1.0 정규화.
     """
@@ -783,9 +784,9 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
 
     if field_labels is None:
         field_labels = {
-            "총 관객수": "관객수", "총 사용 예산": "예산",
-            "프로그램 총 수": "프로그램", "언론 보도 건수": "언론보도",
-            "출품 작품 수_총": "출품작품", "일평균 관객수": "일평균",
+            "총 관객수": "관객수", "일평균 관객수": "일평균",
+            "총 사용 예산": "예산", "프로그램 총 수": "프로그램",
+            "언론 보도 건수": "언론보도", "출품 작품 수_총": "작품수",
         }
     fields = [f for f in field_labels if current_data.get(f)]
     if len(fields) < 2:
@@ -814,18 +815,20 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
     dated.sort(key=lambda rd: rd[1])
     recent2 = dated[-2:]  # 오래된 → 새 순
 
-    # 시리즈 구성 (라벨, 값[fields], 색, 현재여부)
-    GRAY = "#cfcfcf"  # 순수 회색(비교 메타데이터) — 색조 없음
-    recent_colors = [_desat("#b4512a", 0.5), _desat("#3f5e99", 0.5)]  # 채도 -50%
-    series = [("유사 전시 평균", avg_vals, GRAY, False)]
+    # 시리즈 구성 (라벨, 값[fields], 색, 현재여부, 스타일)
+    #   유사 평균 = 외곽선만(채움 없음), 최근 오래된 = 연회색, 최근 = 진회색,
+    #   현재 = 녹색 강조
+    GRAY_OUTLINE = "#9aa39a"
+    recent_grays = ["#d6d6d6", "#8c8c8c"]  # 오래된(연) → 최근(진)
+    series = [("유사 전시 평균", avg_vals, None, False, "outline")]
     for i, (r, _d) in enumerate(recent2):
         vals = [float(r.metrics.get(f) or 0) for f in fields]
         nm = r.title if len(r.title) <= 10 else r.title[:10] + "…"
-        series.append((nm, vals, recent_colors[i % 2], False))
+        series.append((nm, vals, recent_grays[i % 2], False, "fill"))
     cur_vals = [float(current_data.get(f) or 0) for f in fields]
     cur_title = current_data.get("전시 제목", "현재 전시")
     cur_nm = cur_title if len(cur_title) <= 10 else cur_title[:10] + "…"
-    series.append((cur_nm, cur_vals, C_ACCENT, True))
+    series.append((cur_nm, cur_vals, C_ACCENT, True, "fill"))
 
     if len(series) < 2:
         return None
@@ -841,12 +844,17 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
     bar_width = 0.7 / nser
     fig, ax = plt.subplots(figsize=(max(8, n * 1.8), 5))
 
-    for si, (name, vals, color, is_cur) in enumerate(series):
+    for si, (name, vals, color, is_cur, style) in enumerate(series):
         offset = (si - nser / 2 + 0.5) * bar_width
         norm = [vals[i] / maxv[i] for i in range(n)]
-        bars = ax.bar(x + offset, norm, bar_width, label=name, color=color,
-                      edgecolor='white', linewidth=0.5,
-                      alpha=1.0 if is_cur else 0.85)
+        if style == "outline":
+            # 유사 전시 평균 — 채움 없이 외곽선만(비교 기준 메타데이터)
+            bars = ax.bar(x + offset, norm, bar_width, label=name,
+                          facecolor='none', edgecolor=GRAY_OUTLINE, linewidth=1.3)
+        else:
+            bars = ax.bar(x + offset, norm, bar_width, label=name, color=color,
+                          edgecolor='white', linewidth=0.5,
+                          alpha=1.0 if is_cur else 0.95)
         if is_cur:
             for bar, raw_v in zip(bars, vals):
                 if raw_v >= 100_000_000:
@@ -863,11 +871,14 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
     ax.set_xticks(x)
     if font_prop:
         ax.set_xticklabels(labels, fontproperties=font_prop, fontsize=10)
-        ax.set_title(title, fontsize=13, fontweight='bold', fontproperties=font_prop, pad=15)
+        if title:
+            ax.set_title(title, fontsize=13, fontweight='bold',
+                         fontproperties=font_prop, pad=15)
         ax.legend(prop=font_prop, fontsize=9, loc='upper right')
     else:
         ax.set_xticklabels(labels, fontsize=10)
-        ax.set_title(title, fontsize=13, fontweight='bold', pad=15)
+        if title:
+            ax.set_title(title, fontsize=13, fontweight='bold', pad=15)
         ax.legend(fontsize=9, loc='upper right')
 
     ax.set_ylim(0, 1.3)
