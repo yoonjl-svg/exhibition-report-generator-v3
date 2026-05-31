@@ -842,7 +842,7 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
     nser = len(series)
     x = np.arange(n)
     slot = 0.7 / nser          # 막대 중심 간격
-    bar_width = slot * 0.89    # 막대 폭 < 간격 → 막대 사이 여백(외곽선 식별, 좁게)
+    bar_width = slot           # 막대끼리 맞닿게(간격 0). 외곽선 막대는 zorder로 보호
     fig, ax = plt.subplots(figsize=(max(8, n * 1.8), 5))
 
     def _fmt(raw_v):
@@ -856,14 +856,16 @@ def create_similar_compare_bar(current_data, similar_rows, current_start=None,
         offset = (si - nser / 2 + 0.5) * slot
         norm = [vals[i] / maxv[i] for i in range(n)]
         if style == "outline":
-            # 유사 전시 평균 — 채움 없이 외곽선만(비교 기준 메타데이터)
+            # 유사 전시 평균 — 채움 없이 외곽선만. 맞닿은 옆 막대가 외곽선을
+            # 덮지 않도록 zorder를 높여 항상 위에 그림.
             bars = ax.bar(x + offset, norm, bar_width, label=name,
-                          facecolor='none', edgecolor=GRAY_OUTLINE, linewidth=1.3)
+                          facecolor='none', edgecolor=GRAY_OUTLINE,
+                          linewidth=1.3, zorder=3)
         else:
             # 채움 막대 — 외곽선을 채움색과 동일하게(동일 1.3pt) 두어
-            # 외곽선 막대와 막대 외곽 footprint를 정확히 일치 → 간격 동일
+            # 외곽선 막대와 외곽 footprint 일치. zorder는 외곽선 막대보다 낮게.
             bars = ax.bar(x + offset, norm, bar_width, label=name, color=color,
-                          edgecolor=color, linewidth=1.3)
+                          edgecolor=color, linewidth=1.3, zorder=2)
         # 모든 막대 위 실제 수치 표기 (현재=녹색 강조, 그 외=검은 글자)
         lbl_color = C_ACCENT if is_cur else C_INK
         lbl_size = 8 if is_cur else 7
