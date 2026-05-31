@@ -68,10 +68,29 @@ def _evidence_rows(ins) -> list:
         else:
             d = (ins.current_value - ins.reference_avg) / abs(ins.reference_avg) * 100
             rows.append(("평균 대비 차이", f"{'+' if d >= 0 else ''}{d:.1f}%"))
-    if ins.rank and ins.total_count:
+    # 직전 전시 + 직전 대비 차이 (비교군 중 가장 최근 전시)
+    recent = getattr(ins, "recent_compares", None) or []
+    if recent and ins.current_value is not None:
+        prev_title, prev_val = recent[0]
+        rows.append(("직전 전시",
+                     f"{prev_title} · {_fmt_val(prev_val, ins.unit, ins.is_ratio)}"))
+        if prev_val not in (None, 0):
+            if ins.is_ratio or ins.unit == "%":
+                cur_p = ins.current_value * 100 if ins.is_ratio else ins.current_value
+                prev_p = prev_val * 100 if ins.is_ratio else prev_val
+                dd = cur_p - prev_p
+                rows.append(("직전 대비 차이", f"{'+' if dd >= 0 else ''}{dd:.1f}%p"))
+            else:
+                dd = (ins.current_value - prev_val) / abs(prev_val) * 100
+                rows.append(("직전 대비 차이", f"{'+' if dd >= 0 else ''}{dd:.1f}%"))
+    # 순위 — 상위/하위 34%에 속할 때만 노출
+    if ins.rank and ins.total_count and ae.is_notable_rank(ins.rank, ins.total_count):
         rows.append(("순위", f"기존 전시 중 {ins.rank}위 / {ins.total_count}개"))
-    if ins.percentile is not None:
-        rows.append(("백분위", f"{ins.percentile} 백분위"))
+    # 분포 위치 — 상위/하위 % (백분위 대체)
+    if ins.rank and ins.total_count:
+        pos = ae.position_label(ins.rank, ins.total_count)
+        if pos:
+            rows.append(("분포 위치", pos))
     return rows
 
 

@@ -44,6 +44,8 @@ class Insight:
     selected: bool = True
     unit: str = ""          # 근거 표시용 단위 ("원", "명", "건", "개", "%")
     is_ratio: bool = False  # True면 current/reference가 0~1 분수 → 표시 시 ×100 %
+    # 비교군 중 최근 전시 [(제목, 값), ...] 최근순 (직전 전시·比 서술용)
+    recent_compares: list = field(default_factory=list)
 
 
 @dataclass
@@ -84,6 +86,11 @@ def _postposition(word, pair=("은", "는")):
         return pair[1]
     last_char = word.rstrip("0123456789,. 원명건개점%")
     if not last_char:
+        # 숫자+단위만 남은 경우: 마지막 한글(단위) 글자의 받침으로 판정
+        # (예: "32건" → '건'의 받침 → "으로")
+        for c in reversed(word):
+            if 0xAC00 <= ord(c) <= 0xD7A3:
+                return pair[0] if (ord(c) - 0xAC00) % 28 != 0 else pair[1]
         digits_final = {"0": True, "1": True, "2": False, "3": True, "4": False,
                         "5": False, "6": True, "7": True, "8": True, "9": False}
         for c in reversed(word):
@@ -111,13 +118,86 @@ def _quality_word(diff_pct, higher_is_better=True):
 
 
 # ──────────────────────────────────────────────
+# 서술용 숫자·순위 헬퍼
+# ──────────────────────────────────────────────
+
+def fmt_narrative(v, unit):
+    """서술(인사이트 텍스트)용 숫자.
+
+    - 만(명)·억(원) 미만은 정확히 표기 (예: 9,413명, 32건).
+    - 만 명·억 원을 넘으면 차트와 동일하게 백 명/백만 원 단위로 내림하여
+      소수 둘째 자리까지 표기 (예: 1.52만 명, 2.10억 원).
+    - 내림으로 절사가 발생하면 앞에 '약'을 붙임 (예: 약 0.86만 명).
+    """
+    if v is None:
+        return "—"
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return str(v)
+    if unit == "명" and abs(v) >= 10_000:
+        floored = (int(v) // 100) * 100            # 백 명 단위 내림
+        approx = int(round(v)) != floored
+        return f"{'약 ' if approx else ''}{floored / 10_000:.2f}만 명"
+    if unit == "원" and abs(v) >= 100_000_000:
+        floored = (int(v) // 1_000_000) * 1_000_000  # 백만 원 단위 내림
+        approx = int(round(v)) != floored
+        return f"{'약 ' if approx else ''}{floored / 100_000_000:.2f}억 원"
+    return format_number(v, unit)
+
+
+def position_label(rank, total):
+    """순위 → '상위 X%' / '하위 X%' (50 기준 더 작은 숫자 쪽). 0% 미발생."""
+    if not rank or not total or total < 1:
+        return None
+    top = rank / total * 100
+    if top <= 50:
+        return f"상위 {top:.0f}%"
+    return f"하위 {(total - rank + 1) / total * 100:.0f}%"
+
+
+def is_notable_rank(rank, total):
+    """상위 34% 또는 하위 34%에 속하면 True (순위 서술 노출 조건)."""
+    if not rank or not total or total < 1:
+        return False
+    return (rank / total <= 0.34) or ((total - rank + 1) / total <= 0.34)
+
+
+def _short_title(t, n=18):
+    t = (t or "").strip()
+    return t if len(t) <= n else t[:n] + "…"
+
+
+def _recent_compares(df, field, k=2):
+    """비교군에서 가장 최근 k개 전시의 (제목, 값)을 최근순으로 반환."""
+    if df is None or field is None:
+        return []
+    if (field not in df.columns or "전시 제목" not in df.columns
+            or "전시 기간_시작" not in df.columns):
+        return []
+
+    def _parse_d(x):
+        s = str(x)[:10].replace(".", "-").replace("/", "-")
+        return pd.to_datetime(s, errors="coerce")
+
+    sub = df[["전시 제목", "전시 기간_시작", field]].copy()
+    sub = sub[sub[field].notna()]
+    sub["_d"] = sub["전시 기간_시작"].map(_parse_d)
+    sub = sub[sub["_d"].notna()].sort_values("_d", ascending=False)
+    out = []
+    for _, r in sub.head(k).iterrows():
+        out.append((str(r["전시 제목"]).strip(), float(r[field])))
+    return out
+
+
+# ──────────────────────────────────────────────
 # 기본 인사이트 생성
 # ──────────────────────────────────────────────
 
 def _make_insight(
     category, section, title, metric_name,
     current_val, stats, unit="",
-    higher_is_better=True, priority=None, group_label="역대"
+    higher_is_better=True, priority=None, group_label="역대", df=None
 ) -> Optional[Insight]:
     if current_val is None or stats is None or stats.count < 3:
         return None
@@ -127,14 +207,32 @@ def _make_insight(
     diff_pct = (current_val - avg) / abs(avg) * 100
     pct = compute_percentile(stats, current_val)
     rank = compute_rank(stats, current_val, ascending=not higher_is_better)
-    current_fmt = format_number(current_val, unit)
-    avg_fmt = format_number(avg, unit)
+    total = stats.count
+    current_fmt = fmt_narrative(current_val, unit)
+    avg_fmt = fmt_narrative(avg, unit)
     pp = _postposition(metric_name, ("은", "는"))
     pp_ro = _postposition(current_fmt, ("으로", "로"))
+
+    # 비교군 중 최근 전시 2개 (stats.field_name = 해당 지표 컬럼)
+    recent = _recent_compares(df, getattr(stats, "field_name", None), 2)
+
+    # 말미 괄호: 순위(상·하위 34% 한정) + 比(최근 2개 전시 비교)
+    tail = ""
+    parts = []
+    if is_notable_rank(rank, total):
+        parts.append(f"(기존 전시 중 {rank}위)")
+    if recent:
+        cmp_str = ", ".join(
+            f"{_short_title(t)} {fmt_narrative(val, unit)}" for t, val in recent
+        )
+        parts.append(f"(比 {cmp_str})")
+    if parts:
+        tail = " " + " ".join(parts)
+
     text = (
         f"이번 전시의 {metric_name}{pp} {current_fmt}{pp_ro}, "
-        f"{group_label} 평균({avg_fmt}) 대비 {abs(diff_pct):.1f}% {_direction_verb(diff_pct)} "
-        f"(기존 전시 중 {rank}위)."
+        f"{group_label} 평균({avg_fmt}) 대비 {abs(diff_pct):.1f}% "
+        f"{_direction_verb(diff_pct)}{tail}."
     )
     # priority가 명시되지 않으면 diff_pct 기반 자동 산출
     if priority is None:
@@ -144,7 +242,7 @@ def _make_insight(
         metric_name=metric_name, current_value=current_val,
         reference_avg=avg, percentile=pct, rank=rank,
         total_count=stats.count, priority=priority,
-        unit=unit,
+        unit=unit, recent_compares=recent,
     )
 
 
@@ -210,13 +308,13 @@ def _analyze_visitors(cur, df, gl="역대"):
     v = cur.get("총 관객수")
     if v:
         ins = _make_insight("관객", "results", "총 관객수", "총 관객수", v,
-                            compute_stats(df, "총 관객수"), "명", group_label=gl)
+                            compute_stats(df, "총 관객수"), "명", group_label=gl, df=df)
         if ins: insights.append(ins)
 
     v = cur.get("일평균 관객수")
     if v:
         ins = _make_insight("관객", "results", "일평균 관객수", "일평균 관객수", v,
-                            compute_stats(df, "일평균 관객수"), "명", group_label=gl)
+                            compute_stats(df, "일평균 관객수"), "명", group_label=gl, df=df)
         if ins: insights.append(ins)
 
     # 유료 비율
@@ -241,7 +339,7 @@ def _analyze_visitors(cur, df, gl="역대"):
         s_stats = compute_stats(df, "학생 관객수(만 24세 이하)")
         if s_stats and s_stats.count >= 3:
             ins = _make_insight("관객", "results", "학생 관객수", "학생 관객수", student,
-                                s_stats, "명", group_label=gl)
+                                s_stats, "명", group_label=gl, df=df)
             if ins: insights.append(ins)
 
     # 예술인패스 (신규)
@@ -250,7 +348,7 @@ def _analyze_visitors(cur, df, gl="역대"):
         a_stats = compute_stats(df, "예술인패스 관객수")
         if a_stats and a_stats.count >= 3:
             ins = _make_insight("관객", "results", "예술인패스 관객", "예술인패스 관객수", artpass,
-                                a_stats, "명", group_label=gl)
+                                a_stats, "명", group_label=gl, df=df)
             if ins: insights.append(ins)
 
     return insights
@@ -261,7 +359,7 @@ def _analyze_budget(cur, df, gl="역대"):
     v = cur.get("총 사용 예산")
     if v:
         ins = _make_insight("예산", "results", "총 사용 예산", "총 사용 예산", v,
-                            compute_stats(df, "총 사용 예산"), "원", group_label=gl)
+                            compute_stats(df, "총 사용 예산"), "원", group_label=gl, df=df)
         if ins: insights.append(ins)
 
     # 관객당 비용
@@ -327,13 +425,13 @@ def _analyze_programs(cur, df, gl="역대"):
     v = cur.get("프로그램 총 수")
     if v:
         ins = _make_insight("프로그램", "composition", "프로그램 수", "프로그램 수", v,
-                            compute_stats(df, "프로그램 총 수"), "개", group_label=gl)
+                            compute_stats(df, "프로그램 총 수"), "개", group_label=gl, df=df)
         if ins: insights.append(ins)
 
     v = cur.get("프로그램 참여 인원")
     if v:
         ins = _make_insight("프로그램", "composition", "프로그램 참여 인원", "프로그램 참여 인원", v,
-                            compute_stats(df, "프로그램 참여 인원"), "명", group_label=gl)
+                            compute_stats(df, "프로그램 참여 인원"), "명", group_label=gl, df=df)
         if ins: insights.append(ins)
 
     # 참여율
@@ -362,7 +460,7 @@ def _analyze_artworks(cur, df, gl="역대"):
     total = cur.get("출품 작품 수_총")
     if total:
         ins = _make_insight("작품", "composition", "출품 작품 수", "출품 작품 수", total,
-                            compute_stats(df, "출품 작품 수_총"), "점", group_label=gl)
+                            compute_stats(df, "출품 작품 수_총"), "점", group_label=gl, df=df)
         if ins: insights.append(ins)
 
     # 매체별 구성 비율 분석
@@ -424,7 +522,7 @@ def _analyze_promotion(cur, df, gl="역대"):
     v = cur.get("언론 보도 건수")
     if v:
         ins = _make_insight("홍보", "promotion", "언론 보도", "언론 보도 건수", v,
-                            compute_stats(df, "언론 보도 건수"), "건", group_label=gl)
+                            compute_stats(df, "언론 보도 건수"), "건", group_label=gl, df=df)
         if ins: insights.append(ins)
 
     # 보도건당 관객
@@ -446,7 +544,7 @@ def _analyze_promotion(cur, df, gl="역대"):
     v = cur.get("SNS 게시 건수")
     if v:
         ins = _make_insight("홍보", "promotion", "SNS 활동", "SNS 게시 건수", v,
-                            compute_stats(df, "SNS 게시 건수"), "건", group_label=gl)
+                            compute_stats(df, "SNS 게시 건수"), "건", group_label=gl, df=df)
         if ins: insights.append(ins)
 
     return insights
