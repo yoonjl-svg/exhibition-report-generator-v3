@@ -755,6 +755,131 @@ def create_similar_trend_chart(current_data, similar_rows, current_start=None,
 
 
 # ──────────────────────────────────────────────
+# 유사 전시 비교 막대 — 평균/최근2/현재 (v5.3.77)
+# ──────────────────────────────────────────────
+
+def _desat(hexcol, factor=0.5):
+    """hex 색의 채도를 factor배로(0.5=절반). HLS 변환."""
+    import colorsys
+    h = hexcol.lstrip('#')
+    r, g, b = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    hh, l, s = colorsys.rgb_to_hls(r, g, b)
+    r, g, b = colorsys.hls_to_rgb(hh, l, s * factor)
+    return '#%02x%02x%02x' % (round(r * 255), round(g * 255), round(b * 255))
+
+
+def create_similar_compare_bar(current_data, similar_rows, current_start=None,
+                               field_labels=None, title="유사 전시 비교",
+                               output_path=None):
+    """지표별 그룹 막대: [유사 전시 평균 · 유사 최근 2개 · 현재 전시].
+
+    - 현재 전시: 강조(브랜드 녹색, 풀 채도). 나머지는 채도 낮춤.
+    - 유사 평균: 아주 연한 회색. 최근 2개: 각자 색(채도 −50%).
+    - 시간순: 평균(기준) → 최근(오래된) → 최근(새) → 현재(가장 최근).
+    - 스케일이 다른 지표 비교 위해 지표별 최댓값=1.0 정규화.
+    """
+    import numpy as np
+    from datetime import date as _date
+
+    if field_labels is None:
+        field_labels = {
+            "총 관객수": "관객수", "총 사용 예산": "예산",
+            "프로그램 총 수": "프로그램", "언론 보도 건수": "언론보도",
+            "출품 작품 수_총": "출품작품", "일평균 관객수": "일평균",
+        }
+    fields = [f for f in field_labels if current_data.get(f)]
+    if len(fields) < 2:
+        return None
+
+    def _pdate(d):
+        if not d:
+            return None
+        try:
+            s = str(d)[:10].replace(".", "-").replace("/", "-")
+            p = [int(x) for x in s.split("-")[:3]]
+            return _date(p[0], p[1], p[2]) if len(p) == 3 else None
+        except (ValueError, TypeError):
+            return None
+
+    # 유사 전시 평균 (전체 유사군)
+    avg_vals = []
+    for f in fields:
+        vs = [float(r.metrics.get(f)) for r in similar_rows
+              if r.metrics.get(f) not in (None, 0)]
+        avg_vals.append(sum(vs) / len(vs) if vs else 0)
+
+    # 최근 2개 (시작일 기준, 날짜 있는 것만)
+    dated = [(r, _pdate(getattr(r, "start", None))) for r in similar_rows]
+    dated = [(r, d) for r, d in dated if d is not None]
+    dated.sort(key=lambda rd: rd[1])
+    recent2 = dated[-2:]  # 오래된 → 새 순
+
+    # 시리즈 구성 (라벨, 값[fields], 색, 현재여부)
+    GRAY = "#dde1d9"
+    recent_colors = [_desat("#b4512a", 0.5), _desat("#3f5e99", 0.5)]  # 채도 -50%
+    series = [("유사 전시 평균", avg_vals, GRAY, False)]
+    for i, (r, _d) in enumerate(recent2):
+        vals = [float(r.metrics.get(f) or 0) for f in fields]
+        nm = r.title if len(r.title) <= 12 else r.title[:11] + "…"
+        series.append((nm, vals, recent_colors[i % 2], False))
+    cur_vals = [float(current_data.get(f) or 0) for f in fields]
+    cur_title = current_data.get("전시 제목", "현재 전시")
+    cur_nm = cur_title if len(cur_title) <= 12 else cur_title[:11] + "…"
+    series.append((cur_nm, cur_vals, C_ACCENT, True))
+
+    if len(series) < 2:
+        return None
+
+    # 지표별 정규화(최댓값=1.0)
+    n = len(fields)
+    maxv = [max(s[1][i] for s in series) or 1 for i in range(n)]
+
+    fp = get_font_prop()
+    nser = len(series)
+    x = np.arange(n)
+    bw = 0.8 / nser
+    fig, ax = plt.subplots(figsize=(max(9, n * 1.8), 5.0))
+
+    for si, (name, vals, color, is_cur) in enumerate(series):
+        offset = (si - nser / 2 + 0.5) * bw
+        norm = [vals[i] / maxv[i] for i in range(n)]
+        bars = ax.bar(x + offset, norm, bw, label=name, color=color,
+                      edgecolor='white', linewidth=0.6,
+                      alpha=1.0 if is_cur else 0.95, zorder=3 if is_cur else 2)
+        if is_cur:
+            for bar, raw in zip(bars, vals):
+                if raw >= 1e8:
+                    disp = f"{raw/1e8:.1f}억"
+                elif raw >= 1e4:
+                    disp = f"{raw/1e4:.0f}만"
+                else:
+                    disp = f"{raw:,.0f}"
+                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
+                        disp, ha='center', va='bottom', fontproperties=_fp(9, bold=True),
+                        color=C_ACCENT)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([field_labels[f] for f in fields], fontproperties=_fp(11))
+    for tk in ax.get_xticklabels():
+        tk.set_color("#3c403a")
+    ax.set_ylim(0, 1.3)
+    ax.set_yticks([])
+    ax.legend(prop=_fp(10), ncol=min(nser, 4), loc='lower center',
+              bbox_to_anchor=(0.5, 1.01), frameon=False, columnspacing=1.6,
+              handlelength=1.4)
+    for sp in ('top', 'right', 'left'):
+        ax.spines[sp].set_visible(False)
+    ax.spines['bottom'].set_color("#d9ddd4")
+    ax.tick_params(length=0)
+    ax.grid(axis='y', alpha=0.0)
+    if output_path is None:
+        output_path = tempfile.mktemp(suffix='.png')
+    fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return output_path
+
+
+# ──────────────────────────────────────────────
 # 스몰 멀티플: 유사 전시 지표별 미니 추세 (v5.3.73)
 # ──────────────────────────────────────────────
 

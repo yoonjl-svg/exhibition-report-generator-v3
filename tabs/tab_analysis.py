@@ -234,14 +234,35 @@ def render(tab, load_reference_data):
         if result.similar_comparison_table is not None:
             st.divider()
             subsection("", "유사 전시 비교")
+            # 현재 전시 시작일(시간순 정렬·강조용)
+            cur_start = None
+            ps = st.session_state.get("period_start")
+            if ps is not None:
+                cur_start = ps.isoformat() if hasattr(ps, "isoformat") else str(ps)
+
             chart_col, _ = st.columns([3, 2])
             with chart_col:
                 if result.similar_exhibitions:
-                    from chart_generator import create_similar_bar_chart
+                    from chart_generator import create_similar_compare_bar
                     current = collect_analysis_data()
-                    bar_path = create_similar_bar_chart(
-                        current, result.similar_exhibitions)
+                    bar_path = create_similar_compare_bar(
+                        current, result.similar_exhibitions, current_start=cur_start)
                     if bar_path:
                         st.image(bar_path, use_container_width=True)
-                st.dataframe(result.similar_comparison_table,
-                             use_container_width=True, hide_index=True)
+                        st.caption("지표별 최댓값=100% 정규화. 현재 전시(녹색)를 "
+                                   "유사 전시 평균(회색)·유사 최근 2개와 비교. "
+                                   "현재 막대 위는 실제 값.")
+
+                # 비교표 — 시간순 정렬(차트와 일치)
+                df_tbl = result.similar_comparison_table
+                try:
+                    date_map = {r.title: (r.start or "9999")
+                                for r in (result.similar_exhibitions or [])}
+                    cur_title = collect_analysis_data().get("전시 제목") or "현재 전시"
+                    date_map[cur_title] = cur_start or "9999"
+                    df_tbl = df_tbl.copy()
+                    df_tbl["_d"] = df_tbl["전시명"].map(lambda t: date_map.get(t, "9999"))
+                    df_tbl = df_tbl.sort_values("_d").drop(columns=["_d"])
+                except Exception:
+                    pass
+                st.dataframe(df_tbl, use_container_width=True, hide_index=True)
