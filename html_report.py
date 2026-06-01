@@ -78,8 +78,65 @@ def _lollipop(summary_metrics):
       <div class="lolli-wrap">{scale}{''.join(items)}</div>"""
 
 
-def _donut(title, data_dict, unit="점"):
-    """conic-gradient 도넛 + 하단 범례."""
+def _money_short(v):
+    """억 이상은 백만원 단위 내림 → '약 2.10억', 천만 이상은 '약 N,NNN만 원'.
+    (롤리팝·종합표의 _fmt_summary_value와 동일 규칙)."""
+    if not v:
+        return "—"
+    v = int(v)
+    if v >= 100_000_000:
+        return f"약 {v // 1_000_000 / 100:.2f}억"
+    if v >= 10_000_000:
+        return f"약 {v // 10_000:,}만 원"
+    return f"{v:,}원"
+
+
+def _hbar(title, data_dict, unit="점"):
+    """가로 막대그래프 — 항목 수가 많은 구성(매체·입장권 등)에 도넛 대신 사용.
+    수량 내림차순 정렬, 막대 끝에 '값 단위 (비율%)' 병기. 단색(녹색)으로 크기 비교."""
+    data = [(k, v) for k, v in data_dict.items() if v and v > 0]
+    if len(data) < 2:
+        return ""
+    data.sort(key=lambda kv: kv[1], reverse=True)
+    total = sum(v for _, v in data) or 1
+    vmax = data[0][1] or 1
+    rows = "".join(
+        f'<div class="hbar-row">'
+        f'<div class="hbar-label">{_esc(k)}</div>'
+        f'<div class="hbar-track"><div class="hbar-fill" '
+        f'style="width:{v / vmax * 100:.1f}%"></div></div>'
+        f'<div class="hbar-val">{v:,}{unit} <span class="hbar-pct">{v / total * 100:.0f}%</span></div>'
+        f'</div>'
+        for k, v in data
+    )
+    return (f'<div class="hbar-wrap"><div class="fig-title sm">{_esc(title)}</div>'
+            f'{rows}</div>')
+
+
+def _budget_revenue(budget, revenue):
+    """예산·수입 구조 — 2개 가로 막대(예산/수입) + 회수율·순비용 캡션."""
+    if not budget or budget <= 0:
+        return ""
+    rev = revenue or 0
+    vmax = max(budget, rev) or 1
+
+    def bar(label, val, color):
+        return (f'<div class="hbar-row">'
+                f'<div class="hbar-label">{label}</div>'
+                f'<div class="hbar-track"><div class="hbar-fill" '
+                f'style="width:{(val or 0) / vmax * 100:.1f}%;background:{color}"></div></div>'
+                f'<div class="hbar-val">{_money_short(val)}</div></div>')
+
+    bars = bar("총 사용 예산", budget, ACCENT) + bar("총 수입", rev, ACCENT3)
+    cap = ""
+    if revenue is not None:
+        cap = (f'<p class="body">예산 대비 수입(회수율) {rev / budget * 100:.1f}%, '
+               f'순비용 {_money_short(budget - rev)}.</p>')
+    return f'<div class="hbar-wrap">{bars}</div>{cap}'
+
+
+def _donut(title, data_dict, unit="점", center=None):
+    """conic-gradient 도넛 + 하단 범례. center가 주어지면 가운데 값을 그것으로 대체."""
     data = [(k, v) for k, v in data_dict.items() if v and v > 0]
     if len(data) < 2:
         return ""
@@ -97,7 +154,7 @@ def _donut(title, data_dict, unit="점"):
     return f"""<div class="donut-cell">
       <div class="fig-title sm">{_esc(title)}</div>
       <div class="donut" style="background:conic-gradient({','.join(stops)})">
-        <div class="donut-hole">{total:,}{unit}</div>
+        <div class="donut-hole">{center if center is not None else f"{total:,}{unit}"}</div>
       </div>
       <div class="legend">{''.join(legend)}</div>
     </div>"""
@@ -306,20 +363,21 @@ def build_report_html(data):
     media = {"회화": art.get("painting", 0), "조각": art.get("sculpture", 0),
              "사진": art.get("photo", 0), "설치": art.get("installation", 0),
              "미디어": art.get("media", 0), "기타": art.get("other", 0)}
-    donuts = [c for c in (
-        _donut("출품 매체 구성", media, "점"),
-        _donut("신작·구작 구성", {"신작": art.get("new", 0) or 0,
-                                  "구작": art.get("old", 0) or 0}, "점"),
-    ) if c]
-    if donuts:
+    # 매체(6항목)는 가로 막대로 — 도넛보다 수량 비교가 빠름. 신작·구작(2항목)은 도넛 유지.
+    media_bar = _hbar("출품 매체 구성", media, "점")
+    nw, od = art.get("new", 0) or 0, art.get("old", 0) or 0
+    nb_donut = _donut("신작·구작 구성", {"신작": nw, "구작": od}, "점")
+    if media_bar or nb_donut:
         iii.append(_subhead("출품 작품 구성"))
-        iii.append(f'<div class="donut-grid">{"".join(donuts)}</div>')
+        if media_bar:
+            iii.append(media_bar)
+        if nb_donut:
+            iii.append(nb_donut)  # 단일 도넛 — donut-cell이 자체 가운데 정렬
         total = art.get("total", 0)
         if any(media.values()) and total:
             top = max(media.items(), key=lambda kv: kv[1])
             cap = (f"출품작 {total}점의 매체 구성은 {top[0]}({top[1]}점, "
                    f"{top[1]/total*100:.0f}%) 비중이 가장 큼.")
-            nw, od = art.get("new", 0) or 0, art.get("old", 0) or 0
             if nw or od:
                 cap += f" 신작 {nw}점, 구작 {od}점."
             iii.append(f'<p class="body">{_esc(cap)}</p>')
@@ -361,6 +419,12 @@ def build_report_html(data):
         ("총 관객수", rev.get("total_visitors")),
         ("일평균 관객", rev.get("daily_average")),
     ]))
+    # 예산·수입 구조 (신규) — 재정 구조를 서술이 아닌 막대로
+    adf = data.get("analysis_data_flat", {})
+    br = _budget_revenue(adf.get("총 사용 예산"), adf.get("총수입"))
+    if br:
+        iv.append(_subhead("예산·수입 구조"))
+        iv.append(br)
     # 주차별 추이 SVG
     vc = data.get("visitor_composition", {})
     weekly = vc.get("weekly_visitors", {})
@@ -381,13 +445,17 @@ def build_report_html(data):
     if tt:
         free = tt.get("초대권", 0) or 0
         paid = sum(v for k, v in tt.items() if k != "초대권")
-        cells = [c for c in (
-            _donut("입장권별 관객 구성", tt, "명"),
-            _donut("유료·무료 비율", {"유료": paid, "무료·초대": free}, "명"),
-        ) if c]
-        if cells:
+        # 입장권별(5항목)은 가로 막대. 유료·무료(2항목)는 도넛 유지하되 중앙값을 전환율로.
+        ticket_bar = _hbar("입장권별 관객 구성", tt, "명")
+        pf_center = f"유료 {paid / (paid + free) * 100:.0f}%" if (paid + free) else None
+        pf_donut = _donut("유료·무료 비율", {"유료": paid, "무료·초대": free}, "명",
+                          center=pf_center)
+        if ticket_bar or pf_donut:
             iv.append(_subhead("관객 구성"))
-            iv.append(f'<div class="donut-grid">{"".join(cells)}</div>')
+            if ticket_bar:
+                iv.append(ticket_bar)
+            if pf_donut:
+                iv.append(pf_donut)  # 단일 도넛 — 자체 가운데 정렬
             top = max(tt, key=tt.get)
             tt_total = sum(tt.values()) or 1
             cap = (f"입장권별로는 {top}이(가) {tt[top]:,}명"
@@ -597,6 +665,16 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   border-radius:50%; }
 .donut-hole { position:absolute; inset:0; display:flex; align-items:center;
   justify-content:center; font-size:17px; font-weight:800; color:#20231f; z-index:1; }
+/* 가로 막대그래프 (구성·예산수입) — 라벨 우측정렬 / 막대 / 값+비율 */
+.hbar-wrap { margin:8px 0 4px; }
+.hbar-row { display:grid; grid-template-columns:92px 1fr 108px; align-items:center;
+  gap:10px; margin:7px 0; }
+.hbar-label { font-size:12px; color:#3c403a; text-align:right; line-height:1.3; }
+.hbar-track { background:#eef1ec; border-radius:3px; height:15px; overflow:hidden; }
+.hbar-fill { background:#255c4a; height:100%; border-radius:3px; min-width:2px; }
+.hbar-val { font-size:12px; color:#3c403a; white-space:nowrap; }
+.hbar-pct { color:#8a918a; margin-left:3px; }
+@media (max-width:520px){ .hbar-row{ grid-template-columns:70px 1fr 92px; } }
 .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 14px;
   margin-top:12px; font-size:12px; color:#3c403a; }
 .legend .lg { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
@@ -628,7 +706,7 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   .card { box-shadow:none; border:1px solid #e3e7df;
     -webkit-box-decoration-break:clone; box-decoration-break:clone; }
   .donut-grid, .donut-cell, .lolli, .tbl, .svgchart,
-  .imgph, .space-block { break-inside:avoid; page-break-inside:avoid; }
+  .imgph, .space-block, .hbar-wrap { break-inside:avoid; page-break-inside:avoid; }
   .sec-title { break-after:avoid; page-break-after:avoid; }
   /* 앞 2페이지 고정: 1p(포스터+I 전시 개요)·2p(II Executive Summary)는 각각
      한 페이지를 채우고, 다음 콘텐츠는 새 페이지에서 시작. 3p부터 자연 흐름.
