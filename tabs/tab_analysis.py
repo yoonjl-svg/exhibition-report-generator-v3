@@ -235,7 +235,7 @@ def render(tab, load_reference_data):
         # ═══════════════════════════════════════
         st.divider()
         # 헤더·토글을 카드와 동일한 ~60% 폭 안에 둠 (가로 폭 원칙)
-        head_wrap, _ = st.columns([3, 2])
+        head_wrap = st.container(key="ws_an_head")
         with head_wrap:
             hc1, hc2 = st.columns([2, 1])
             with hc1:
@@ -247,7 +247,7 @@ def render(tab, load_reference_data):
                    "각 카드의 ‘근거’를 펼치면 해당 관찰이 도출된 수치를 확인할 수 있습니다.")
 
         # 가로 폭 원칙(CLAUDE.md): 카드를 ~60% 컬럼 안에 렌더, 우측은 spacer.
-        card_col, _ = st.columns([3, 2])
+        card_col = st.container(key="ws_an_cards")
         with card_col:
             by_section = ae.get_insights_by_section(result)
             for section_key in ["results", "composition", "promotion", "evaluation"]:
@@ -278,7 +278,7 @@ def render(tab, load_reference_data):
             if ps is not None:
                 cur_start = ps.isoformat() if hasattr(ps, "isoformat") else str(ps)
 
-            chart_col, _ = st.columns([3, 2])
+            chart_col = st.container(key="ws_an_chart")
             with chart_col:
                 if result.similar_exhibitions:
                     from chart_generator import create_similar_compare_bar

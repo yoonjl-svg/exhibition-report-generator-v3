@@ -22,7 +22,7 @@ def render(tab, load_reference_data):
         )
 
         # 가로 폭 원칙(CLAUDE.md): 상단 영역(완성도·구조·키입력)을 ~60% 안에
-        body_col, _ = st.columns([3, 2])
+        body_col = st.container(key="ws_gen_body")
         with body_col:
             # ── 데이터 완성도 체크 ──
             _show_completeness_check()
@@ -346,7 +346,7 @@ def _render_preview_and_edit():
     st.caption("아래에서 문단을 수정하면 미리보기와 Word 다운로드에 함께 반영됩니다.")
 
     # 가로 폭 원칙(CLAUDE.md): 표·편집영역을 ~60% 컬럼 안에 렌더
-    edit_col, _ = st.columns([3, 2])
+    edit_col = st.container(key="ws_gen_edit")
     with edit_col:
         # 핵심 수치 종합표 (자동 계산, 편집 불가)
         summary = data.get("summary_metrics", [])

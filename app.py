@@ -503,6 +503,14 @@ st.markdown("""
         font-size: var(--font-l4) !important;
     }
 
+    /* 분석·보고서 본문 고정 폭(~860px) — 창을 줄이면 우측 여백이 먼저
+       줄고, 창이 860px 이하가 될 때만 콘텐츠가 반응형으로 축소.
+       (기존 [3,2] 비례 컬럼은 창과 함께 계속 축소되던 문제 해결) */
+    .st-key-ws_an_head, .st-key-ws_an_cards, .st-key-ws_an_chart,
+    .st-key-ws_gen_body, .st-key-ws_gen_edit {
+        max-width: 860px !important;
+    }
+
     /* Streamlit 헤더(60px, 불투명 흰색, z 999990)가 상단 콘텐츠를 덮어
        첫 행 버튼 위쪽이 잘리던 문제 → 헤더 배경을 투명 처리.
        헤더는 absolute라 스크롤 시 위로 사라지므로 비침 문제 없음.
