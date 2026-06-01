@@ -804,32 +804,46 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # 모드 표시 + 워크스페이스 복귀 버튼
+    import kb_store
     app_mode = st.session_state.get("app_mode", "workspace")
-    if app_mode == "detail":
+
+    # ── 저장소 상태 (한 줄) — 데이터가 어디에 저장되는지·연결 여부 ──
+    try:
+        _recs = kb_store.list_exhibitions()
+        _ok = True
+    except Exception:
+        _recs, _ok = [], False
+    if not _ok:
+        _stat, _col = "연결 실패 — Secrets 확인", "#b4512a"
+    elif kb_store.get_mode() == "github":
+        _stat, _col = f"GitHub · {len(_recs)}개", "#255c4a"
+    else:
+        _stat, _col = f"로컬 · {len(_recs)}개", "#646b61"
+    st.markdown(
+        f'<div style="font-size:12px; color:#646b61; margin:2px 0 6px 0;">'
+        f'저장소 <span style="color:{_col}; font-weight:600;">{_stat}</span></div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── 빠른 이동 — 최근 작업 전시로 바로 전환 (편집 중에도) ──
+    if _recs:
         st.divider()
-        current_id = st.session_state.get("current_exhibition_id")
-        title = st.session_state.get("exhibition_title", "")
-        status = st.session_state.get("current_exhibition_status", "draft")
-        type_num = st.session_state.get("current_exhibition_type")
-
-        eyebrow("작업 중인 전시")
-        if title:
-            st.markdown(f'<div class="exhibition-card-title">《{title}》</div>',
-                        unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="exhibition-card-title">(제목 미입력)</div>',
-                        unsafe_allow_html=True)
-
-        # 상태·유형 chip
-        chips_html = status_chip(status) + " " + type_chip(type_num)
-        st.markdown(chips_html, unsafe_allow_html=True)
-
-        if current_id:
-            st.caption("저장됨")
-        else:
-            st.caption("미저장 (신규)")
-        # 저장·목록 행동은 본문 상단 바로 일원화(중복 제거, v5.3.94).
+        st.markdown('<div style="font-size:12px; font-weight:700; color:#255c4a; '
+                    'margin:2px 0 4px 0;">빠른 이동</div>', unsafe_allow_html=True)
+        _cur = st.session_state.get("current_exhibition_id")
+        _recent = sorted(_recs, key=lambda r: r.get("modified_at") or "", reverse=True)[:5]
+        for _r in _recent:
+            _t = (_r.get("title") or _r.get("data", {}).get("exhibition_title") or "(제목없음)")
+            _t = _t if len(_t) <= 18 else _t[:18] + "…"
+            _is_cur = (_r.get("id") == _cur)
+            if st.button(("● " if _is_cur else "") + _t, key=f"nav_{_r['id']}",
+                         use_container_width=True, disabled=_is_cur):
+                kb_session.enter_detail_mode(record=_r)
+                st.rerun()
+        if app_mode == "detail":
+            if st.button("전체 목록", key="nav_all", use_container_width=True):
+                kb_session.enter_workspace_mode()
+                st.rerun()
 
     st.divider()
     st.caption("© 일민미술관")
@@ -860,7 +874,8 @@ else:
 
     _cur_id = st.session_state.get("current_exhibition_id")
     _title = (st.session_state.get("exhibition_title") or "").strip()
-    _bar_l, _bar_s, _bar_b = st.columns([6, 2, 2])
+    # 버튼 너비를 '가져오기'(1/11≈9%)와 동일하게 — [7,1,1,2]에서 버튼=1/11
+    _bar_l, _bar_s, _bar_b, _ = st.columns([7, 1, 1, 2])
     with _bar_l:
         _state = "저장됨" if _cur_id else "미저장 · 신규"
         _name = f"《{_title}》" if _title else "(제목 미입력)"
@@ -879,7 +894,7 @@ else:
             except Exception as e:
                 st.error(f"저장 오류: {e}")
     with _bar_b:
-        if st.button("목록", use_container_width=True, key="back_main",
+        if st.button("돌아가기", use_container_width=True, key="back_main",
                      help="워크스페이스 목록으로 돌아갑니다. 저장하지 않은 변경은 메모리에 유지됩니다."):
             kb_session.enter_workspace_mode()
             st.rerun()
