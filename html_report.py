@@ -200,6 +200,28 @@ def _img_slots(label, count=3, ratio="16 / 9"):
     return f'<div class="imgph-grid">{boxes}</div>'
 
 
+def _plan_slots(room_names):
+    """전시 도면 — 전시 공간별 세로형(portrait) placeholder 박스, 가운데 정렬.
+    각 박스에 어느 공간의 도면인지(예: '1전시실 도면') 라벨 표시."""
+    boxes = "".join(
+        f'<div class="imgph imgph-plan" style="aspect-ratio:3 / 4">'
+        f'<span class="imgph-label">{_esc(n)} 도면</span></div>'
+        for n in room_names
+    )
+    return f'<div class="imgph-plangrid">{boxes}</div>'
+
+
+def _view_slots(room_names):
+    """전시 전경 — 전시 공간별 placeholder 박스, 한 줄에 2개씩(2열).
+    각 박스에 어느 공간의 전경인지(예: '1전시실 전경') 라벨 표시."""
+    boxes = "".join(
+        f'<div class="imgph" style="aspect-ratio:4 / 3">'
+        f'<span class="imgph-label">{_esc(n)} 전경</span></div>'
+        for n in room_names
+    )
+    return f'<div class="imgph-grid2">{boxes}</div>'
+
+
 def _insights_html(data, section_key):
     """해당 섹션의 분석 서술 — LLM 산문 우선, 없으면 룰 기반 불릿(Word와 동일 규칙)."""
     llm = (data.get("llm_sections", {}) or {}).get(section_key, "")
@@ -252,18 +274,10 @@ def build_report_html(data):
     # ── III. 전시 구성 ──
     iii = []
     rooms = data.get("rooms", [])
-    if rooms:
-        iii.append(_subhead("전시실"))
-        iii.append(_table(["전시실", "참여 작가"],
-                          [[r.get("name", ""),
-                            (", ".join(r["artists"]) if isinstance(r.get("artists"), list)
-                             else r.get("artists", ""))] for r in rooms]))
-    # 전시 도면 + 전시 전경 (사진이 거의 확실히 들어가는 자리 — placeholder)
-    iii.append(_subhead("전시 도면"))
-    iii.append(_img_slots("전시 도면", count=1, ratio="16 / 6"))
-    iii.append(_subhead("전시 전경"))
-    iii.append(_img_slots("전시 전경 사진", count=3, ratio="16 / 9"))
-    # 출품 작품 구성 (도넛 2-up)
+    # 도면·전경 라벨용 공간 이름 (없으면 단일 fallback)
+    room_names = ([(r.get("name") or f"{i+1}전시실") for i, r in enumerate(rooms)]
+                  if rooms else ["전시 공간"])
+    # 1) 출품 작품 구성 (도넛 2-up) — 가장 먼저
     art = data.get("artworks", {})
     media = {"회화": art.get("painting", 0), "조각": art.get("sculpture", 0),
              "사진": art.get("photo", 0), "설치": art.get("installation", 0),
@@ -285,9 +299,19 @@ def build_report_html(data):
             if nw or od:
                 cap += f" 신작 {nw}점, 구작 {od}점."
             iii.append(f'<p class="body">{_esc(cap)}</p>')
-    # 주요 출품작 사진 (사진이 거의 확실히 들어가는 자리 — placeholder)
-    iii.append(_subhead("주요 출품작"))
-    iii.append(_img_slots("작품 사진", count=3, ratio="4 / 3"))
+    # 2) 전시실 (공간별 참여 작가)
+    if rooms:
+        iii.append(_subhead("전시실"))
+        iii.append(_table(["전시실", "참여 작가"],
+                          [[r.get("name", ""),
+                            (", ".join(r["artists"]) if isinstance(r.get("artists"), list)
+                             else r.get("artists", ""))] for r in rooms]))
+    # 3) 전시 도면 — 공간별 세로형 가운데 정렬 (각 도면이 어느 공간인지 라벨)
+    iii.append(_subhead("전시 도면"))
+    iii.append(_plan_slots(room_names))
+    # 4) 전시 전경 — 공간별, 한 줄에 2개씩 (각 전경이 어느 공간인지 라벨)
+    iii.append(_subhead("전시 전경"))
+    iii.append(_view_slots(room_names))
     # 프로그램
     progs = data.get("related_programs", [])
     if progs:
@@ -498,7 +522,15 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   gap:10px; margin:6px 0 2px; }
 .imgph { border:1.5px dashed #c2ccc2; border-radius:6px; background:#f5f7f4;
   display:flex; align-items:center; justify-content:center; }
-.imgph-label { font-size:11.5px; color:#9aa39a; letter-spacing:0.3px; }
+.imgph-label { font-size:11.5px; color:#9aa39a; letter-spacing:0.3px; text-align:center; }
+/* 전시 전경 — 한 줄에 2개씩(2열) */
+.imgph-grid2 { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;
+  margin:6px 0 2px; }
+@media (max-width:520px){ .imgph-grid2{ grid-template-columns:1fr; } }
+/* 전시 도면 — 세로형(portrait) 박스, 가운데 정렬 */
+.imgph-plangrid { display:flex; flex-wrap:wrap; justify-content:center;
+  gap:12px; margin:6px 0 2px; }
+.imgph-plan { width:200px; max-width:46%; }
 /* 앞 2페이지 고정 레이아웃 + 세로형 포스터 자리 */
 .rep-page-1 { display:flex; flex-direction:column; }
 .poster-ph { width:100%; max-width:340px; align-self:center; min-height:440px;
