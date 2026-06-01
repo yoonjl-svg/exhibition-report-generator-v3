@@ -826,28 +826,10 @@ with st.sidebar:
         st.markdown(chips_html, unsafe_allow_html=True)
 
         if current_id:
-            st.caption(f"id: `{current_id}`")
+            st.caption("저장됨")
         else:
             st.caption("미저장 (신규)")
-
-        st.divider()
-
-        # 워크스페이스에 저장
-        if st.button("워크스페이스에 저장", type="primary", use_container_width=True,
-                     help="현재 작업 중인 전시 데이터를 KB에 영구 저장합니다."):
-            try:
-                saved = kb_session.save_current_to_kb()
-                st.success(f"저장됨\n\n`{saved['id']}`\n\n{saved['modified_at']}")
-            except Exception as e:
-                st.error(f"저장 오류: {e}")
-                import traceback
-                st.code(traceback.format_exc())
-
-        # 목록으로 돌아가기
-        if st.button("워크스페이스 목록", use_container_width=True,
-                     help="목록 화면으로 돌아갑니다. 저장하지 않은 변경은 메모리에 유지됩니다."):
-            kb_session.enter_workspace_mode()
-            st.rerun()
+        # 저장·목록 행동은 본문 상단 바로 일원화(중복 제거, v5.3.94).
 
     st.divider()
     st.caption("© 일민미술관")
