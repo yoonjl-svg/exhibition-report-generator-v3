@@ -270,8 +270,8 @@ def _nice_label(nicemax, unit, suffix):
 
 def _scatter(data):
     """예산·관객 분포 — 모든 전시(회색) + 본 전시(네이비, 같은 크기·색만 다름).
-    x=관객 수(만 명), y=예산(억 원). 가로가 넓어 변별력 큰 관객을 x축에.
-    축 최댓값은 데이터 이상 깔끔한 값으로 라벨과 일치. 사분면/틴트 없는 깔끔한 분포.
+    x=예산(억 원), y=관객 수(만 명). 투입(예산)→성과(관객) 관습 읽기, 효율=좌상단.
+    축 max는 데이터 이상 깔끔한 값(라벨 일치). 십자선 정중앙=1억/1만 기준.
     데이터 점은 [예산, 관객] 순서."""
     pts = (data or {}).get("points") or []
     cur = (data or {}).get("current")
@@ -281,21 +281,21 @@ def _scatter(data):
     padL, padR, padT, padB = 18, 18, 30, 30
     LBLF = 16   # viewBox 폰트(주차별 차트 라벨과 같은 렌더 크기 ≈15px)
     iw, ih = W - padL - padR, H - padT - padB
-    vis = [p[1] for p in pts] + ([cur[1]] if cur else [])   # 관객 → x
-    bud = [p[0] for p in pts] + ([cur[0]] if cur else [])   # 예산 → y
-    xmax = _nice_ceil(max(vis), 10_000)        # 관객: 만 단위 nice-ceil
-    ymax = _nice_ceil(max(bud), 100_000_000)   # 예산: 억 단위 nice-ceil
+    bud = [p[0] for p in pts] + ([cur[0]] if cur else [])   # 예산 → x
+    vis = [p[1] for p in pts] + ([cur[1]] if cur else [])   # 관객 → y
+    xmax = _nice_ceil(max(bud), 100_000_000)   # 예산: 억 단위 nice-ceil → x
+    ymax = _nice_ceil(max(vis), 10_000)        # 관객: 만 단위 nice-ceil → y
 
-    def X(v):
-        return padL + iw * (v / xmax)
+    def X(b):
+        return padL + iw * (b / xmax)
 
-    def Y(b):
-        return padT + ih * (1 - b / ymax)
+    def Y(v):
+        return padT + ih * (1 - v / ymax)
 
-    # 십자선을 정확히 가운데에 — 축 max의 절반(관객 1만 명 / 예산 1억 원) 기준선.
+    # 십자선을 정확히 가운데에 — 축 max의 절반(예산 1억 원 / 관객 1만 명) 기준선.
     cx0, cy0 = padL + iw / 2, padT + ih / 2
-    # 효율 영역(고관객·저예산 = 우하단) 옅은 틴트
-    tint = (f'<rect x="{cx0:.1f}" y="{cy0:.1f}" width="{iw/2:.1f}" height="{ih/2:.1f}" '
+    # 효율 영역(저예산·고관객 = 좌상단) 옅은 틴트
+    tint = (f'<rect x="{padL}" y="{padT}" width="{iw/2:.1f}" height="{ih/2:.1f}" '
             f'fill="{ACCENT}" opacity="0.05"/>')
     cross = (f'<line x1="{cx0:.1f}" y1="{padT}" x2="{cx0:.1f}" y2="{H-padB}" '
              f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>'
@@ -304,11 +304,11 @@ def _scatter(data):
     axis = (f'<line x1="{padL}" y1="{padT}" x2="{padL}" y2="{H-padB}" stroke="{LINE}"/>'
             f'<line x1="{padL}" y1="{H-padB}" x2="{W-padR}" y2="{H-padB}" stroke="{LINE}"/>')
     R = 5
-    dots = "".join(f'<circle cx="{X(v):.1f}" cy="{Y(b):.1f}" r="{R}" fill="{C_ETC}"/>'
+    dots = "".join(f'<circle cx="{X(b):.1f}" cy="{Y(v):.1f}" r="{R}" fill="{C_ETC}"/>'
                    for b, v in pts)
     curdot = ""
     if cur:
-        cx, cy = X(cur[1]), Y(cur[0])
+        cx, cy = X(cur[0]), Y(cur[1])
         if cx > W * 0.55:
             anchor, lx = "end", cx - R - 6
         else:
@@ -316,11 +316,11 @@ def _scatter(data):
         curdot = (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{R}" fill="{C_POINT}"/>'
                   f'<text x="{lx:.1f}" y="{cy+LBLF*0.35:.1f}" text-anchor="{anchor}" '
                   f'font-size="{LBLF}" font-weight="700" fill="{C_POINT}">이번 전시</text>')
-    # 축 끝 스케일 앵커: x=관객(만 명) 우측, y=예산(억 원) 상단
+    # 축 끝 스케일 앵커: x=예산(억 원) 우측, y=관객(만 명) 상단
     xlab = (f'<text x="{W-padR}" y="{H-9}" text-anchor="end" font-size="{LBLF}" '
-            f'fill="{MUTED}">{_nice_label(xmax, 10_000, "만 명")}</text>')
+            f'fill="{MUTED}">{_nice_label(xmax, 100_000_000, "억 원")}</text>')
     ylab = (f'<text x="{padL}" y="{padT-11}" text-anchor="start" font-size="{LBLF}" '
-            f'fill="{MUTED}">{_nice_label(ymax, 100_000_000, "억 원")}</text>')
+            f'fill="{MUTED}">{_nice_label(ymax, 10_000, "만 명")}</text>')
     return (f'<div class="scatter-wrap"><div class="fig-title sm">예산·관객 분포 (역대 전시)</div>'
             f'<svg viewBox="0 0 {W} {H}" class="scatterchart" preserveAspectRatio="xMidYMid meet">'
             f'{tint}{cross}{axis}{dots}{curdot}{xlab}{ylab}</svg></div>')
