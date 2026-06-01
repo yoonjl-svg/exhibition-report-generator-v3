@@ -449,6 +449,7 @@ def build_report_html(data):
         f'<div class="rep-page rep-page-1">{header_html}{poster}{sec_overview}</div>',
         f'<div class="rep-page rep-page-2">{sec_exec}</div>',
         sec_theme, sec_compose, sec_results, sec_promo,
+        '<div class="rep-end">끝.</div>',   # 문서 종료 — 두 줄 띄고 왼쪽 정렬
     ]
     body = "\n".join(b for b in parts if b)
     return _DOC.replace("{{BODY}}", body)
@@ -544,6 +545,8 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 /* 전시 공간 블록 (공간별 도면+전경) */
 .space-block { margin:6px 0 16px; }
 .space-name { font-size:13px; font-weight:600; color:#3c403a; margin:12px 0 6px; }
+/* 문서 종료 표시 — 두 줄 띄고 왼쪽 정렬 */
+.rep-end { margin-top:2.6rem; text-align:left; font-size:13.5px; color:#3c403a; }
 /* 앞 2페이지 고정 레이아웃 + 세로형 포스터 자리 */
 .rep-page-1 { display:flex; flex-direction:column; }
 .poster-ph { width:100%; max-width:340px; align-self:center; min-height:440px;
