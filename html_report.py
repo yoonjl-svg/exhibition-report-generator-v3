@@ -162,18 +162,29 @@ def _para(text):
     return "".join(f'<p class="body">{_esc(p)}</p>' for p in paras)
 
 
-def _table(headers, rows, raw_cols=()):
-    """간단 표 HTML. raw_cols에 든 열 인덱스는 이스케이프하지 않음(HTML 그대로 삽입)."""
+def _table(headers, rows, raw_cols=(), col_widths=None):
+    """간단 표 HTML. raw_cols에 든 열 인덱스는 이스케이프하지 않음(HTML 그대로 삽입).
+
+    col_widths: 열별 고정 너비 리스트(빈 문자열=자동). 주면 table-layout:fixed로
+    렌더되어, 같은 col_widths를 쓰는 여러 표의 열 경계가 정확히 일치한다.
+    """
     rows = [r for r in rows if any(str(c).strip() for c in r)]
     if not rows:
         return ""
+    cls = "tbl tbl-fixed" if col_widths else "tbl"
+    cg = ""
+    if col_widths:
+        cg = "<colgroup>" + "".join(
+            (f'<col style="width:{w}">' if w else "<col>") for w in col_widths
+        ) + "</colgroup>"
     th = "".join(f"<th>{_esc(h)}</th>" for h in headers)
     trs = "".join(
         "<tr>" + "".join(
             f"<td>{c if j in raw_cols else _esc(c)}</td>" for j, c in enumerate(r)
         ) + "</tr>"
         for r in rows)
-    return f'<table class="tbl"><thead><tr>{th}</tr></thead><tbody>{trs}</tbody></table>'
+    return (f'<table class="{cls}">{cg}'
+            f'<thead><tr>{th}</tr></thead><tbody>{trs}</tbody></table>')
 
 
 def _kv(pairs):
@@ -426,7 +437,8 @@ def build_report_html(data):
                      for r in reviews if (r.get("category") or "기타") == cat]
             if crows:
                 v.append(f'<div class="space-name">{_esc(cat)}</div>')
-                v.append(_table(["내용", "출처"], crows))
+                # 세 표(긍정/부정/기타)의 '출처' 열을 동일 너비로 고정 → 가로 위치 일치
+                v.append(_table(["내용", "출처"], crows, col_widths=["", "112px"]))
     sec_promo = (_section("커뮤니케이션", "".join(v), num="VI")
                  if "".join(v).strip() else "")
 
@@ -517,6 +529,9 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   padding:7px 10px; border-bottom:1px solid #e3e7df; }
 .tbl td { padding:7px 10px; border-bottom:1px solid #eef1ec; color:#3c403a;
   vertical-align:middle; }
+/* 고정 레이아웃 표 — 같은 col_widths끼리 열 경계 정렬(예: 후기 '출처' 열) */
+.tbl-fixed { table-layout:fixed; }
+.tbl-fixed th, .tbl-fixed td { overflow-wrap:break-word; word-break:break-word; }
 .ins { margin:8px 0 0; padding-left:20px; }
 .ins li { font-size:13.5px; line-height:1.65; color:#3c403a; margin:4px 0; }
 
@@ -607,7 +622,11 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   /* 섹션 카드는 한 페이지보다 클 수 있으므로 break-inside:avoid 금지
      (금지 시 큰 섹션이 통째로 다음 페이지로 밀려 앞 페이지에 큰 여백 발생).
      쪼개지면 안 되는 작은 요소(도넛·표·차트·이미지 박스)에만 적용. */
-  .card { box-shadow:none; border:1px solid #e3e7df; }
+  /* 카드가 페이지 경계를 넘어 쪼개질 때, 각 페이지 조각이 자기 외곽선을
+     온전히 갖도록(clone) → 페이지 끝/시작에서 테두리가 잘리지 않고 닫힘.
+     (큰 섹션은 한 페이지에 못 담겨 쪼개질 수밖에 없으므로 avoid 대신 clone 사용) */
+  .card { box-shadow:none; border:1px solid #e3e7df;
+    -webkit-box-decoration-break:clone; box-decoration-break:clone; }
   .donut-grid, .donut-cell, .lolli, .tbl, .svgchart,
   .imgph, .space-block { break-inside:avoid; page-break-inside:avoid; }
   .sec-title { break-after:avoid; page-break-after:avoid; }

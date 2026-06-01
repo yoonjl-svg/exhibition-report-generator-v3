@@ -875,9 +875,9 @@ def _fmt_summary_value(v, unit: str) -> str:
     if unit == "원":
         v = int(v)
         if v >= 100_000_000:
-            eok = v // 100_000_000
-            man = (v % 100_000_000) // 10_000
-            return f"약 {eok}억 {man:,}만 원" if man > 0 else f"약 {eok}억 원"
+            # 억 이상: 백만원 단위에서 내림 → 억 단위 소수 2자리 (예: 2.10억, 1.44억)
+            man = v // 1_000_000           # 백만원 단위로 내림
+            return f"약 {man / 100:.2f}억"
         if v >= 10_000_000:
             return f"약 {v // 10_000:,}만 원"
         return f"{v:,}원"
