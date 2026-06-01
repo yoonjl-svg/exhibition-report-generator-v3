@@ -200,8 +200,8 @@ def _img_slots(label, count=3, ratio="16 / 9"):
     return f'<div class="imgph-grid">{boxes}</div>'
 
 
-def _img_grid2(label, count=4, ratio="4 / 3"):
-    """한 줄에 2개씩(2열) 배치되는 placeholder 박스 그리드 (예: 2×2 4개)."""
+def _img_grid2(label, count=4, ratio="3 / 4"):
+    """한 줄에 2개씩(2열) 배치되는 placeholder 박스 그리드. 콘텐츠 이미지 3:4."""
     boxes = "".join(
         f'<div class="imgph" style="aspect-ratio:{ratio}">'
         f'<span class="imgph-label">{_esc(label)}</span></div>'
@@ -211,9 +211,9 @@ def _img_grid2(label, count=4, ratio="4 / 3"):
 
 
 def _space_block(name):
-    """전시 공간 1개의 도면(세로형 1개)+전경(2×2 4개) placeholder.
+    """전시 공간 1개의 도면(16:9 1개, 가운데)+전경(2×2 4개, 3:4) placeholder.
     공간 이름을 머리로 두어 어느 공간인지 표시."""
-    plan = ('<div class="imgph imgph-plan" style="aspect-ratio:3.15 / 4.6">'
+    plan = ('<div class="imgph imgph-plan" style="aspect-ratio:16 / 9">'
             '<span class="imgph-label">도면</span></div>')
     return (f'<div class="space-block">'
             f'<div class="space-name">{_esc(name)}</div>'
@@ -276,7 +276,7 @@ def build_report_html(data):
     rooms = data.get("rooms", [])
     # 도면·전경 라벨용 공간 이름 (없으면 단일 fallback)
     room_names = ([(r.get("name") or f"{i+1}전시실") for i, r in enumerate(rooms)]
-                  if rooms else ["전시 공간"])
+                  if rooms else ["1전시실", "2전시실", "3전시실"])
     # 1) 출품 작품 구성 (도넛 2-up) — 가장 먼저
     art = data.get("artworks", {})
     media = {"회화": art.get("painting", 0), "조각": art.get("sculpture", 0),
@@ -322,7 +322,7 @@ def build_report_html(data):
         if comp_ins:
             iii.append(comp_ins)
         if progs:
-            iii.append(_img_slots("프로그램 현장 사진", count=2, ratio="4 / 3"))
+            iii.append(_img_grid2("프로그램 현장 사진", count=2))
     # 인쇄물 — 사진 placeholder 2×2 (4개)
     mats = data.get("printed_materials", [])
     if mats:
@@ -407,7 +407,7 @@ def build_report_html(data):
         v.append(_para(data.get("membership")))
     # 홍보물·언론 보도 캡처 (사진이 거의 확실히 들어가는 자리 — placeholder)
     v.append(_subhead("홍보물·언론 보도"))
-    v.append(_img_slots("홍보물·보도 캡처", count=2, ratio="4 / 3"))
+    v.append(_img_grid2("홍보물·보도 캡처", count=2))
     v.append(_insights_html(data, "promotion"))
     sec_promo = (_section("홍보 방식 및 언론 보도", "".join(v), num="VI")
                  if "".join(v).strip() else "")
@@ -526,13 +526,14 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   display:flex; align-items:center; justify-content:center; }
 .imgph-label { font-size:11.5px; color:#9aa39a; letter-spacing:0.3px; text-align:center; }
 /* 전시 전경 — 한 줄에 2개씩(2열) */
+/* 한 줄 2개 이미지(3:4) — 90% 폭으로 10% 축소 + 가운데 정렬 */
 .imgph-grid2 { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;
-  margin:6px 0 2px; max-width:90%; }   /* 한 줄 2개 이미지 일괄 10% 축소 */
+  margin:6px auto 2px; max-width:90%; }
 @media (max-width:520px){ .imgph-grid2{ grid-template-columns:1fr; } }
-/* 전시 도면 — 세로형(portrait) 박스, 가운데 정렬 (너비 +5%, 세로 +15%) */
+/* 전시 도면 — 16:9 가로형 박스, 가운데 정렬 */
 .imgph-plangrid { display:flex; flex-wrap:wrap; justify-content:center;
   gap:12px; margin:6px 0 2px; }
-.imgph-plan { width:210px; max-width:48%; }
+.imgph-plan { width:90%; max-width:560px; }
 /* 전시 공간 블록 (공간별 도면+전경) */
 .space-block { margin:6px 0 16px; }
 .space-name { font-size:13px; font-weight:600; color:#3c403a; margin:12px 0 6px; }
