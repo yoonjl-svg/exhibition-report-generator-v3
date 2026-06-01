@@ -158,14 +158,16 @@ def _para(text):
     return "".join(f'<p class="body">{_esc(p)}</p>' for p in paras)
 
 
-def _table(headers, rows):
-    """간단 표 HTML."""
+def _table(headers, rows, raw_cols=()):
+    """간단 표 HTML. raw_cols에 든 열 인덱스는 이스케이프하지 않음(HTML 그대로 삽입)."""
     rows = [r for r in rows if any(str(c).strip() for c in r)]
     if not rows:
         return ""
     th = "".join(f"<th>{_esc(h)}</th>" for h in headers)
     trs = "".join(
-        "<tr>" + "".join(f"<td>{_esc(c)}</td>" for c in r) + "</tr>"
+        "<tr>" + "".join(
+            f"<td>{c if j in raw_cols else _esc(c)}</td>" for j, c in enumerate(r)
+        ) + "</tr>"
         for r in rows)
     return f'<table class="tbl"><thead><tr>{th}</tr></thead><tbody>{trs}</tbody></table>'
 
@@ -183,6 +185,12 @@ def _kv(pairs):
 
 def _subhead(text):
     return f'<div class="subhead">{_esc(text)}</div>'
+
+
+def _thumb():
+    """표 안 작은 섬네일 placeholder (인쇄물·굿즈 등). 캡션 'image'."""
+    return ('<div class="imgph imgph-thumb" style="aspect-ratio:4 / 3">'
+            '<span class="imgph-label">image</span></div>')
 
 
 def _img_grid2(count=4, ratio="4 / 3"):
@@ -309,14 +317,13 @@ def build_report_html(data):
             iii.append(comp_ins)
         if progs:
             iii.append(_img_grid2(count=2))
-    # 인쇄물 — 사진 placeholder 2×2 (4개)
+    # 인쇄물 — 표 맨 왼쪽에 작은 섬네일 칸 추가(별도 placeholder 제거)
     mats = data.get("printed_materials", [])
     if mats:
         iii.append(_subhead("인쇄물 및 굿즈"))
-        iii.append(_table(["종류", "수량", "비고"],
-                          [[m.get("type", ""), m.get("quantity", ""), m.get("note", "")]
-                           for m in mats]))
-        iii.append(_img_grid2(count=4))
+        iii.append(_table(["이미지", "종류", "수량", "비고"],
+                          [[_thumb(), m.get("type", ""), m.get("quantity", ""),
+                            m.get("note", "")] for m in mats], raw_cols={0}))
     sec_compose = _section("전시 구성", "".join(iii), num="IV")
 
     # ── IV. 전시 결과 ──
@@ -395,7 +402,17 @@ def build_report_html(data):
     v.append(_subhead("홍보물·언론 보도"))
     v.append(_img_grid2(count=2))
     v.append(_insights_html(data, "promotion"))
-    sec_promo = (_section("홍보 방식 및 언론 보도", "".join(v), num="VI")
+    # 관객 후기 — 긍정/부정/기타 3개 표 (해당 후기가 있는 분류만; 기타는 없을 수 있음)
+    reviews = [r for r in (data.get("visitor_reviews") or []) if r.get("content")]
+    if reviews:
+        v.append(_subhead("관객 후기"))
+        for cat in ("긍정", "부정", "기타"):
+            crows = [[r.get("content", ""), r.get("source", "")]
+                     for r in reviews if (r.get("category") or "기타") == cat]
+            if crows:
+                v.append(f'<div class="space-name">{_esc(cat)}</div>')
+                v.append(_table(["내용", "출처"], crows))
+    sec_promo = (_section("커뮤니케이션", "".join(v), num="VI")
                  if "".join(v).strip() else "")
 
     # ── VI. Executive Summary ──
@@ -520,6 +537,10 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .imgph-plangrid { display:flex; flex-wrap:wrap; justify-content:center;
   gap:12px; margin:6px 0 2px; }
 .imgph-plan { width:210px; max-width:48%; }
+/* 표 안 작은 섬네일 (인쇄물·굿즈) */
+.imgph-thumb { width:78px; }
+.imgph-thumb .imgph-label { font-size:9px; }
+.tbl td .imgph-thumb { margin:1px 0; }
 /* 전시 공간 블록 (공간별 도면+전경) */
 .space-block { margin:6px 0 16px; }
 .space-name { font-size:13px; font-weight:600; color:#3c403a; margin:12px 0 6px; }
