@@ -415,8 +415,9 @@ def build_report_html(data):
     # 앞 2페이지 고정: 1p = 포스터 + I 전시 개요, 2p = II Executive Summary,
     # 3p부터는 페이지네이션 강제 없이 자연 흐름.
     parts = [
-        header_html,
-        f'<div class="rep-page rep-page-1">{poster}{sec_overview}</div>',
+        # 1p = 헤더 + 세로형 포스터 + I 전시 개요 (한 페이지 고정, 포스터가 남는
+        # 공간을 채우거나 개요가 커지면 줄어들어 한 페이지를 넘지 않음)
+        f'<div class="rep-page rep-page-1">{header_html}{poster}{sec_overview}</div>',
         f'<div class="rep-page rep-page-2">{sec_exec}</div>',
         sec_theme, sec_compose, sec_results, sec_promo,
     ]
@@ -501,7 +502,7 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 /* 앞 2페이지 고정 레이아웃 + 세로형 포스터 자리 */
 .rep-page-1 { display:flex; flex-direction:column; }
 .poster-ph { width:100%; max-width:340px; align-self:center; min-height:440px;
-  flex:1 1 auto; margin-bottom:6px; }
+  flex:0 0 auto; margin-bottom:6px; }
 .donut-cell { text-align:center; }
 .donut { position:relative; width:170px; height:170px; border-radius:50%;
   margin:0 auto; }
@@ -540,7 +541,14 @@ body { margin:0; background:#f4f6f2; color:#20231f;
      한 페이지를 채우고, 다음 콘텐츠는 새 페이지에서 시작. 3p부터 자연 흐름.
      포스터(flex-grow)가 1p의 남는 세로 공간을 채워 큰 여백을 방지. */
   .rep-page { break-after:page; page-break-after:always; }
-  .rep-page-1, .rep-page-2 { min-height:250mm; }
+  /* 1p 고정: 헤더+포스터+개요가 정확히 한 페이지(260mm)를 채움.
+     헤더·개요는 자연 높이, 포스터(flex:1 1 0)가 남는 공간을 채우거나
+     개요가 커지면 줄어들어 한 페이지를 절대 넘지 않음. */
+  .rep-page-1 { height:260mm; overflow:hidden; }
+  .rep-page-1 > .rep-head, .rep-page-1 > .card { flex:0 0 auto; }
+  .rep-page-1 .poster-ph { flex:1 1 0; min-height:0; }
+  /* 2p = Executive Summary 한 페이지 채움(짧으면 하단 여백, 자르지 않음) */
+  .rep-page-2 { min-height:260mm; }
 }
 </style></head>
 <body><div class="report">
