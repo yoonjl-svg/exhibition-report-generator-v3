@@ -24,6 +24,15 @@ SOFT = "#eef2ea"
 # 컬러칩: 동계열(녹색–세이지–틸–토프) 저채도. 명도 교차로 인접 슬라이스 구분.
 CAT = ["#2f5d4e", "#7c9c8b", "#4a7c6a", "#a7b3a0", "#5f8088", "#8c8270"]
 
+# ── 의미 기반 색 토큰 (보고서 전체 문법) ──
+# 같은 의미는 보고서 어디서나 같은 색. 색은 '좋다/나쁘다'보다 먼저 '성격'을 구분.
+C_BRAND   = ACCENT        # 딥그린 — 브랜드/제목/성과·주요 데이터
+C_PERF    = ACCENT        #   = 성과·주요 데이터(막대 본체)
+C_CAUTION = ACCENT2       # 테라코타 — 평균 미달·주의(롤리팝 하단)
+C_POINT   = ACCENT3       # 블루그레이 — 포인트/보조 강조(수입·보조 기준선) [유지]
+C_BASE    = "#9aa39a"     # 중립 회색 — 기준·평균·규모성 지표(예: 총 예산)
+C_ETC     = "#c4ccc2"     # 옅은 회색 — 기타·미분류·무료
+
 
 def _esc(s):
     return _html.escape(str(s if s is not None else ""))
@@ -57,7 +66,11 @@ def _lollipop(summary_metrics):
     for label, cur_fmt, ref_fmt, diff, ref_label in rows:
         clamped = min(max(diff, -span), span)
         val_pct = (clamped + span) / (2 * span) * 100
-        color = ACCENT if diff >= 0 else ACCENT2   # +(좋음)=녹색, -=테라코타
+        # 색=성격: 성과 +는 녹색·-는 테라코타. 단 총 예산은 규모 정보라 중립 회색.
+        if "예산" in label:
+            color = C_BASE
+        else:
+            color = C_PERF if diff >= 0 else C_CAUTION
         seg_left = min(base_pct, val_pct)
         seg_w = abs(val_pct - base_pct)
         items.append(f"""
@@ -91,9 +104,10 @@ def _money_short(v):
     return f"{v:,}원"
 
 
-def _hbar(title, data_dict, unit="점"):
+def _hbar(title, data_dict, unit="점", muted_keys=()):
     """가로 막대그래프 — 항목 수가 많은 구성(매체·입장권 등)에 도넛 대신 사용.
-    수량 내림차순 정렬, 막대 끝에 '값 단위 (비율%)' 병기. 단색(녹색)으로 크기 비교."""
+    수량 내림차순 정렬, 막대 끝에 '값 단위 (비율%)' 병기. 막대는 성과 녹색,
+    muted_keys(기타·무료 등)는 회색으로 분리해 '미분류/수입 무관'을 시각 구분."""
     data = [(k, v) for k, v in data_dict.items() if v and v > 0]
     if len(data) < 2:
         return ""
@@ -104,7 +118,7 @@ def _hbar(title, data_dict, unit="점"):
         f'<div class="hbar-row">'
         f'<div class="hbar-label">{_esc(k)}</div>'
         f'<div class="hbar-track"><div class="hbar-fill" '
-        f'style="width:{v / vmax * 100:.1f}%"></div></div>'
+        f'style="width:{v / vmax * 100:.1f}%;background:{C_ETC if k in muted_keys else C_PERF}"></div></div>'
         f'<div class="hbar-val">{v:,}{unit} <span class="hbar-pct">{v / total * 100:.0f}%</span></div>'
         f'</div>'
         for k, v in data
@@ -133,7 +147,8 @@ def _budget_revenue(budget, revenue):
                 f'style="width:{(val or 0) / vmax * 100:.1f}%;background:{color}"></div></div>'
                 f'<div class="hbar-val">{fmt(val)}</div></div>')
 
-    bars = bar("총 사용 예산", budget, ACCENT) + bar("총 수입", rev, ACCENT3)
+    # 총 예산=중립 회색(규모, 롤리팝과 동일), 총 수입=블루그레이 포인트
+    bars = bar("총 사용 예산", budget, C_BASE) + bar("총 수입", rev, C_POINT)
     cap = ""
     if revenue is not None:
         cap = (f'<p class="body">예산 대비 수입(회수율) {rev / budget * 100:.1f}%, '
@@ -142,15 +157,16 @@ def _budget_revenue(budget, revenue):
     return f'<div class="br-block"><div class="hbar-wrap">{bars}</div>{cap}</div>'
 
 
-def _donut(title, data_dict, unit="점", center=None):
-    """conic-gradient 도넛 + 하단 범례. center가 주어지면 가운데 값을 그것으로 대체."""
+def _donut(title, data_dict, unit="점", center=None, colors=None):
+    """conic-gradient 도넛 + 하단 범례. center=가운데 값 대체, colors=항목 색 지정."""
     data = [(k, v) for k, v in data_dict.items() if v and v > 0]
     if len(data) < 2:
         return ""
     total = sum(v for _, v in data)
+    palette = colors or CAT
     stops, legend, acc = [], [], 0.0
     for i, (k, v) in enumerate(data):
-        c = CAT[i % len(CAT)]
+        c = palette[i % len(palette)]
         p0 = acc / total * 100
         acc += v
         p1 = acc / total * 100
@@ -203,7 +219,7 @@ def _svg_weekly(weekly, ref_lines):
         f'<circle cx="{X(i):.1f}" cy="{Y(v):.1f}" r="3.5" fill="#fff" '
         f'stroke="{ACCENT}" stroke-width="2"/>' for i, v in enumerate(vals))
     refsvg = ""
-    rcolors = [ACCENT2, ACCENT3]
+    rcolors = [C_BASE, C_POINT]   # 평균/기준선=중립 회색, 보조=블루그레이 포인트
     for j, (v, lbl) in enumerate(refs):
         y = Y(v)
         c = rcolors[j % 2]
@@ -385,7 +401,7 @@ def build_report_html(data):
              "사진": art.get("photo", 0), "설치": art.get("installation", 0),
              "미디어": art.get("media", 0), "기타": art.get("other", 0)}
     # 매체(6항목)는 가로 막대로 — 도넛보다 수량 비교가 빠름. 신작·구작(2항목)은 도넛 유지.
-    media_bar = _hbar("출품 매체 구성", media, "점")
+    media_bar = _hbar("출품 매체 구성", media, "점", muted_keys={"기타"})
     nw, od = art.get("new", 0) or 0, art.get("old", 0) or 0
     nb_donut = _donut("신작·구작 구성", {"신작": nw, "구작": od}, "점")
     if media_bar or nb_donut:
@@ -464,8 +480,10 @@ def build_report_html(data):
         free = tt.get("초대권", 0) or 0
         paid = sum(v for k, v in tt.items() if k != "초대권")
         # 입장권별(5항목)은 가로 막대. 유료·무료(2항목)는 도넛 유지(중앙값=총량).
-        ticket_bar = _hbar("입장권별 관객 구성", tt, "명")
-        pf_donut = _donut("유료·무료 비율", {"유료": paid, "무료·초대": free}, "명")
+        ticket_bar = _hbar("입장권별 관객 구성", tt, "명", muted_keys={"초대권"})
+        # 유료=성과 녹색, 무료·초대=회색(수입 무관) — 컬러로 수입 구조를 구분
+        pf_donut = _donut("유료·무료 비율", {"유료": paid, "무료·초대": free}, "명",
+                          colors=[C_PERF, C_ETC])
         if ticket_bar or pf_donut:
             iv.append(_subhead("관객 구성"))
             iv.append(_chart_pair(ticket_bar, pf_donut))
