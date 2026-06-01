@@ -213,7 +213,7 @@ def _img_grid2(label, count=4, ratio="4 / 3"):
 def _space_block(name):
     """전시 공간 1개의 도면(세로형 1개)+전경(2×2 4개) placeholder.
     공간 이름을 머리로 두어 어느 공간인지 표시."""
-    plan = ('<div class="imgph imgph-plan" style="aspect-ratio:3 / 4">'
+    plan = ('<div class="imgph imgph-plan" style="aspect-ratio:3.15 / 4.6">'
             '<span class="imgph-label">도면</span></div>')
     return (f'<div class="space-block">'
             f'<div class="space-name">{_esc(name)}</div>'
@@ -527,12 +527,12 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .imgph-label { font-size:11.5px; color:#9aa39a; letter-spacing:0.3px; text-align:center; }
 /* 전시 전경 — 한 줄에 2개씩(2열) */
 .imgph-grid2 { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;
-  margin:6px 0 2px; }
+  margin:6px 0 2px; max-width:90%; }   /* 한 줄 2개 이미지 일괄 10% 축소 */
 @media (max-width:520px){ .imgph-grid2{ grid-template-columns:1fr; } }
-/* 전시 도면 — 세로형(portrait) 박스, 가운데 정렬 */
+/* 전시 도면 — 세로형(portrait) 박스, 가운데 정렬 (너비 +5%, 세로 +15%) */
 .imgph-plangrid { display:flex; flex-wrap:wrap; justify-content:center;
   gap:12px; margin:6px 0 2px; }
-.imgph-plan { width:200px; max-width:46%; }
+.imgph-plan { width:210px; max-width:48%; }
 /* 전시 공간 블록 (공간별 도면+전경) */
 .space-block { margin:6px 0 16px; }
 .space-name { font-size:13px; font-weight:600; color:#3c403a; margin:12px 0 6px; }
@@ -569,10 +569,12 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   body { background:#fff; }
   .report { max-width:none; padding:0; }
   .no-print { display:none !important; }
-  .card { box-shadow:none; border:1px solid #e3e7df; break-inside:avoid;
-    page-break-inside:avoid; }
-  .donut-grid, .donut-cell, .lolli, .tbl, .svgchart { break-inside:avoid;
-    page-break-inside:avoid; }
+  /* 섹션 카드는 한 페이지보다 클 수 있으므로 break-inside:avoid 금지
+     (금지 시 큰 섹션이 통째로 다음 페이지로 밀려 앞 페이지에 큰 여백 발생).
+     쪼개지면 안 되는 작은 요소(도넛·표·차트·이미지 박스)에만 적용. */
+  .card { box-shadow:none; border:1px solid #e3e7df; }
+  .donut-grid, .donut-cell, .lolli, .tbl, .svgchart,
+  .imgph, .space-block { break-inside:avoid; page-break-inside:avoid; }
   .sec-title { break-after:avoid; page-break-after:avoid; }
   /* 앞 2페이지 고정: 1p(포스터+I 전시 개요)·2p(II Executive Summary)는 각각
      한 페이지를 채우고, 다음 콘텐츠는 새 페이지에서 시작. 3p부터 자연 흐름.
