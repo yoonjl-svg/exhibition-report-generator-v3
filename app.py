@@ -67,9 +67,14 @@ st.markdown("""
         --l5-color: #252a28;
     }
 
-    /* === 차트·이미지 전체화면 확대 버튼 제거 ===
+    /* === 차트·이미지·표 전체화면 확대 버튼 제거 ===
        (호버 시 우상단에 뜨는 확대 버튼. 확대 후 원복 안 되는
-        Streamlit 버그 회피 — 기능 자체를 비활성화) */
+        Streamlit 버그 회피 — 기능 자체를 비활성화)
+       Streamlit 1.52는 aria-label="Fullscreen"(testid stBaseButton-elementToolbar)
+       을 사용. 표의 다운로드·검색·열표시 버튼은 건드리지 않도록 fullscreen만 타깃.
+       하위 호환용으로 구버전 셀렉터도 함께 둠. */
+    button[aria-label="Fullscreen"],
+    button[aria-label="Exit fullscreen"],
     [data-testid="StyledFullScreenButton"],
     button[title="View fullscreen"],
     button[title="Exit fullscreen"] {

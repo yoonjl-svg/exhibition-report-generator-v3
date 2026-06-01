@@ -194,6 +194,13 @@ def render(tab, load_reference_data):
                 st.session_state["analysis_result"] = result
                 st.session_state["insight_selections"] = {}
                 st.session_state["insight_texts"] = {}
+                # 이전 분석 실행의 위젯 상태(텍스트·체크박스) 제거.
+                # Streamlit 위젯은 동일 key가 이미 있으면 value 인자를 무시하고
+                # 저장된 값을 그대로 쓰므로, 비교 유형을 바꿔 재실행해도 옛 서술이
+                # 그대로 남는다. 해당 위젯 상태를 비워 새 결과가 반영되게 함.
+                for _wk in [k for k in st.session_state
+                            if k.startswith(("txt_ins_", "chk_ins_"))]:
+                    del st.session_state[_wk]
                 st.session_state["eval_positive_drafts"] = [
                     d for d in result.eval_drafts if d.eval_type == "positive"]
                 st.session_state["eval_negative_drafts"] = [

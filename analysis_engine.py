@@ -232,7 +232,9 @@ def _make_insight(
         parts.append(f"(기존 전시 중 {rank}위)")
     if recent:
         cmp_str = ", ".join(
-            f"{_main_title(t)} {fmt_narrative(val, unit)}" for t, val in recent
+            (f"《{_main_title(t)}》 {fmt_narrative(val, unit)}"
+             if _main_title(t) else fmt_narrative(val, unit))
+            for t, val in recent
         )
         parts.append(f"(比 {cmp_str})")
     if parts:
