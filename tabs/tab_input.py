@@ -27,12 +27,31 @@ import pandas as pd
 from datetime import date
 from utils import add_item, remove_item
 from ui_helpers import subsection
+from kb_session import DERIVED_TOTALS
 import excel_template
 
 
 # ──────────────────────────────────────────────
 # 공통 헬퍼
 # ──────────────────────────────────────────────
+
+def _derived_total(total_key: str) -> int:
+    """파생 합계 계산 — 왕복 무결성 보장.
+
+    로드된 레코드의 구성요소가 그대로면(기준선과 동일) 저장된 합계를 보존하고,
+    사용자가 구성요소를 한 번이라도 바꾸면 구성요소 합으로 재계산한다.
+    신규 입력(기준선 없음)은 항상 구성요소 합. 결과를 session_state에 기록.
+    """
+    comp_keys = DERIVED_TOTALS[total_key]
+    comp = tuple(st.session_state.get(k) or 0 for k in comp_keys)
+    baseline = st.session_state.get(f"_baseline_{total_key}")
+    stored = st.session_state.get(total_key)
+    if baseline is not None and comp == baseline and stored is not None:
+        total = stored                  # 구성요소 미변경 → 저장값 보존
+    else:
+        total = sum(comp)               # 신규/변경 → 구성요소 합
+    st.session_state[total_key] = total
+    return total
 
 def _add_remove_buttons(label_add, label_rm, key_add, key_rm, item_key, default_item, page_full=True):
     """추가/제거 버튼 한 쌍 — 페이지 ~15% 너비로 통일.
@@ -259,8 +278,8 @@ def render(tab):
             with sc:
                 st.number_input("유급 스태프", min_value=0, key="staff_paid", format="%d")
                 st.number_input("봉사자", min_value=0, key="staff_volunteer", format="%d")
-        # staff_total은 자동 합산 (KB 저장·분석 호환)
-        st.session_state.staff_total = st.session_state.staff_paid + st.session_state.staff_volunteer
+        # staff_total — 구성요소 합(왕복 무결성: 미변경 시 저장값 보존)
+        _derived_total("staff_total")
 
         # ── 예산 — '전시 기본' 헤더 아래, 1행 5열로 통일 ──
         # 순서: 예산 계획액 → 전시 사용 → 부대 사용 → 입장 수입 → 기타 수입
@@ -281,10 +300,8 @@ def render(tab):
             st.number_input("기타 수입 (원)", min_value=0, step=100_000,
                             key="other_revenue", format="%d")
 
-        total_budget = st.session_state.budget_exhibition + st.session_state.budget_supplementary
-        st.session_state.total_budget = total_budget
-        total_revenue = st.session_state.ticket_revenue + st.session_state.other_revenue
-        st.session_state.total_revenue = total_revenue
+        total_budget = _derived_total("total_budget")
+        total_revenue = _derived_total("total_revenue")
 
         # 자동 계산 표시
         if total_budget > 0 or total_revenue > 0:
@@ -303,6 +320,20 @@ def render(tab):
                 if total_revenue and total_budget:
                     recovery = total_revenue / total_budget * 100
                     st.metric("회수율", f"{recovery:.1f}%")
+
+        # 저장된 합계 보존 안내 (구성요소 합과 다를 때만)
+        _pres = []
+        if (st.session_state.get("_baseline_total_revenue") is not None and
+                total_revenue != st.session_state.ticket_revenue + st.session_state.other_revenue):
+            _pres.append("총수입")
+        if (st.session_state.get("_baseline_total_budget") is not None and
+                total_budget != st.session_state.budget_exhibition + st.session_state.budget_supplementary):
+            _pres.append("총예산")
+        if _pres:
+            nc, _ = st.columns([3, 7])
+            with nc:
+                st.caption(f"{' · '.join(_pres)}: 저장된 값 유지 중 — 입장·기타 수입 또는 "
+                           f"전시·부대 예산을 입력하면 합산값으로 자동 갱신됩니다.")
 
         # 업로드된 예산 미리보기 (있을 때만)
         if st.session_state.get("budget_summary") and any(
@@ -450,13 +481,9 @@ def render(tab):
         media_sum = (st.session_state.artwork_painting + st.session_state.artwork_sculpture +
                      st.session_state.artwork_photo + st.session_state.artwork_installation +
                      st.session_state.artwork_media + st.session_state.artwork_other)
-        # 합계 보존: 저장된 총작품수가 잠겨 있으면(로드된 레코드) 그 값을 유지.
-        # 신규 입력이거나 잠금 해제 시 매체 합으로 자동 계산.
-        if st.session_state.get("_artwork_total_locked") and st.session_state.get("artwork_total"):
-            artwork_total = st.session_state["artwork_total"]
-        else:
-            artwork_total = media_sum
-        st.session_state.artwork_total = artwork_total
+        # 합계 보존(왕복 무결성): 매체 구성이 로드값 그대로면 저장된 총작품수 유지,
+        # 사용자가 매체를 바꾸면 매체 합으로 재계산.
+        artwork_total = _derived_total("artwork_total")
 
         # 신작 수 (구작 = 총 - 신작 자동) — 신작/구작 도넛용
         nc1, nc2, _ = st.columns([1, 1, 8], gap="small")
@@ -473,14 +500,14 @@ def render(tab):
 
         # 저장된 총합이 매체 합과 다르면(로드된 레코드) 보존 사실을 알리고
         # 매체 합으로 맞출 수 있는 버튼 제공.
-        if st.session_state.get("_artwork_total_locked") and media_sum != artwork_total:
+        if st.session_state.get("_baseline_artwork_total") is not None and media_sum != artwork_total:
             rc, _ = st.columns([3, 7])
             with rc:
                 st.caption(f"저장된 총합 {artwork_total}점 유지 중 "
                            f"(매체 구성 합 {media_sum}점)")
                 if st.button("매체 구성 합으로 재계산", key="artwork_resync",
                              use_container_width=True):
-                    st.session_state["_artwork_total_locked"] = False
+                    st.session_state.pop("_baseline_artwork_total", None)
                     st.rerun()
 
         _section_divider()
@@ -537,7 +564,8 @@ def render(tab):
             st.number_input("도슨트 정기", min_value=0, key="docent_regular", format="%d")
         with cols[4]:
             st.number_input("도슨트 특별", min_value=0, key="docent_special", format="%d")
-        st.session_state.docent_total = st.session_state.docent_regular + st.session_state.docent_special
+        # docent_total — 구성요소 합(왕복 무결성: 미변경 시 저장값 보존)
+        _derived_total("docent_total")
 
         _section_divider()
 

@@ -58,6 +58,19 @@ DATA_KEYS = [
 ]
 
 
+# 폼에서 구성요소 합으로 자동 계산되는 '파생 합계' 필드 → 구성요소 매핑.
+# 왕복 무결성(load→save 동일)을 위해, 로드 시 구성요소를 기준선으로 잡고
+# 사용자가 구성요소를 바꾸기 전까지 저장된 합계를 보존한다.
+DERIVED_TOTALS = {
+    "total_revenue": ["ticket_revenue", "other_revenue"],
+    "total_budget": ["budget_exhibition", "budget_supplementary"],
+    "artwork_total": ["artwork_painting", "artwork_sculpture", "artwork_photo",
+                      "artwork_installation", "artwork_media", "artwork_other"],
+    "staff_total": ["staff_paid", "staff_volunteer"],
+    "docent_total": ["docent_regular", "docent_special"],
+}
+
+
 def load_record_to_session(record: dict) -> None:
     """KB 레코드를 session_state에 로드. 편집 모드 진입을 의미.
 
@@ -68,17 +81,15 @@ def load_record_to_session(record: dict) -> None:
     """
     data = dict(record.get("data", {}))  # 사본(원본 레코드 비파괴)
 
-    # ── 합계 보존(저장 시 자동계산이 마이그레이션 합계를 덮어쓰지 않도록) ──
-    # 총수입은 폼에서 입장수입+기타수입으로 재계산되므로, 저장된 총수입이
-    # 그 합보다 크면 미분류분을 '기타 수입'으로 흡수해 합계를 보존한다.
-    _tr = data.get("total_revenue") or 0
-    _tk = data.get("ticket_revenue") or 0
-    _ot = data.get("other_revenue") or 0
-    if _tr > _tk + _ot:
-        data["other_revenue"] = _ot + (_tr - _tk - _ot)
-    # 총작품수는 매체 합과 어긋날 수 있으므로(일부 마이그레이션 데이터) 저장값을
-    # 잠가 보존. 신규 입력 또는 사용자가 재계산을 누르면 매체 합으로 전환된다.
-    st.session_state["_artwork_total_locked"] = bool(data.get("artwork_total"))
+    # ── 파생 합계 보존 (왕복 무결성) ──
+    # 총수입·총예산·총작품수·운영인력 총원·도슨트 총합은 폼에서 구성요소로
+    # 재계산된다. 마이그레이션 데이터의 저장 합계가 구성요소 합과 다를 수 있어,
+    # 그대로 저장하면 합계가 덮어써진다. → 로드 시점의 구성요소를 기준선으로
+    # 잡아두고, 사용자가 구성요소를 바꾸기 전까지는 저장된 합계를 보존한다.
+    # (tab_input._derived_total이 기준선과 비교해 보존/재계산 결정)
+    for total_key, comp_keys in DERIVED_TOTALS.items():
+        st.session_state[f"_baseline_{total_key}"] = tuple(
+            data.get(k) or 0 for k in comp_keys)
 
     # 레코드에 없는 키는 pop (default로 재초기화될 수 있도록)
     for key in DATA_KEYS:
@@ -125,8 +136,9 @@ def new_exhibition_session() -> None:
     for _sec in ("composition", "results", "promotion", "evaluation", "audience_response"):
         st.session_state.pop(f"preview_edit_{_sec}", None)
 
-    # 신규: 총작품수는 매체 합으로 자동 계산(잠금 해제)
-    st.session_state["_artwork_total_locked"] = False
+    # 신규: 파생 합계 기준선 제거 → 항상 구성요소 합으로 자동 계산
+    for total_key in DERIVED_TOTALS:
+        st.session_state.pop(f"_baseline_{total_key}", None)
 
     # _pending_json 트리거 (빈 오버라이드, 메커니즘 활성화용)
     st.session_state["_pending_json"] = {}
