@@ -114,25 +114,32 @@ def _hbar(title, data_dict, unit="점"):
 
 
 def _budget_revenue(budget, revenue):
-    """예산·수입 구조 — 2개 가로 막대(예산/수입) + 회수율·순비용 캡션."""
+    """예산·수입 구조 — 2개 가로 막대(예산/수입) + 회수율·순비용 캡션.
+    한쪽이라도 억 단위면 두 값 모두 억(소수 2자리)으로 통일 표기(2.10억 / 0.98억)."""
     if not budget or budget <= 0:
         return ""
     rev = revenue or 0
     vmax = max(budget, rev) or 1
+    use_eok = vmax >= 100_000_000  # 둘 중 하나라도 억 이상 → 둘 다 억으로 통일
+
+    def fmt(v):
+        v = int(v or 0)
+        return f"약 {v // 1_000_000 / 100:.2f}억" if use_eok else _money_short(v)
 
     def bar(label, val, color):
         return (f'<div class="hbar-row">'
                 f'<div class="hbar-label">{label}</div>'
                 f'<div class="hbar-track"><div class="hbar-fill" '
                 f'style="width:{(val or 0) / vmax * 100:.1f}%;background:{color}"></div></div>'
-                f'<div class="hbar-val">{_money_short(val)}</div></div>')
+                f'<div class="hbar-val">{fmt(val)}</div></div>')
 
     bars = bar("총 사용 예산", budget, ACCENT) + bar("총 수입", rev, ACCENT3)
     cap = ""
     if revenue is not None:
         cap = (f'<p class="body">예산 대비 수입(회수율) {rev / budget * 100:.1f}%, '
-               f'순비용 {_money_short(budget - rev)}.</p>')
-    return f'<div class="hbar-wrap">{bars}</div>{cap}'
+               f'순비용 {fmt(budget - rev)}.</p>')
+    # 폭이 불필요하게 길지 않게 — 좁게 가운데 정렬
+    return f'<div class="br-block"><div class="hbar-wrap">{bars}</div>{cap}</div>'
 
 
 def _donut(title, data_dict, unit="점", center=None):
@@ -175,20 +182,23 @@ def _svg_weekly(weekly, ref_lines):
         return ""
     weeks = list(weekly.keys())
     vals = [float(v) for v in weekly.values()]
-    W, H = 720, 240
+    N = len(vals)
+    STEP = 66                           # 1주당 고정 가로 간격(viewBox 단위)
     padL, padR, padT, padB = 44, 16, 20, 28
+    MAXW = padL + 10 * STEP + padR      # 11주 기준 전체 폭(=720)
+    W, H = padL + (N - 1) * STEP + padR, 240
     refs = [(float(v), lbl) for (v, lbl, _c) in (ref_lines or []) if v]
     vmax = max(vals + [v for v, _ in refs] + [1]) * 1.12
-    iw, ih = W - padL - padR, H - padT - padB
+    ih = H - padT - padB
 
     def X(i):
-        return padL + (iw * i / (len(vals) - 1) if len(vals) > 1 else 0)
+        return padL + i * STEP
 
     def Y(v):
         return padT + ih * (1 - v / vmax)
 
     pts = " ".join(f"{X(i):.1f},{Y(v):.1f}" for i, v in enumerate(vals))
-    area = f"{padL},{padT+ih} " + pts + f" {X(len(vals)-1):.1f},{padT+ih}"
+    area = f"{padL},{padT+ih} " + pts + f" {X(N-1):.1f},{padT+ih}"
     dots = "".join(
         f'<circle cx="{X(i):.1f}" cy="{Y(v):.1f}" r="3.5" fill="#fff" '
         f'stroke="{ACCENT}" stroke-width="2"/>' for i, v in enumerate(vals))
@@ -205,8 +215,10 @@ def _svg_weekly(weekly, ref_lines):
     xlabels = "".join(
         f'<text x="{X(i):.1f}" y="{H-8}" text-anchor="middle" font-size="10" '
         f'fill="{MUTED}">{_esc(w)}</text>'
-        for i, w in enumerate(weeks) if i % max(1, len(weeks)//8) == 0)
-    return f"""<svg viewBox="0 0 {W} {H}" class="svgchart" preserveAspectRatio="xMidYMid meet">
+        for i, w in enumerate(weeks))
+    # 주가 11(최대) 미만이면 폭이 그만큼 줄고 가운데 정렬 → 1주 폭은 항상 동일
+    width_pct = min(100.0, W / MAXW * 100)
+    return f"""<svg viewBox="0 0 {W} {H}" class="svgchart" style="width:{width_pct:.1f}%" preserveAspectRatio="xMidYMid meet">
       <polygon points="{area}" fill="{ACCENT}" opacity="0.10"/>
       {refsvg}
       <polyline points="{pts}" fill="none" stroke="{ACCENT}" stroke-width="2.2"/>
@@ -683,13 +695,16 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .hbar-val { font-size:12px; color:#3c403a; white-space:nowrap; }
 .hbar-pct { color:#8a918a; margin-left:3px; }
 @media (max-width:520px){ .hbar-row{ grid-template-columns:70px 1fr 92px; } }
+/* 예산·수입 블록 — 불필요하게 길지 않게 좁혀서 가운데 정렬 */
+.br-block { max-width:62%; margin:0 auto; }
+@media (max-width:560px){ .br-block{ max-width:100%; } }
 .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 14px;
   margin-top:12px; font-size:12px; color:#3c403a; }
 .legend .lg { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
 .legend i { width:10px; height:10px; border-radius:2px; display:inline-block; }
 
-/* SVG */
-.svgchart { width:100%; height:auto; display:block; }
+/* SVG — 폭은 인라인 style(주차 수 비례)로 지정, 좁으면 가운데 정렬 */
+.svgchart { width:100%; height:auto; display:block; margin:0 auto; }
 
 /* 인쇄용 툴바 */
 .toolbar { display:flex; justify-content:flex-end; margin-bottom:14px; }
