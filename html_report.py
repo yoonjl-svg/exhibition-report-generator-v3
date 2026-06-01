@@ -188,8 +188,8 @@ def _subhead(text):
 
 
 def _thumb():
-    """표 안 작은 섬네일 placeholder (인쇄물·굿즈 등). 캡션 'image'."""
-    return ('<div class="imgph imgph-thumb" style="aspect-ratio:4 / 3">'
+    """표 안 섬네일 placeholder (인쇄물·굿즈 등). 세로형 3:4, 캡션 'image'."""
+    return ('<div class="imgph imgph-thumb" style="aspect-ratio:3 / 4">'
             '<span class="imgph-label">image</span></div>')
 
 
@@ -495,7 +495,8 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .tbl { width:100%; border-collapse:collapse; font-size:13px; margin:6px 0; }
 .tbl th { background:#f1f4ee; color:#4a5450; font-weight:600; text-align:left;
   padding:7px 10px; border-bottom:1px solid #e3e7df; }
-.tbl td { padding:7px 10px; border-bottom:1px solid #eef1ec; color:#3c403a; }
+.tbl td { padding:7px 10px; border-bottom:1px solid #eef1ec; color:#3c403a;
+  vertical-align:middle; }
 .ins { margin:8px 0 0; padding-left:20px; }
 .ins li { font-size:13.5px; line-height:1.65; color:#3c403a; margin:4px 0; }
 
@@ -538,10 +539,9 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .imgph-plangrid { display:flex; flex-wrap:wrap; justify-content:center;
   gap:12px; margin:6px 0 2px; }
 .imgph-plan { width:210px; max-width:48%; }
-/* 표 안 작은 섬네일 (인쇄물·굿즈) */
-.imgph-thumb { width:78px; }
-.imgph-thumb .imgph-label { font-size:9px; }
-.tbl td .imgph-thumb { margin:1px 0; }
+/* 표 안 섬네일 (인쇄물·굿즈) — 세로형 3:4, 1.5배 확대, 셀 안 가운데 정렬 */
+.imgph-thumb { width:117px; margin:0 auto; }
+.imgph-thumb .imgph-label { font-size:10px; }
 /* 전시 공간 블록 (공간별 도면+전경) */
 .space-block { margin:6px 0 16px; }
 .space-name { font-size:13px; font-weight:600; color:#3c403a; margin:12px 0 6px; }

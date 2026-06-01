@@ -48,11 +48,11 @@ def fmt_money(v):
         remainder = v % 100_000_000
         if remainder >= 10_000_000:
             man = remainder // 10_000
-            return f"약 {eok}억 {man:,}만 원({v:,}원)"
-        return f"약 {eok}억 원({v:,}원)"
+            return f"약 {eok}억 {man:,}만 원"
+        return f"약 {eok}억 원"
     elif v >= 10_000_000:
         man = v // 10_000
-        return f"약 {man:,}만 원({v:,}원)"
+        return f"약 {man:,}만 원"
     return f"{v:,}원"
 
 
