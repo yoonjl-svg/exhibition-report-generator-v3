@@ -275,14 +275,16 @@ def _scatter(data):
     cur = (data or {}).get("current")
     if len(pts) < 4:
         return ""
-    W, H = 500, 290
+    W, H = 500, 260
     padL, padR, padT, padB = 18, 18, 30, 30
-    LBLF = 13.5   # viewBox 폰트(주차별 차트 라벨과 같은 렌더 크기 ≈15px)
+    LBLF = 16   # viewBox 폰트(주차별 차트 라벨과 같은 렌더 크기 ≈15px)
     iw, ih = W - padL - padR, H - padT - padB
     vis = [p[1] for p in pts] + ([cur[1]] if cur else [])   # 관객 → x
     bud = [p[0] for p in pts] + ([cur[0]] if cur else [])   # 예산 → y
     xmax = _nice_ceil(max(vis), 10_000)        # 관객: 만 단위 nice-ceil
     ymax = _nice_ceil(max(bud), 100_000_000)   # 예산: 억 단위 nice-ceil
+    avv = sum(p[1] for p in pts) / len(pts)    # 평균 관객 → x
+    avb = sum(p[0] for p in pts) / len(pts)    # 평균 예산 → y
 
     def X(v):
         return padL + iw * (v / xmax)
@@ -290,6 +292,14 @@ def _scatter(data):
     def Y(b):
         return padT + ih * (1 - b / ymax)
 
+    # 효율 영역(고관객·저예산 = 우하단) 옅은 틴트 + 평균 십자선(가독성↑)
+    tint = (f'<rect x="{X(avv):.1f}" y="{Y(avb):.1f}" '
+            f'width="{(W-padR)-X(avv):.1f}" height="{(H-padB)-Y(avb):.1f}" '
+            f'fill="{ACCENT}" opacity="0.05"/>')
+    cross = (f'<line x1="{X(avv):.1f}" y1="{padT}" x2="{X(avv):.1f}" y2="{H-padB}" '
+             f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>'
+             f'<line x1="{padL}" y1="{Y(avb):.1f}" x2="{W-padR}" y2="{Y(avb):.1f}" '
+             f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>')
     axis = (f'<line x1="{padL}" y1="{padT}" x2="{padL}" y2="{H-padB}" stroke="{LINE}"/>'
             f'<line x1="{padL}" y1="{H-padB}" x2="{W-padR}" y2="{H-padB}" stroke="{LINE}"/>')
     R = 5
@@ -312,7 +322,7 @@ def _scatter(data):
             f'fill="{MUTED}">{_nice_label(ymax, 100_000_000, "억 원")}</text>')
     return (f'<div class="scatter-wrap"><div class="fig-title sm">예산·관객 분포 (역대 전시)</div>'
             f'<svg viewBox="0 0 {W} {H}" class="scatterchart" preserveAspectRatio="xMidYMid meet">'
-            f'{axis}{dots}{curdot}{xlab}{ylab}</svg></div>')
+            f'{tint}{cross}{axis}{dots}{curdot}{xlab}{ylab}</svg></div>')
 
 
 def _section(title, body, num=None):
@@ -810,7 +820,7 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 @media (max-width:520px){ .hbar-row{ grid-template-columns:70px 1fr 92px; } }
 /* 예산·수입 블록 — 불필요하게 길지 않게 좁혀서 가운데 정렬 */
 /* 예산·수입 막대 + 산점도 한 줄 배치 */
-.fin-row { display:grid; grid-template-columns:1fr 1.2fr; gap:24px;
+.fin-row { display:grid; grid-template-columns:1.2fr 1fr; gap:24px;
   align-items:center; margin:10px 0 2px; }
 .fin-cell { min-width:0; }
 .fin-cell .scatter-wrap { max-width:100%; margin:2px 0; }
