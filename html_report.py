@@ -16,7 +16,7 @@ import html as _html
 # 미술관 톤 팔레트
 ACCENT = "#255c4a"      # 브랜드 녹색(유지)
 ACCENT2 = "#a05c44"     # 기준 아래(롤리팝) — 약간 채도 낮춘 테라코타
-ACCENT3 = "#5d7593"     # 보조 기준선 — 약간 채도 낮춘 블루
+ACCENT3 = "#5e8ec9"     # 포인트색 — 블루그레이 명도·채도 상향(강조용으로 눈에 띄게)
 INK = "#20231f"
 MUTED = "#7a827a"
 LINE = "#d9ddd4"
@@ -242,6 +242,67 @@ def _svg_weekly(weekly, ref_lines):
     </svg>"""
 
 
+def _scatter(data):
+    """예산 대비 관객 산점도 — 역대 전 전시(회색 점) + 본 전시(포인트색 강조).
+    절제: 평균 십자선 + 효율영역 옅은 틴트만. 작게(폭 제한) 렌더."""
+    pts = (data or {}).get("points") or []
+    cur = (data or {}).get("current")
+    if len(pts) < 4:
+        return ""
+    W, H = 500, 360
+    padL, padR, padT, padB = 54, 18, 28, 44
+    iw, ih = W - padL - padR, H - padT - padB
+    xs = [p[0] for p in pts] + ([cur[0]] if cur else [])
+    ys = [p[1] for p in pts] + ([cur[1]] if cur else [])
+    xmax = max(xs) * 1.12
+    ymax = max(ys) * 1.12
+    avb = sum(p[0] for p in pts) / len(pts)
+    avv = sum(p[1] for p in pts) / len(pts)
+
+    def X(x):
+        return padL + iw * (x / xmax)
+
+    def Y(y):
+        return padT + ih * (1 - y / ymax)
+
+    tint = (f'<rect x="{padL:.1f}" y="{Y(ymax):.1f}" width="{X(avb)-padL:.1f}" '
+            f'height="{Y(avv)-Y(ymax):.1f}" fill="{ACCENT}" opacity="0.045"/>')
+    axis = (f'<line x1="{padL}" y1="{padT}" x2="{padL}" y2="{padT+ih}" stroke="{LINE}"/>'
+            f'<line x1="{padL}" y1="{padT+ih}" x2="{padL+iw}" y2="{padT+ih}" stroke="{LINE}"/>')
+    avg = (f'<line x1="{X(avb):.1f}" y1="{padT}" x2="{X(avb):.1f}" y2="{padT+ih}" '
+           f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>'
+           f'<line x1="{padL}" y1="{Y(avv):.1f}" x2="{padL+iw}" y2="{Y(avv):.1f}" '
+           f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>'
+           f'<text x="{X(avb)+4:.1f}" y="{padT+9}" font-size="9.5" fill="{C_BASE}">평균 예산</text>'
+           f'<text x="{padL+4}" y="{Y(avv)-4:.1f}" font-size="9.5" fill="{C_BASE}">평균 관객</text>')
+    ticks = ""
+    for k in range(0, int(xmax // 100_000_000) + 1):
+        ticks += (f'<text x="{X(k*100_000_000):.1f}" y="{padT+ih+16}" text-anchor="middle" '
+                  f'font-size="9.5" fill="{MUTED}">{k}억</text>')
+    for k in range(0, int(ymax // 10_000) + 1, 2):
+        ticks += (f'<text x="{padL-7}" y="{Y(k*10_000)+3:.1f}" text-anchor="end" '
+                  f'font-size="9.5" fill="{MUTED}">{k}만</text>')
+    dots = "".join(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="3.5" fill="{C_ETC}"/>'
+                   for x, y in pts)
+    curdot = ""
+    if cur:
+        cx, cy = X(cur[0]), Y(cur[1])
+        if cx > W * 0.6:
+            anchor, lx = "end", cx - 9
+        else:
+            anchor, lx = "start", cx + 9
+        curdot = (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="5.5" fill="{C_POINT}"/>'
+                  f'<text x="{lx:.1f}" y="{cy-9:.1f}" text-anchor="{anchor}" font-size="10.5" '
+                  f'font-weight="700" fill="{C_POINT}">이번 전시</text>')
+    xlab = (f'<text x="{padL+iw/2:.1f}" y="{H-8}" text-anchor="middle" font-size="10" '
+            f'fill="{INK}">총 사용 예산 (억 원)</text>')
+    ylab = (f'<text transform="translate(13,{padT+ih/2:.1f}) rotate(-90)" text-anchor="middle" '
+            f'font-size="10" fill="{INK}">총 관객 수 (만 명)</text>')
+    return (f'<div class="scatter-wrap"><div class="fig-title sm">예산 대비 관객 (역대 전시)</div>'
+            f'<svg viewBox="0 0 {W} {H}" class="scatterchart" preserveAspectRatio="xMidYMid meet">'
+            f'{tint}{axis}{avg}{ticks}{dots}{curdot}{xlab}{ylab}</svg></div>')
+
+
 def _section(title, body, num=None):
     if not body:
         return ""
@@ -459,6 +520,10 @@ def build_report_html(data):
     if br:
         iv.append(_subhead("예산·수입 구조"))
         iv.append(br)
+    # 예산 대비 관객 산점도 (역대 전 전시 위치 비교) — 작게/절제
+    sc = _scatter(data.get("scatter"))
+    if sc:
+        iv.append(sc)
     # 주차별 추이 SVG
     vc = data.get("visitor_composition", {})
     weekly = vc.get("weekly_visitors", {})
@@ -723,6 +788,9 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 
 /* SVG — 폭은 인라인 style(주차 수 비례)로 지정, 좁으면 가운데 정렬 */
 .svgchart { width:100%; height:auto; display:block; margin:0 auto; }
+/* 산점도 — 작게/가운데(너무 두드러지지 않게) */
+.scatter-wrap { max-width:380px; margin:12px auto 4px; }
+.scatterchart { width:100%; height:auto; display:block; }
 
 /* 인쇄용 툴바 */
 .toolbar { display:flex; justify-content:flex-end; margin-bottom:14px; }
@@ -747,7 +815,7 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   .card { box-shadow:none; border:1px solid #e3e7df;
     -webkit-box-decoration-break:clone; box-decoration-break:clone; }
   .donut-grid, .donut-cell, .lolli, .tbl, .svgchart,
-  .imgph, .space-block, .hbar-wrap { break-inside:avoid; page-break-inside:avoid; }
+  .imgph, .space-block, .hbar-wrap, .scatter-wrap { break-inside:avoid; page-break-inside:avoid; }
   .sec-title { break-after:avoid; page-break-after:avoid; }
   /* 앞 2페이지 고정: 1p(포스터+I 전시 개요)·2p(II Executive Summary)는 각각
      한 페이지를 채우고, 다음 콘텐츠는 새 페이지에서 시작. 3p부터 자연 흐름.

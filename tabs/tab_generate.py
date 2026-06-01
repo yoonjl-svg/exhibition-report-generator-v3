@@ -435,6 +435,30 @@ def _render_preview_and_edit():
             st.rerun()
 
 
+def _build_scatter(load_ref, s):
+    """산점도용: 역대 전 전시(유형 무관)의 (총 사용 예산, 총 관객수) + 본 전시 좌표.
+    레퍼런스 전체를 쓰되 유형 0도 포함('역대 모든 전시'). 점이 4개 미만이면 None."""
+    if not load_ref:
+        return None
+    try:
+        import pandas as _pd
+        ref_df = load_ref()
+        if ref_df is None or len(ref_df) == 0:
+            return None
+        b = _pd.to_numeric(ref_df.get("총 사용 예산"), errors="coerce")
+        v = _pd.to_numeric(ref_df.get("총 관객수"), errors="coerce")
+        pts = [[float(bb), float(vv)] for bb, vv in zip(b, v)
+               if _pd.notna(bb) and _pd.notna(vv) and bb > 0 and vv > 0]
+        if len(pts) < 4:
+            return None
+        cur = None
+        if s.total_budget and s.total_visitors:
+            cur = [float(s.total_budget), float(s.total_visitors)]
+        return {"points": pts, "current": cur}
+    except Exception:
+        return None
+
+
 def _build_comparison(load_ref, exhibition_type, s):
     """비교형 차트용 기준치: 같은 유형 평균 / 같은 유형 마지막 전시.
 
@@ -652,6 +676,8 @@ def _collect_report_data(load_ref=None):
         "analysis_data_flat": collect_analysis_data(),
         # v5.3.63: 비교형 차트(주차 기준선·유료비율)용 — 같은 유형 평균/마지막
         "comparison": _build_comparison(load_ref, s.get("exhibition_type"), s),
+        # 산점도(예산 대비 관객) — 역대 전 전시(유형 무관) + 본 전시
+        "scatter": _build_scatter(load_ref, s),
     }
 
     # 입장권별 관객
