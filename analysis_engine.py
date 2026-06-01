@@ -385,9 +385,9 @@ def _analyze_budget(cur, df, gl="역대"):
             diff = (cost - avg_c) / abs(avg_c) * 100
             rank = compute_rank(compute_stats(df, "관객당_비용"), cost, ascending=True) if compute_stats(df, "관객당_비용") else None
             insights.append(Insight(
-                category="예산", section="results", title="관객당 비용",
+                category="예산", section="results", title="관객당 비용 효율",
                 text=f"관객당 비용은 {format_number(cost, '원')}으로, {gl} 평균({format_number(avg_c, '원')}) 대비 {abs(diff):.1f}% {_direction_verb(diff)} ({_quality_word(diff, False)} 수준).",
-                metric_name="관객당 비용", current_value=cost, reference_avg=avg_c,
+                metric_name="관객당 비용 효율", current_value=cost, reference_avg=avg_c,
                 priority=_compute_salience(diff, rank),
                 rank=rank, total_count=len(valid), unit="원",
             ))
@@ -617,7 +617,7 @@ def _analyze_cross(cur, df, gl="역대"):
                 insights.append(Insight(
                     category="교차분석", section="evaluation", title="예산 대비 관객 효율",
                     text=f"총 사용 예산은 {gl} 평균 대비 {abs(b_diff):.0f}% 낮았으나, 총 관객수는 오히려 {abs(v_diff):.0f}% 높아 관객당 비용 {format_number(cost, '원')}으로 매우 효율적인 운영을 보임 (기존 전시 중 {c_rank}위).",
-                    metric_name="관객당 비용", current_value=cost, reference_avg=c_stats.mean,
+                    metric_name="관객당 비용 효율", current_value=cost, reference_avg=c_stats.mean,
                     rank=c_rank, total_count=c_stats.count,
                     priority=1, unit="원",  # 교차분석 핵심: 항상 우선
                 ))
@@ -625,7 +625,7 @@ def _analyze_cross(cur, df, gl="역대"):
                 insights.append(Insight(
                     category="교차분석", section="evaluation", title="예산 대비 관객 효율",
                     text=f"총 사용 예산은 {gl} 평균 대비 {abs(b_diff):.0f}% 높았으나, 총 관객수는 {abs(v_diff):.0f}% 낮아 관객당 비용이 {format_number(cost, '원')}에 달함. 향후 예산 효율 개선이 필요함.",
-                    metric_name="관객당 비용", current_value=cost, reference_avg=c_stats.mean,
+                    metric_name="관객당 비용 효율", current_value=cost, reference_avg=c_stats.mean,
                     rank=c_rank, total_count=c_stats.count,
                     priority=1, unit="원",  # 교차분석 핵심: 항상 우선
                 ))
@@ -717,7 +717,7 @@ def _generate_eval_drafts(insights: list[Insight], cur: dict) -> list[EvalDraft]
 
         # ── 긍정 평가 도출 ──
         if diff > 15:
-            if "관객" in ins.metric_name:
+            if "관객" in ins.metric_name and "비용" not in ins.metric_name:
                 drafts.append(EvalDraft("positive",
                     f"{ins.metric_name}이 역대 평균 대비 {abs(diff):.0f}% 높은 우수한 성과를 기록함.",
                     ins.metric_name))
@@ -920,7 +920,7 @@ def compute_summary_metrics(
         ("총 관객 수",        "총 관객수",         "총 관객수",         "명"),
         ("일평균 관객",       "일평균 관객수",      None,              "명"),
         ("총 사용 예산",      "총 사용 예산",       "총 사용 예산",      "원"),
-        ("관객당 비용",       None,               "관객당_비용",       "원"),
+        ("관객당 비용 효율",  None,               "관객당_비용",       "원"),
         ("언론 보도 건수",    "언론 보도 건수",     "언론 보도 건수",    "건"),
         ("프로그램 참여 인원", "프로그램 참여 인원", "프로그램 참여 인원", "명"),
     ]
@@ -928,7 +928,7 @@ def compute_summary_metrics(
     results = []
     for label, ad_key, ref_col, unit in metric_defs:
         # 본 전시 값
-        if label == "관객당 비용":
+        if label == "관객당 비용 효율":
             budget = analysis_data.get("총 사용 예산")
             visitors = analysis_data.get("총 관객수")
             current = (budget / visitors) if (budget and visitors and visitors > 0) else None

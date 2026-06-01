@@ -631,7 +631,7 @@ def create_financial_panel(fin, title="재정 지표 구조", output_path=None):
     mini_bar(axes[0][0], "총 사용 예산", b.get("current"), b.get("ref"), won)
     mini_bar(axes[0][1], "총 수입", r.get("current"), r.get("ref"), won)
     progress(axes[1][0], "예산 집행률", e.get("current"), e.get("ref"), pct)
-    progress(axes[1][1], "관객당 비용", c.get("current"), c.get("ref"), won_per)
+    progress(axes[1][1], "관객당 비용 효율", c.get("current"), c.get("ref"), won_per)
 
     fig.suptitle(title, fontproperties=_fp(CH_TITLE, bold=True), color=C_INK,
                  x=0.02, ha='left', y=1.02)
