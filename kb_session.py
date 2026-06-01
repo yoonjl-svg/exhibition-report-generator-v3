@@ -66,12 +66,25 @@ def load_record_to_session(record: dict) -> None:
 
     레코드에 없는 키는 pop하여 default 재초기화 (이전 작업 데이터 잔존 방지).
     """
-    data = record.get("data", {})
+    data = dict(record.get("data", {}))  # 사본(원본 레코드 비파괴)
+
+    # ── 합계 보존(저장 시 자동계산이 마이그레이션 합계를 덮어쓰지 않도록) ──
+    # 총수입은 폼에서 입장수입+기타수입으로 재계산되므로, 저장된 총수입이
+    # 그 합보다 크면 미분류분을 '기타 수입'으로 흡수해 합계를 보존한다.
+    _tr = data.get("total_revenue") or 0
+    _tk = data.get("ticket_revenue") or 0
+    _ot = data.get("other_revenue") or 0
+    if _tr > _tk + _ot:
+        data["other_revenue"] = _ot + (_tr - _tk - _ot)
+    # 총작품수는 매체 합과 어긋날 수 있으므로(일부 마이그레이션 데이터) 저장값을
+    # 잠가 보존. 신규 입력 또는 사용자가 재계산을 누르면 매체 합으로 전환된다.
+    st.session_state["_artwork_total_locked"] = bool(data.get("artwork_total"))
+
     # 레코드에 없는 키는 pop (default로 재초기화될 수 있도록)
     for key in DATA_KEYS:
         if key not in data:
             st.session_state.pop(key, None)
-    st.session_state["_pending_json"] = dict(data)
+    st.session_state["_pending_json"] = data
 
     # 메타 정보 별도 키
     st.session_state["current_exhibition_id"] = record.get("id")
@@ -111,6 +124,9 @@ def new_exhibition_session() -> None:
     st.session_state.pop("report_state", None)
     for _sec in ("composition", "results", "promotion", "evaluation", "audience_response"):
         st.session_state.pop(f"preview_edit_{_sec}", None)
+
+    # 신규: 총작품수는 매체 합으로 자동 계산(잠금 해제)
+    st.session_state["_artwork_total_locked"] = False
 
     # _pending_json 트리거 (빈 오버라이드, 메커니즘 활성화용)
     st.session_state["_pending_json"] = {}

@@ -447,9 +447,15 @@ def render(tab):
         with cols[5]:
             st.number_input("기타", min_value=0, key="artwork_other", format="%d")
 
-        artwork_total = (st.session_state.artwork_painting + st.session_state.artwork_sculpture +
-                         st.session_state.artwork_photo + st.session_state.artwork_installation +
-                         st.session_state.artwork_media + st.session_state.artwork_other)
+        media_sum = (st.session_state.artwork_painting + st.session_state.artwork_sculpture +
+                     st.session_state.artwork_photo + st.session_state.artwork_installation +
+                     st.session_state.artwork_media + st.session_state.artwork_other)
+        # 합계 보존: 저장된 총작품수가 잠겨 있으면(로드된 레코드) 그 값을 유지.
+        # 신규 입력이거나 잠금 해제 시 매체 합으로 자동 계산.
+        if st.session_state.get("_artwork_total_locked") and st.session_state.get("artwork_total"):
+            artwork_total = st.session_state["artwork_total"]
+        else:
+            artwork_total = media_sum
         st.session_state.artwork_total = artwork_total
 
         # 신작 수 (구작 = 총 - 신작 자동) — 신작/구작 도넛용
@@ -464,6 +470,18 @@ def render(tab):
             mc, _ = st.columns([1, 9])
             with mc:
                 st.metric("총 작품 수", f"{artwork_total}점")
+
+        # 저장된 총합이 매체 합과 다르면(로드된 레코드) 보존 사실을 알리고
+        # 매체 합으로 맞출 수 있는 버튼 제공.
+        if st.session_state.get("_artwork_total_locked") and media_sum != artwork_total:
+            rc, _ = st.columns([3, 7])
+            with rc:
+                st.caption(f"저장된 총합 {artwork_total}점 유지 중 "
+                           f"(매체 구성 합 {media_sum}점)")
+                if st.button("매체 구성 합으로 재계산", key="artwork_resync",
+                             use_container_width=True):
+                    st.session_state["_artwork_total_locked"] = False
+                    st.rerun()
 
         _section_divider()
 

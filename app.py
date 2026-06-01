@@ -868,6 +868,40 @@ if app_mode == "workspace":
     # 워크스페이스만 단독 렌더 (전시 목록 + 신규)
     tab_workspace.render(st.container(), load_reference_data)
 else:
+    # 상세 모드: 본문 상단 저장 바 — 편집 화면에서 바로 저장 가능하도록.
+    # (기존엔 사이드바에만 저장 버튼이 있어, 사이드바를 접으면 저장 방법을
+    #  찾지 못하는 문제가 있었음. 편집하는 본문에 저장 액션을 노출.)
+    # 직전 저장 결과 토스트 (rerun 후 표시)
+    _pending_toast = st.session_state.pop("_save_toast", None)
+    if _pending_toast:
+        st.toast(_pending_toast)
+
+    _cur_id = st.session_state.get("current_exhibition_id")
+    _title = (st.session_state.get("exhibition_title") or "").strip()
+    _bar_l, _bar_s, _bar_b = st.columns([6, 2, 2])
+    with _bar_l:
+        _state = "저장됨" if _cur_id else "미저장 · 신규"
+        _name = f"《{_title}》" if _title else "(제목 미입력)"
+        st.markdown(
+            f'<div style="padding-top:6px; color:#646b61; font-size:13px;">'
+            f'작업 중 · <strong style="color:#20231f;">{_name}</strong> · {_state}</div>',
+            unsafe_allow_html=True,
+        )
+    with _bar_s:
+        if st.button("저장", type="primary", use_container_width=True, key="save_main",
+                     help="현재 전시 데이터를 워크스페이스(KB)에 저장합니다."):
+            try:
+                saved = kb_session.save_current_to_kb()
+                st.session_state["_save_toast"] = f"저장되었습니다 · {saved['id']}"
+                st.rerun()
+            except Exception as e:
+                st.error(f"저장 오류: {e}")
+    with _bar_b:
+        if st.button("목록", use_container_width=True, key="back_main",
+                     help="워크스페이스 목록으로 돌아갑니다. 저장하지 않은 변경은 메모리에 유지됩니다."):
+            kb_session.enter_workspace_mode()
+            st.rerun()
+
     # 상세 모드: 3탭 (v5.3.23 — 기본 정보+정량 데이터 통합)
     tab_input_t, tab_c, tab_d = st.tabs([
         "전시 데이터",
