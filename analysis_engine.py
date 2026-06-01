@@ -831,8 +831,10 @@ def generate_all_insights(current_data, ref_df, exhibition_type=None) -> Analysi
     # 평가 초안 생성
     eval_drafts = _generate_eval_drafts(all_insights, current_data)
 
-    # 유사 전시
-    sim_rows, sim_table = _build_similar(current_data, df_full)
+    # 유사 전시 — 비교 대상 유형에 맞춰 같은 유형 그룹 안에서 탐색.
+    # (유형이 바뀌면 아래 차트·표도 그 유형의 전시로 갱신되도록 df_typed 사용.
+    #  유형 전시가 3개 미만이면 filter_by_type가 전체로 폴백.)
+    sim_rows, sim_table = _build_similar(current_data, df_typed)
 
     # 보고서 관례 순서 유지 (관객→예산→프로그램→작품→홍보→인력→교차분석)
     # priority 정렬이 아닌, 분석 함수 호출 순서 그대로 보존
