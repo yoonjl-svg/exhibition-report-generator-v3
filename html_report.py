@@ -244,47 +244,50 @@ def _svg_weekly(weekly, ref_lines):
 
 
 def _scatter(data):
-    """예산 대비 관객 산점도 — 역대 전 전시(회색 점) + 본 전시(네이비 강조).
-    작게/점 크게. 축 라벨·눈금·제목 없이 평균 십자선 + 효율영역 틴트만.
-    제목 자리에는 읽는 법을 알려주는 헬퍼 문구(동일 스타일)를 둔다."""
+    """예산 대비 관객 산점도 — 모든 전시(회색 점) + 본 전시(네이비, 같은 크기·색만 다름).
+    제목 + 평균 십자선 + 효율영역 틴트. 축 끝에만 스케일 앵커(예: 2억 원 / 2만 명)."""
     pts = (data or {}).get("points") or []
     cur = (data or {}).get("current")
     if len(pts) < 4:
         return ""
     W, H = 440, 300
-    pad = 16
-    iw, ih = W - 2 * pad, H - 2 * pad
+    padL, padR, padT, padB = 16, 16, 22, 22
+    iw, ih = W - padL - padR, H - padT - padB
     xs = [p[0] for p in pts] + ([cur[0]] if cur else [])
     ys = [p[1] for p in pts] + ([cur[1]] if cur else [])
-    xmax = max(xs) * 1.1
-    ymax = max(ys) * 1.1
+    xmax = max(xs) * 1.12
+    ymax = max(ys) * 1.12
     avb = sum(p[0] for p in pts) / len(pts)
     avv = sum(p[1] for p in pts) / len(pts)
 
     def X(x):
-        return pad + iw * (x / xmax)
+        return padL + iw * (x / xmax)
 
     def Y(y):
-        return pad + ih * (1 - y / ymax)
+        return padT + ih * (1 - y / ymax)
 
-    tint = (f'<rect x="{pad}" y="{Y(ymax):.1f}" width="{X(avb)-pad:.1f}" '
+    tint = (f'<rect x="{padL}" y="{Y(ymax):.1f}" width="{X(avb)-padL:.1f}" '
             f'height="{Y(avv)-Y(ymax):.1f}" fill="{ACCENT}" opacity="0.05"/>')
-    axis = (f'<line x1="{pad}" y1="{pad}" x2="{pad}" y2="{H-pad}" stroke="{LINE}"/>'
-            f'<line x1="{pad}" y1="{H-pad}" x2="{W-pad}" y2="{H-pad}" stroke="{LINE}"/>')
-    avg = (f'<line x1="{X(avb):.1f}" y1="{pad}" x2="{X(avb):.1f}" y2="{H-pad}" '
+    axis = (f'<line x1="{padL}" y1="{padT}" x2="{padL}" y2="{H-padB}" stroke="{LINE}"/>'
+            f'<line x1="{padL}" y1="{H-padB}" x2="{W-padR}" y2="{H-padB}" stroke="{LINE}"/>')
+    avg = (f'<line x1="{X(avb):.1f}" y1="{padT}" x2="{X(avb):.1f}" y2="{H-padB}" '
            f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>'
-           f'<line x1="{pad}" y1="{Y(avv):.1f}" x2="{W-pad}" y2="{Y(avv):.1f}" '
+           f'<line x1="{padL}" y1="{Y(avv):.1f}" x2="{W-padR}" y2="{Y(avv):.1f}" '
            f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>')
-    dots = "".join(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="7.5" fill="{C_ETC}"/>'
+    # 모든 점 동일 크기. 본 전시는 색(네이비)만 다름.
+    R = 5
+    dots = "".join(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="{R}" fill="{C_ETC}"/>'
                    for x, y in pts)
-    curdot = ""
-    if cur:
-        curdot = (f'<circle cx="{X(cur[0]):.1f}" cy="{Y(cur[1]):.1f}" r="11.5" '
-                  f'fill="{C_POINT}"/>')
-    helper = "가로 예산·세로 관객 — 좌상단일수록 효율적 (네이비 = 이번 전시)"
-    return (f'<div class="scatter-wrap"><div class="fig-title sm">{_esc(helper)}</div>'
+    curdot = (f'<circle cx="{X(cur[0]):.1f}" cy="{Y(cur[1]):.1f}" r="{R}" '
+              f'fill="{C_POINT}"/>') if cur else ""
+    # 축 끝 스케일 앵커(데이터 최댓값 반올림): x=억 원, y=만 명
+    xlab = (f'<text x="{W-padR}" y="{H-7}" text-anchor="end" font-size="10" '
+            f'fill="{MUTED}">{round(xmax/100_000_000)}억 원</text>')
+    ylab = (f'<text x="{padL}" y="{padT-7}" text-anchor="start" font-size="10" '
+            f'fill="{MUTED}">{round(ymax/10_000)}만 명</text>')
+    return (f'<div class="scatter-wrap"><div class="fig-title sm">예산 대비 관객 (모든 전시)</div>'
             f'<svg viewBox="0 0 {W} {H}" class="scatterchart" preserveAspectRatio="xMidYMid meet">'
-            f'{tint}{axis}{avg}{dots}{curdot}</svg></div>')
+            f'{tint}{axis}{avg}{dots}{curdot}{xlab}{ylab}</svg></div>')
 
 
 def _section(title, body, num=None):
@@ -492,11 +495,22 @@ def build_report_html(data):
     # ── IV. 전시 결과 ──
     iv = []
     rev = data.get("revenue", {})
-    # 전시 결과는 '약'이 아닌 정확한 금액(원 단위)으로 표기
+    # 전시 결과는 '약'이 아닌 정확한 금액(원 단위)으로 표기.
+    # analysis_data_flat의 원시 숫자로 렌더 시점에 계산 → 재생성 없이도 정확액 반영.
     _b = data.get("budget", {})
+    _adf = data.get("analysis_data_flat", {})
+
+    def _won(x, fb):
+        try:
+            return f"{int(x):,}원" if x else fb
+        except (TypeError, ValueError):
+            return fb
+
     iv.append(_kv([
-        ("총 사용 예산", _b.get("total_spent_won") or _b.get("total_spent")),
-        ("총 수입", rev.get("total_revenue_won") or rev.get("total_revenue")),
+        ("총 사용 예산", _won(_adf.get("총 사용 예산"),
+                          _b.get("total_spent_won") or _b.get("total_spent"))),
+        ("총 수입", _won(_adf.get("총수입"),
+                      rev.get("total_revenue_won") or rev.get("total_revenue"))),
         ("총 관객수", rev.get("total_visitors")),
         ("일평균 관객", rev.get("daily_average")),
     ]))
@@ -675,12 +689,15 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .kv { display:flex; gap:10px; font-size:13px; padding:3px 0;
   border-bottom:1px dotted #eef1ec; }
 .kv .k { color:#9aa39a; min-width:90px; font-weight:400; }
-.kv .v { color:#20231f; font-weight:400; }
-.tbl { width:100%; border-collapse:collapse; font-size:13px; margin:6px 0; }
+.kv .v { color:#20231f; font-weight:400; min-width:0; overflow-wrap:anywhere; }
+.tbl { width:100%; max-width:100%; border-collapse:collapse; font-size:13px; margin:6px 0; }
 .tbl th { background:#f1f4ee; color:#4a5450; font-weight:600; text-align:left;
   padding:7px 10px; border-bottom:1px solid #e3e7df; }
 .tbl td { padding:7px 10px; border-bottom:1px solid #eef1ec; color:#3c403a;
   vertical-align:middle; }
+/* 긴 URL·제목 등이 줄바꿈 없이 표를 페이지보다 넓게 늘려 인쇄 시 전체가
+   축소(가로 좁아짐)되는 것을 방지 — 모든 셀에서 강제 줄바꿈 허용 */
+.tbl th, .tbl td { overflow-wrap:anywhere; word-break:break-word; }
 /* 고정 레이아웃 표 — 같은 col_widths끼리 열 경계 정렬(예: 후기 '출처' 열) */
 .tbl-fixed { table-layout:fixed; }
 .tbl-fixed th, .tbl-fixed td { overflow-wrap:break-word; word-break:break-word; }
