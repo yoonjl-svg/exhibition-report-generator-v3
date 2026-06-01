@@ -200,26 +200,26 @@ def _img_slots(label, count=3, ratio="16 / 9"):
     return f'<div class="imgph-grid">{boxes}</div>'
 
 
-def _plan_slots(room_names):
-    """전시 도면 — 전시 공간별 세로형(portrait) placeholder 박스, 가운데 정렬.
-    각 박스에 어느 공간의 도면인지(예: '1전시실 도면') 라벨 표시."""
+def _img_grid2(label, count=4, ratio="4 / 3"):
+    """한 줄에 2개씩(2열) 배치되는 placeholder 박스 그리드 (예: 2×2 4개)."""
     boxes = "".join(
-        f'<div class="imgph imgph-plan" style="aspect-ratio:3 / 4">'
-        f'<span class="imgph-label">{_esc(n)} 도면</span></div>'
-        for n in room_names
-    )
-    return f'<div class="imgph-plangrid">{boxes}</div>'
-
-
-def _view_slots(room_names):
-    """전시 전경 — 전시 공간별 placeholder 박스, 한 줄에 2개씩(2열).
-    각 박스에 어느 공간의 전경인지(예: '1전시실 전경') 라벨 표시."""
-    boxes = "".join(
-        f'<div class="imgph" style="aspect-ratio:4 / 3">'
-        f'<span class="imgph-label">{_esc(n)} 전경</span></div>'
-        for n in room_names
+        f'<div class="imgph" style="aspect-ratio:{ratio}">'
+        f'<span class="imgph-label">{_esc(label)}</span></div>'
+        for _ in range(count)
     )
     return f'<div class="imgph-grid2">{boxes}</div>'
+
+
+def _space_block(name):
+    """전시 공간 1개의 도면(세로형 1개)+전경(2×2 4개) placeholder.
+    공간 이름을 머리로 두어 어느 공간인지 표시."""
+    plan = ('<div class="imgph imgph-plan" style="aspect-ratio:3 / 4">'
+            '<span class="imgph-label">도면</span></div>')
+    return (f'<div class="space-block">'
+            f'<div class="space-name">{_esc(name)}</div>'
+            f'<div class="imgph-plangrid">{plan}</div>'
+            f'{_img_grid2("전경", count=4)}'
+            f'</div>')
 
 
 def _insights_html(data, section_key):
@@ -306,29 +306,31 @@ def build_report_html(data):
                           [[r.get("name", ""),
                             (", ".join(r["artists"]) if isinstance(r.get("artists"), list)
                              else r.get("artists", ""))] for r in rooms]))
-    # 3) 전시 도면 — 공간별 세로형 가운데 정렬 (각 도면이 어느 공간인지 라벨)
-    iii.append(_subhead("전시 도면"))
-    iii.append(_plan_slots(room_names))
-    # 4) 전시 전경 — 공간별, 한 줄에 2개씩 (각 전경이 어느 공간인지 라벨)
-    iii.append(_subhead("전시 전경"))
-    iii.append(_view_slots(room_names))
-    # 프로그램
+    # 3) 전시 도면 · 전경 — 공간별로 도면 1개(세로형) + 전경 2×2(4개)
+    iii.append(_subhead("전시 도면 및 전경"))
+    for name in room_names:
+        iii.append(_space_block(name))
+    # 프로그램 — 표 + 설명(구성 분석 서술)을 '전시 연계 프로그램' 밑에 배치
     progs = data.get("related_programs", [])
-    if progs:
+    comp_ins = _insights_html(data, "composition")
+    if progs or comp_ins:
         iii.append(_subhead("전시 연계 프로그램"))
-        iii.append(_table(["구분", "제목", "참여 인원", "비고"],
-                          [[p.get("category", ""), p.get("title", ""),
-                            p.get("participants", ""), p.get("note", "")] for p in progs]))
-        iii.append(_img_slots("프로그램 현장 사진", count=2, ratio="4 / 3"))
-    # 인쇄물
+        if progs:
+            iii.append(_table(["구분", "제목", "참여 인원", "비고"],
+                              [[p.get("category", ""), p.get("title", ""),
+                                p.get("participants", ""), p.get("note", "")] for p in progs]))
+        if comp_ins:
+            iii.append(comp_ins)
+        if progs:
+            iii.append(_img_slots("프로그램 현장 사진", count=2, ratio="4 / 3"))
+    # 인쇄물 — 사진 placeholder 2×2 (4개)
     mats = data.get("printed_materials", [])
     if mats:
         iii.append(_subhead("인쇄물 및 굿즈"))
         iii.append(_table(["종류", "수량", "비고"],
                           [[m.get("type", ""), m.get("quantity", ""), m.get("note", "")]
                            for m in mats]))
-        iii.append(_img_slots("인쇄물·굿즈 사진", count=2, ratio="4 / 3"))
-    iii.append(_insights_html(data, "composition"))
+        iii.append(_img_grid2("인쇄물·굿즈 사진", count=4))
     sec_compose = _section("전시 구성", "".join(iii), num="IV")
 
     # ── IV. 전시 결과 ──
@@ -485,7 +487,7 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .kv { display:flex; gap:10px; font-size:13px; padding:3px 0;
   border-bottom:1px dotted #eef1ec; }
 .kv .k { color:#9aa39a; min-width:90px; font-weight:400; }
-.kv .v { color:#20231f; font-weight:600; }
+.kv .v { color:#20231f; font-weight:400; }
 .tbl { width:100%; border-collapse:collapse; font-size:13px; margin:6px 0; }
 .tbl th { background:#f1f4ee; color:#4a5450; font-weight:600; text-align:left;
   padding:7px 10px; border-bottom:1px solid #e3e7df; }
@@ -531,6 +533,9 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .imgph-plangrid { display:flex; flex-wrap:wrap; justify-content:center;
   gap:12px; margin:6px 0 2px; }
 .imgph-plan { width:200px; max-width:46%; }
+/* 전시 공간 블록 (공간별 도면+전경) */
+.space-block { margin:6px 0 16px; }
+.space-name { font-size:13px; font-weight:600; color:#3c403a; margin:12px 0 6px; }
 /* 앞 2페이지 고정 레이아웃 + 세로형 포스터 자리 */
 .rep-page-1 { display:flex; flex-direction:column; }
 .poster-ph { width:100%; max-width:340px; align-self:center; min-height:440px;

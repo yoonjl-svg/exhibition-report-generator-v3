@@ -576,7 +576,8 @@ def _collect_report_data(load_ref=None):
         "theme_text": s.theme_text,
         "graphic_designer": s.get("graphic_designer", ""),
         "space_designer": s.get("space_designer", ""),
-        "rooms": [],
+        "rooms": [{"name": r.get("name", ""), "artists": r.get("artists", "")}
+                  for r in s.rooms if (r.get("name") or "").strip()],
         "related_programs": [p for p in s.related_programs if p.get("title")],
         "program_photos": [],
         "staff": {},
