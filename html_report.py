@@ -45,12 +45,16 @@ def _lollipop(summary_metrics):
                      m.get("reference_label", "기준")))
     if len(rows) < 2:
         return ""
-    xmax = max(160.0, max(r[3] for r in rows) * 1.08)
-    base_pct = 100 / xmax * 100  # 기준선 위치(%)
+    # 100 기준선을 가운데(50%) 두는 대칭 스케일 → 좌우 균형(왼쪽 과다 여백 제거)
+    maxdev = max(abs(r[3] - 100) for r in rows)
+    dev = max(maxdev * 1.12, 30)
+    xmin, xmax = 100 - dev, 100 + dev
+    span = xmax - xmin
+    base_pct = (100 - xmin) / span * 100  # = 50%
 
     items = []
     for label, cur_fmt, ref_fmt, ratio, ref_label in rows:
-        val_pct = min(ratio, xmax) / xmax * 100
+        val_pct = (min(max(ratio, xmin), xmax) - xmin) / span * 100
         above = ratio >= 100
         color = ACCENT if above else ACCENT2
         seg_left = min(base_pct, val_pct)
@@ -67,9 +71,8 @@ def _lollipop(summary_metrics):
             <div class="lolli-val" style="left:{val_pct:.1f}%;color:{color}">{ratio:.0f}</div>
           </div>
         </div>""")
-    scale = f"""<div class="lolli-scale"><span>0</span>
-        <span style="left:{base_pct:.1f}%">100</span>
-        <span style="right:0">{xmax:.0f}</span></div>"""
+    # 기준선(100) 라벨만 — 기준선 바로 위 (0·최댓값 눈금 제거)
+    scale = f'<div class="lolli-scale"><span style="left:{base_pct:.1f}%">100</span></div>'
     return f"""<div class="subhead">기준 대비 핵심 지표</div>
       <div class="lolli-wrap">{scale}{''.join(items)}</div>"""
 
@@ -496,7 +499,8 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 
 /* 롤리팝 */
 .lolli-wrap { position:relative; padding-top:22px; }
-.lolli-scale { position:relative; height:16px; margin-bottom:8px;
+/* 눈금 행을 트랙(라벨 170px + gap 14px = 184px) 위로 정렬 → '100'이 기준선 바로 위 */
+.lolli-scale { position:relative; height:16px; margin:0 0 8px 184px;
   color:#9aa39a; font-size:11px; }
 .lolli-scale span { position:absolute; transform:translateX(-50%); }
 .lolli { display:grid; grid-template-columns:170px 1fr; align-items:center;
