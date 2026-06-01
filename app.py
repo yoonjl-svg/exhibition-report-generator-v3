@@ -498,10 +498,17 @@ st.markdown("""
 
     /* 버튼 — L4 본문과 동일 크기 */
     .stButton button {
-        min-height: 38px !important;
-        padding: 0.4rem 14px !important;
-        line-height: 1.4 !important;
+        min-height: 32px !important;
+        padding: 0 14px !important;
         font-size: var(--font-l4) !important;
+    }
+
+    /* Streamlit 헤더(60px, 불투명 흰색, z 999990)가 상단 콘텐츠를 덮어
+       첫 행 버튼 위쪽이 잘리던 문제 → 헤더 배경을 투명 처리.
+       헤더는 absolute라 스크롤 시 위로 사라지므로 비침 문제 없음.
+       (본문 padding-top·사이드바 정렬은 그대로 유지) */
+    [data-testid="stHeader"] {
+        background: transparent !important;
     }
 
     /* 사이드바 폭 고정 — 240px (사용자 요청) */
@@ -868,7 +875,7 @@ else:
         _state = "저장됨" if _cur_id else "미저장 · 신규"
         _name = f"《{_title}》" if _title else "(제목 미입력)"
         st.markdown(
-            f'<div style="padding-top:9px; color:#646b61; font-size:13px;">'
+            f'<div style="padding-top:6px; color:#646b61; font-size:13px;">'
             f'작업 중 · <strong style="color:#20231f;">{_name}</strong> · {_state}</div>',
             unsafe_allow_html=True,
         )
