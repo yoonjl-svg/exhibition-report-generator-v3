@@ -243,46 +243,61 @@ def _svg_weekly(weekly, ref_lines):
     </svg>"""
 
 
+def _nice_ceil(value, base_unit):
+    """value 이상인 '깔끔한' 축 최댓값(가수 1·1.5·2·2.5·3·4·5·6·8·10 × 10^k × base_unit)."""
+    if value <= 0:
+        return base_unit
+    r = value / base_unit
+    mag = 1.0
+    while r / mag >= 10:
+        mag *= 10
+    while r / mag < 1:
+        mag /= 10
+    norm = r / mag
+    for m in (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10):
+        if norm <= m + 1e-9:
+            return m * mag * base_unit
+    return 10 * mag * base_unit
+
+
+def _nice_label(nicemax, unit, suffix):
+    val = nicemax / unit
+    s = f"{val:.0f}" if abs(val - round(val)) < 1e-9 else f"{val:g}"
+    return f"{s}{suffix}"
+
+
 def _scatter(data):
-    """예산·관객 분포 산점도 — 모든 전시(회색 점) + 본 전시(네이비, 같은 크기·색만 다름).
-    제목 + 평균 십자선 + 효율영역 틴트. 축 끝 스케일 앵커 + 본 전시 라벨.
-    SVG 텍스트는 주차별 차트 라벨과 같은 렌더 크기가 되도록 viewBox 폰트 19 사용."""
+    """예산·관객 분포 — 모든 전시(회색) + 본 전시(네이비, 같은 크기·색만 다름).
+    x=관객 수(만 명), y=예산(억 원). 가로가 넓어 변별력 큰 관객을 x축에.
+    축 최댓값은 데이터 이상 깔끔한 값으로 라벨과 일치. 사분면/틴트 없는 깔끔한 분포.
+    데이터 점은 [예산, 관객] 순서."""
     pts = (data or {}).get("points") or []
     cur = (data or {}).get("current")
     if len(pts) < 4:
         return ""
-    W, H = 440, 300
-    padL, padR, padT, padB = 18, 18, 28, 28
-    LBLF = 19   # viewBox 폰트(작은 차트라 크게 잡아야 주차 라벨과 같은 렌더 크기)
+    W, H = 500, 290
+    padL, padR, padT, padB = 18, 18, 30, 30
+    LBLF = 13.5   # viewBox 폰트(주차별 차트 라벨과 같은 렌더 크기 ≈15px)
     iw, ih = W - padL - padR, H - padT - padB
-    xs = [p[0] for p in pts] + ([cur[0]] if cur else [])
-    ys = [p[1] for p in pts] + ([cur[1]] if cur else [])
-    xmax = max(xs) * 1.12
-    ymax = max(ys) * 1.12
-    avb = sum(p[0] for p in pts) / len(pts)
-    avv = sum(p[1] for p in pts) / len(pts)
+    vis = [p[1] for p in pts] + ([cur[1]] if cur else [])   # 관객 → x
+    bud = [p[0] for p in pts] + ([cur[0]] if cur else [])   # 예산 → y
+    xmax = _nice_ceil(max(vis), 10_000)        # 관객: 만 단위 nice-ceil
+    ymax = _nice_ceil(max(bud), 100_000_000)   # 예산: 억 단위 nice-ceil
 
-    def X(x):
-        return padL + iw * (x / xmax)
+    def X(v):
+        return padL + iw * (v / xmax)
 
-    def Y(y):
-        return padT + ih * (1 - y / ymax)
+    def Y(b):
+        return padT + ih * (1 - b / ymax)
 
-    tint = (f'<rect x="{padL}" y="{Y(ymax):.1f}" width="{X(avb)-padL:.1f}" '
-            f'height="{Y(avv)-Y(ymax):.1f}" fill="{ACCENT}" opacity="0.05"/>')
     axis = (f'<line x1="{padL}" y1="{padT}" x2="{padL}" y2="{H-padB}" stroke="{LINE}"/>'
             f'<line x1="{padL}" y1="{H-padB}" x2="{W-padR}" y2="{H-padB}" stroke="{LINE}"/>')
-    avg = (f'<line x1="{X(avb):.1f}" y1="{padT}" x2="{X(avb):.1f}" y2="{H-padB}" '
-           f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>'
-           f'<line x1="{padL}" y1="{Y(avv):.1f}" x2="{W-padR}" y2="{Y(avv):.1f}" '
-           f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>')
-    # 모든 점 동일 크기. 본 전시는 색(네이비)만 다르고 '이번 전시' 라벨 부착.
     R = 5
-    dots = "".join(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="{R}" fill="{C_ETC}"/>'
-                   for x, y in pts)
+    dots = "".join(f'<circle cx="{X(v):.1f}" cy="{Y(b):.1f}" r="{R}" fill="{C_ETC}"/>'
+                   for b, v in pts)
     curdot = ""
     if cur:
-        cx, cy = X(cur[0]), Y(cur[1])
+        cx, cy = X(cur[1]), Y(cur[0])
         if cx > W * 0.55:
             anchor, lx = "end", cx - R - 6
         else:
@@ -290,14 +305,14 @@ def _scatter(data):
         curdot = (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{R}" fill="{C_POINT}"/>'
                   f'<text x="{lx:.1f}" y="{cy+LBLF*0.35:.1f}" text-anchor="{anchor}" '
                   f'font-size="{LBLF}" font-weight="700" fill="{C_POINT}">이번 전시</text>')
-    # 축 끝 스케일 앵커(데이터 최댓값 반올림): x=억 원, y=만 명
+    # 축 끝 스케일 앵커: x=관객(만 명) 우측, y=예산(억 원) 상단
     xlab = (f'<text x="{W-padR}" y="{H-9}" text-anchor="end" font-size="{LBLF}" '
-            f'fill="{MUTED}">{round(xmax/100_000_000)}억 원</text>')
-    ylab = (f'<text x="{padL}" y="{padT-10}" text-anchor="start" font-size="{LBLF}" '
-            f'fill="{MUTED}">{round(ymax/10_000)}만 명</text>')
+            f'fill="{MUTED}">{_nice_label(xmax, 10_000, "만 명")}</text>')
+    ylab = (f'<text x="{padL}" y="{padT-11}" text-anchor="start" font-size="{LBLF}" '
+            f'fill="{MUTED}">{_nice_label(ymax, 100_000_000, "억 원")}</text>')
     return (f'<div class="scatter-wrap"><div class="fig-title sm">예산·관객 분포 (역대 전시)</div>'
             f'<svg viewBox="0 0 {W} {H}" class="scatterchart" preserveAspectRatio="xMidYMid meet">'
-            f'{tint}{axis}{avg}{dots}{curdot}{xlab}{ylab}</svg></div>')
+            f'{axis}{dots}{curdot}{xlab}{ylab}</svg></div>')
 
 
 def _section(title, body, num=None):
@@ -795,7 +810,7 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 @media (max-width:520px){ .hbar-row{ grid-template-columns:70px 1fr 92px; } }
 /* 예산·수입 블록 — 불필요하게 길지 않게 좁혀서 가운데 정렬 */
 /* 예산·수입 막대 + 산점도 한 줄 배치 */
-.fin-row { display:grid; grid-template-columns:1.3fr 0.7fr; gap:24px;
+.fin-row { display:grid; grid-template-columns:1fr 1.2fr; gap:24px;
   align-items:center; margin:10px 0 2px; }
 .fin-cell { min-width:0; }
 .fin-cell .scatter-wrap { max-width:100%; margin:2px 0; }
