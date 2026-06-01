@@ -227,16 +227,15 @@ def build_report_html(data):
     artists = ov.get("artists", [])
     artists_str = ", ".join(artists) if isinstance(artists, list) else str(artists)
 
-    B = []
     # ── 헤더 ──
-    B.append(f"""<div class="rep-head">
+    header_html = f"""<div class="rep-head">
       <div class="eyebrow">Ilmin Museum of Art</div>
       <div class="rep-title">《{_esc(title)}》</div>
       <div class="rep-meta">{_esc(period)}</div>
-    </div>""")
+    </div>"""
 
     # ── I. 전시 개요 ──
-    B.append(_section("전시 개요", _kv([
+    sec_overview = _section("전시 개요", _kv([
         ("전시 제목", f"《{title}》"), ("전시 기간", period),
         ("참여 작가", artists_str),
         ("책임기획", ov.get("chief_curator")), ("기획", ov.get("curators")),
@@ -245,10 +244,10 @@ def build_report_html(data):
         ("총 사용 예산", ov.get("total_budget")),
         ("총 수입", ov.get("total_revenue")),
         ("총 관객수", ov.get("visitors")),
-    ]), num="I"))
+    ]), num="I")
 
-    # ── II. 전시 주제와 내용 ──
-    B.append(_section("전시 주제와 내용", _para(data.get("theme_text", "")), num="II"))
+    # ── III. 전시 주제와 내용 ──
+    sec_theme = _section("전시 주제와 내용", _para(data.get("theme_text", "")), num="III")
 
     # ── III. 전시 구성 ──
     iii = []
@@ -306,7 +305,7 @@ def build_report_html(data):
                            for m in mats]))
         iii.append(_img_slots("인쇄물·굿즈 사진", count=2, ratio="4 / 3"))
     iii.append(_insights_html(data, "composition"))
-    B.append(_section("전시 구성", "".join(iii), num="III"))
+    sec_compose = _section("전시 구성", "".join(iii), num="IV")
 
     # ── IV. 전시 결과 ──
     iv = []
@@ -352,7 +351,7 @@ def build_report_html(data):
                 cap += f" 유료 관객 {paid:,}명({paid/(paid+free)*100:.0f}%)."
             iv.append(f'<p class="body">{_esc(cap)}</p>')
     iv.append(_insights_html(data, "results"))
-    B.append(_section("전시 결과", "".join(iv), num="IV"))
+    sec_results = _section("전시 결과", "".join(iv), num="V")
 
     # ── V. 홍보 방식 및 언론 보도 ──
     v = []
@@ -384,8 +383,8 @@ def build_report_html(data):
     v.append(_subhead("홍보물·언론 보도"))
     v.append(_img_slots("홍보물·보도 캡처", count=2, ratio="4 / 3"))
     v.append(_insights_html(data, "promotion"))
-    if "".join(v).strip():
-        B.append(_section("홍보 방식 및 언론 보도", "".join(v), num="V"))
+    sec_promo = (_section("홍보 방식 및 언론 보도", "".join(v), num="VI")
+                 if "".join(v).strip() else "")
 
     # ── VI. Executive Summary ──
     vi = []
@@ -407,9 +406,21 @@ def build_report_html(data):
             vi.append(_subhead(label))
             vi.append('<ul class="ins">' +
                       "".join(f"<li>{_esc(x)}</li>" for x in vals) + "</ul>")
-    B.append(_section("Executive Summary", "".join(vi), num="VI"))
+    sec_exec = _section("Executive Summary", "".join(vi), num="II")
 
-    body = "\n".join(b for b in B if b)
+    # 포스터 placeholder(세로형) — 1페이지 상단
+    poster = ('<div class="imgph poster-ph">'
+              '<span class="imgph-label">전시 포스터 (세로형)</span></div>')
+    # 보고서 순서: I 전시 개요 → II Executive Summary → III 주제 → IV 구성 → V 결과 → VI 홍보
+    # 앞 2페이지 고정: 1p = 포스터 + I 전시 개요, 2p = II Executive Summary,
+    # 3p부터는 페이지네이션 강제 없이 자연 흐름.
+    parts = [
+        header_html,
+        f'<div class="rep-page rep-page-1">{poster}{sec_overview}</div>',
+        f'<div class="rep-page rep-page-2">{sec_exec}</div>',
+        sec_theme, sec_compose, sec_results, sec_promo,
+    ]
+    body = "\n".join(b for b in parts if b)
     return _DOC.replace("{{BODY}}", body)
 
 
@@ -487,6 +498,10 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .imgph { border:1.5px dashed #c2ccc2; border-radius:6px; background:#f5f7f4;
   display:flex; align-items:center; justify-content:center; }
 .imgph-label { font-size:11.5px; color:#9aa39a; letter-spacing:0.3px; }
+/* 앞 2페이지 고정 레이아웃 + 세로형 포스터 자리 */
+.rep-page-1 { display:flex; flex-direction:column; }
+.poster-ph { width:100%; max-width:340px; align-self:center; min-height:440px;
+  flex:1 1 auto; margin-bottom:6px; }
 .donut-cell { text-align:center; }
 .donut { position:relative; width:170px; height:170px; border-radius:50%;
   margin:0 auto; }
@@ -521,6 +536,11 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   .donut-grid, .donut-cell, .lolli, .tbl, .svgchart { break-inside:avoid;
     page-break-inside:avoid; }
   .sec-title { break-after:avoid; page-break-after:avoid; }
+  /* 앞 2페이지 고정: 1p(포스터+I 전시 개요)·2p(II Executive Summary)는 각각
+     한 페이지를 채우고, 다음 콘텐츠는 새 페이지에서 시작. 3p부터 자연 흐름.
+     포스터(flex-grow)가 1p의 남는 세로 공간을 채워 큰 여백을 방지. */
+  .rep-page { break-after:page; page-break-after:always; }
+  .rep-page-1, .rep-page-2 { min-height:250mm; }
 }
 </style></head>
 <body><div class="report">
