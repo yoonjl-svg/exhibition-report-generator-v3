@@ -498,8 +498,9 @@ st.markdown("""
 
     /* 버튼 — L4 본문과 동일 크기 */
     .stButton button {
-        min-height: 32px !important;
-        padding: 0 14px !important;
+        min-height: 38px !important;
+        padding: 0.4rem 14px !important;
+        line-height: 1.4 !important;
         font-size: var(--font-l4) !important;
     }
 
@@ -805,7 +806,6 @@ with st.sidebar:
     )
 
     import kb_store
-    app_mode = st.session_state.get("app_mode", "workspace")
 
     # ── 저장소 상태 (한 줄) — 데이터가 어디에 저장되는지·연결 여부 ──
     try:
@@ -814,7 +814,7 @@ with st.sidebar:
     except Exception:
         _recs, _ok = [], False
     if not _ok:
-        _stat, _col = "연결 실패 — Secrets 확인", "#b4512a"
+        _stat, _col = "연결 실패", "#b4512a"
     elif kb_store.get_mode() == "github":
         _stat, _col = f"GitHub · {len(_recs)}개", "#255c4a"
     else:
@@ -825,25 +825,13 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # ── 빠른 이동 — 최근 작업 전시로 바로 전환 (편집 중에도) ──
-    if _recs:
-        st.divider()
-        st.markdown('<div style="font-size:12px; font-weight:700; color:#255c4a; '
-                    'margin:2px 0 4px 0;">빠른 이동</div>', unsafe_allow_html=True)
-        _cur = st.session_state.get("current_exhibition_id")
-        _recent = sorted(_recs, key=lambda r: r.get("modified_at") or "", reverse=True)[:5]
-        for _r in _recent:
-            _t = (_r.get("title") or _r.get("data", {}).get("exhibition_title") or "(제목없음)")
-            _t = _t if len(_t) <= 18 else _t[:18] + "…"
-            _is_cur = (_r.get("id") == _cur)
-            if st.button(("● " if _is_cur else "") + _t, key=f"nav_{_r['id']}",
-                         use_container_width=True, disabled=_is_cur):
-                kb_session.enter_detail_mode(record=_r)
-                st.rerun()
-        if app_mode == "detail":
-            if st.button("전체 목록", key="nav_all", use_container_width=True):
-                kb_session.enter_workspace_mode()
-                st.rerun()
+    # ── 알림 영역 — 오류·중요 알림 표시 ──
+    # 저장소 연결 실패는 즉시 경고. 그 외 알림은 st.session_state["_alerts"]에
+    # (level, message) 튜플로 push하면 여기에 표시된다(예: 저장 실패 등).
+    if not _ok:
+        st.warning("저장소에 연결할 수 없습니다. Secrets의 KB_GITHUB_PAT를 확인하세요.")
+    for _lvl, _msg in st.session_state.get("_alerts", []):
+        {"error": st.error, "warning": st.warning}.get(_lvl, st.info)(_msg)
 
     st.divider()
     st.caption("© 일민미술관")
@@ -880,7 +868,7 @@ else:
         _state = "저장됨" if _cur_id else "미저장 · 신규"
         _name = f"《{_title}》" if _title else "(제목 미입력)"
         st.markdown(
-            f'<div style="padding-top:6px; color:#646b61; font-size:13px;">'
+            f'<div style="padding-top:9px; color:#646b61; font-size:13px;">'
             f'작업 중 · <strong style="color:#20231f;">{_name}</strong> · {_state}</div>',
             unsafe_allow_html=True,
         )
