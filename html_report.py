@@ -127,15 +127,16 @@ def _hbar(title, data_dict, unit="점", muted_keys=()):
             f'{rows}</div>')
 
 
-def _budget_revenue(budget, revenue):
-    """예산·수입 비율 — 2개 가로 막대(예산/수입) + 회수율·순비용 캡션.
-    한쪽이라도 억 단위면 두 값 모두 억(소수 2자리)으로 통일 표기(2.10억 / 0.98억).
+def _budget_revenue(planned, budget, revenue):
+    """예산·수입 비율 — 예산 계획안 / 총 사용 예산 / 총 수입 가로 막대 + 회수율·순비용 캡션.
+    한쪽이라도 억 단위면 모든 값 억(소수 2자리)으로 통일 표기(2.10억 / 0.98억).
     반환: (차트 HTML, 캡션 HTML) — 캡션은 두 차트(행) 아래 전체폭에 배치하기 위해 분리."""
     if not budget or budget <= 0:
         return "", ""
     rev = revenue or 0
-    vmax = max(budget, rev) or 1
-    use_eok = vmax >= 100_000_000  # 둘 중 하나라도 억 이상 → 둘 다 억으로 통일
+    pln = planned or 0
+    vmax = max(pln, budget, rev) or 1
+    use_eok = vmax >= 100_000_000  # 하나라도 억 이상 → 모두 억으로 통일
 
     def fmt(v):
         v = int(v or 0)
@@ -148,8 +149,11 @@ def _budget_revenue(budget, revenue):
                 f'style="width:{(val or 0) / vmax * 100:.1f}%;background:{color}"></div></div>'
                 f'<div class="hbar-val">{fmt(val)}</div></div>')
 
-    # 총 예산=중립 회색(규모, 롤리팝과 동일), 총 수입=블루그레이 포인트
-    bars = bar("총 사용 예산", budget, C_BASE) + bar("총 수입", rev, C_POINT)
+    # 계획안=옅은 회색(참고치), 총 예산=중립 회색(규모), 총 수입=블루그레이 포인트
+    bars = ""
+    if pln > 0:
+        bars += bar("예산 계획안", pln, C_ETC)
+    bars += bar("총 사용 예산", budget, C_BASE) + bar("총 수입", rev, C_POINT)
     cap = ""
     if revenue is not None:
         cap = (f'<p class="body" style="margin-top:6px">예산 대비 수입(회수율) '
@@ -542,17 +546,27 @@ def build_report_html(data):
         except (TypeError, ValueError):
             return fb
 
+    # 예산 집행률(사용/계획) · 일평균 수입(수입/일수) — 좌·우 열 중간에 삽입
+    _plan = _adf.get("예산 계획액")
+    _spent = _adf.get("총 사용 예산")
+    _exec = f"{_spent / _plan * 100:.1f}%" if (_plan and _spent) else "—"
+    _rv = _adf.get("총수입")
+    _days = _adf.get("전시 일수")
+    _drev = f"{int(round(_rv / _days)):,}원" if (_rv and _days) else "—"
     iv.append(_kv([
         ("총 사용 예산", _won(_adf.get("총 사용 예산"),
                           _b.get("total_spent_won") or _b.get("total_spent"))),
         ("총 수입", _won(_adf.get("총수입"),
                       rev.get("total_revenue_won") or rev.get("total_revenue"))),
+        ("예산 집행률", _exec),
+        ("일평균 수입", _drev),
         ("총 관객수", rev.get("total_visitors")),
         ("일평균 관객", rev.get("daily_average")),
     ]))
     # 예산·수입 비율 + 산점도 (재정 구조 시각화)
     adf = data.get("analysis_data_flat", {})
-    br, br_cap = _budget_revenue(adf.get("총 사용 예산"), adf.get("총수입"))
+    br, br_cap = _budget_revenue(adf.get("예산 계획액"),
+                                 adf.get("총 사용 예산"), adf.get("총수입"))
     sc = _scatter(data.get("scatter"))   # 산점도(역대 전 전시 위치)
     # 예산·수입 막대 + 산점도를 한 줄에. 캡션은 행 아래 전체폭에. 한쪽만 있으면 단독.
     if br and sc:
