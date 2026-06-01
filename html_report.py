@@ -71,7 +71,6 @@ def _lollipop(summary_metrics):
         <span style="left:{base_pct:.1f}%">100</span>
         <span style="right:0">{xmax:.0f}</span></div>"""
     return f"""<div class="subhead">기준 대비 핵심 지표</div>
-      <div class="fig-sub">비교 기준 평균을 100으로 환산. 점이 본 전시 위치 · 기준 위=녹색, 아래=테라코타</div>
       <div class="lolli-wrap">{scale}{''.join(items)}</div>"""
 
 
@@ -186,39 +185,26 @@ def _subhead(text):
     return f'<div class="subhead">{_esc(text)}</div>'
 
 
-def _img_slots(label, count=3, ratio="16 / 9"):
-    """사진이 들어갈 자리를 미리 표시하는 placeholder 박스 그리드.
-
-    실제 보고서엔 다량의 사진이 들어가므로, 거의 확실히 사진이 배치될 자리에
-    동일한 비율의 빈 박스를 잡아 레이아웃을 미리 가늠하게 한다.
-    """
+def _img_grid2(count=4, ratio="4 / 3"):
+    """한 줄에 2개씩(2열) 배치되는 placeholder 박스 그리드.
+    콘텐츠 이미지는 가로형 4:3(=세로:가로 3:4). 캡션은 모두 'image'."""
     boxes = "".join(
         f'<div class="imgph" style="aspect-ratio:{ratio}">'
-        f'<span class="imgph-label">{_esc(label)}</span></div>'
-        for _ in range(count)
-    )
-    return f'<div class="imgph-grid">{boxes}</div>'
-
-
-def _img_grid2(label, count=4, ratio="3 / 4"):
-    """한 줄에 2개씩(2열) 배치되는 placeholder 박스 그리드. 콘텐츠 이미지 3:4."""
-    boxes = "".join(
-        f'<div class="imgph" style="aspect-ratio:{ratio}">'
-        f'<span class="imgph-label">{_esc(label)}</span></div>'
+        f'<span class="imgph-label">image</span></div>'
         for _ in range(count)
     )
     return f'<div class="imgph-grid2">{boxes}</div>'
 
 
 def _space_block(name):
-    """전시 공간 1개의 도면(16:9 1개, 가운데)+전경(2×2 4개, 3:4) placeholder.
-    공간 이름을 머리로 두어 어느 공간인지 표시."""
-    plan = ('<div class="imgph imgph-plan" style="aspect-ratio:16 / 9">'
-            '<span class="imgph-label">도면</span></div>')
+    """전시 공간 1개의 도면(세로형 9:16 1개, 가운데)+전경(2×2 4개, 가로형) placeholder.
+    공간 이름을 머리로 두어 어느 공간인지 표시. 캡션은 모두 'image'."""
+    plan = ('<div class="imgph imgph-plan" style="aspect-ratio:9 / 16">'
+            '<span class="imgph-label">image</span></div>')
     return (f'<div class="space-block">'
             f'<div class="space-name">{_esc(name)}</div>'
             f'<div class="imgph-plangrid">{plan}</div>'
-            f'{_img_grid2("전경", count=4)}'
+            f'{_img_grid2(count=4)}'
             f'</div>')
 
 
@@ -322,7 +308,7 @@ def build_report_html(data):
         if comp_ins:
             iii.append(comp_ins)
         if progs:
-            iii.append(_img_grid2("프로그램 현장 사진", count=2))
+            iii.append(_img_grid2(count=2))
     # 인쇄물 — 사진 placeholder 2×2 (4개)
     mats = data.get("printed_materials", [])
     if mats:
@@ -330,7 +316,7 @@ def build_report_html(data):
         iii.append(_table(["종류", "수량", "비고"],
                           [[m.get("type", ""), m.get("quantity", ""), m.get("note", "")]
                            for m in mats]))
-        iii.append(_img_grid2("인쇄물·굿즈 사진", count=4))
+        iii.append(_img_grid2(count=4))
     sec_compose = _section("전시 구성", "".join(iii), num="IV")
 
     # ── IV. 전시 결과 ──
@@ -407,7 +393,7 @@ def build_report_html(data):
         v.append(_para(data.get("membership")))
     # 홍보물·언론 보도 캡처 (사진이 거의 확실히 들어가는 자리 — placeholder)
     v.append(_subhead("홍보물·언론 보도"))
-    v.append(_img_grid2("홍보물·보도 캡처", count=2))
+    v.append(_img_grid2(count=2))
     v.append(_insights_html(data, "promotion"))
     sec_promo = (_section("홍보 방식 및 언론 보도", "".join(v), num="VI")
                  if "".join(v).strip() else "")
@@ -436,7 +422,7 @@ def build_report_html(data):
 
     # 포스터 placeholder(세로형) — 1페이지 상단
     poster = ('<div class="imgph poster-ph">'
-              '<span class="imgph-label">전시 포스터 (세로형)</span></div>')
+              '<span class="imgph-label">image</span></div>')
     # 보고서 순서: I 전시 개요 → II Executive Summary → III 주제 → IV 구성 → V 결과 → VI 홍보
     # 앞 2페이지 고정: 1p = 포스터 + I 전시 개요, 2p = II Executive Summary,
     # 3p부터는 페이지네이션 강제 없이 자연 흐름.
@@ -530,10 +516,10 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .imgph-grid2 { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;
   margin:6px auto 2px; max-width:90%; }
 @media (max-width:520px){ .imgph-grid2{ grid-template-columns:1fr; } }
-/* 전시 도면 — 16:9 가로형 박스, 가운데 정렬 */
+/* 전시 도면 — 세로형(9:16) 박스, 가운데 정렬 */
 .imgph-plangrid { display:flex; flex-wrap:wrap; justify-content:center;
   gap:12px; margin:6px 0 2px; }
-.imgph-plan { width:90%; max-width:560px; }
+.imgph-plan { width:210px; max-width:48%; }
 /* 전시 공간 블록 (공간별 도면+전경) */
 .space-block { margin:6px 0 16px; }
 .space-name { font-size:13px; font-weight:600; color:#3c403a; margin:12px 0 6px; }

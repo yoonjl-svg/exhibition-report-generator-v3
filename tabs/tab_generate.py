@@ -490,7 +490,8 @@ def _build_comparison(load_ref, exhibition_type, s):
         if avg_daily:
             out["weekly_ref"].append((avg_daily * 7, f"{type_label} 평균", None))
         if last_daily and last_title:
-            short = last_title if len(last_title) <= 12 else last_title[:11] + "…"
+            # 전시명 표기 가이드라인: 부제 제거(주 제목만)·길이 제한 없음·《》로 감쌈
+            short = ae._main_title(last_title)
             out["weekly_ref"].append((last_daily * 7, f"직전 《{short}》", None))
         return out
     except Exception:
@@ -509,7 +510,7 @@ def _collect_report_data(load_ref=None):
     days = 0
     if s.period_start and s.period_end:
         days = (s.period_end - s.period_start).days + 1
-        period = f"{s.period_start.strftime('%Y.%m.%d')} - {s.period_end.strftime('%Y.%m.%d')} ({days}일간)"
+        period = f"{s.period_start.strftime('%Y.%m.%d')} - {s.period_end.strftime('%Y.%m.%d')} (총 {days}일)"
 
     artists = [a.strip() for a in s.artists.split(",") if a.strip()]
 
