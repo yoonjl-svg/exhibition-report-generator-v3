@@ -186,6 +186,20 @@ def _subhead(text):
     return f'<div class="subhead">{_esc(text)}</div>'
 
 
+def _img_slots(label, count=3, ratio="16 / 9"):
+    """사진이 들어갈 자리를 미리 표시하는 placeholder 박스 그리드.
+
+    실제 보고서엔 다량의 사진이 들어가므로, 거의 확실히 사진이 배치될 자리에
+    동일한 비율의 빈 박스를 잡아 레이아웃을 미리 가늠하게 한다.
+    """
+    boxes = "".join(
+        f'<div class="imgph" style="aspect-ratio:{ratio}">'
+        f'<span class="imgph-label">{_esc(label)}</span></div>'
+        for _ in range(count)
+    )
+    return f'<div class="imgph-grid">{boxes}</div>'
+
+
 def _insights_html(data, section_key):
     """해당 섹션의 분석 서술 — LLM 산문 우선, 없으면 룰 기반 불릿(Word와 동일 규칙)."""
     llm = (data.get("llm_sections", {}) or {}).get(section_key, "")
@@ -245,6 +259,11 @@ def build_report_html(data):
                           [[r.get("name", ""),
                             (", ".join(r["artists"]) if isinstance(r.get("artists"), list)
                              else r.get("artists", ""))] for r in rooms]))
+    # 전시 도면 + 전시 전경 (사진이 거의 확실히 들어가는 자리 — placeholder)
+    iii.append(_subhead("전시 도면"))
+    iii.append(_img_slots("전시 도면", count=1, ratio="16 / 6"))
+    iii.append(_subhead("전시 전경"))
+    iii.append(_img_slots("전시 전경 사진", count=3, ratio="16 / 9"))
     # 출품 작품 구성 (도넛 2-up)
     art = data.get("artworks", {})
     media = {"회화": art.get("painting", 0), "조각": art.get("sculpture", 0),
@@ -267,6 +286,9 @@ def build_report_html(data):
             if nw or od:
                 cap += f" 신작 {nw}점, 구작 {od}점."
             iii.append(f'<p class="body">{_esc(cap)}</p>')
+    # 주요 출품작 사진 (사진이 거의 확실히 들어가는 자리 — placeholder)
+    iii.append(_subhead("주요 출품작"))
+    iii.append(_img_slots("작품 사진", count=3, ratio="4 / 3"))
     # 프로그램
     progs = data.get("related_programs", [])
     if progs:
@@ -274,6 +296,7 @@ def build_report_html(data):
         iii.append(_table(["구분", "제목", "참여 인원", "비고"],
                           [[p.get("category", ""), p.get("title", ""),
                             p.get("participants", ""), p.get("note", "")] for p in progs]))
+        iii.append(_img_slots("프로그램 현장 사진", count=2, ratio="4 / 3"))
     # 인쇄물
     mats = data.get("printed_materials", [])
     if mats:
@@ -281,6 +304,7 @@ def build_report_html(data):
         iii.append(_table(["종류", "수량", "비고"],
                           [[m.get("type", ""), m.get("quantity", ""), m.get("note", "")]
                            for m in mats]))
+        iii.append(_img_slots("인쇄물·굿즈 사진", count=2, ratio="4 / 3"))
     iii.append(_insights_html(data, "composition"))
     B.append(_section("전시 구성", "".join(iii), num="III"))
 
@@ -356,6 +380,9 @@ def build_report_html(data):
     if data.get("membership"):
         v.append(_subhead("멤버십 커뮤니케이션"))
         v.append(_para(data.get("membership")))
+    # 홍보물·언론 보도 캡처 (사진이 거의 확실히 들어가는 자리 — placeholder)
+    v.append(_subhead("홍보물·언론 보도"))
+    v.append(_img_slots("홍보물·보도 캡처", count=2, ratio="4 / 3"))
     v.append(_insights_html(data, "promotion"))
     if "".join(v).strip():
         B.append(_section("홍보 방식 및 언론 보도", "".join(v), num="V"))
@@ -454,6 +481,12 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 /* 도넛 */
 .donut-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
 @media (max-width:560px){ .donut-grid{ grid-template-columns:1fr; } }
+/* 사진 placeholder 박스 — 실제 보고서에서 사진이 들어갈 자리 */
+.imgph-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+  gap:10px; margin:6px 0 2px; }
+.imgph { border:1.5px dashed #c2ccc2; border-radius:6px; background:#f5f7f4;
+  display:flex; align-items:center; justify-content:center; }
+.imgph-label { font-size:11.5px; color:#9aa39a; letter-spacing:0.3px; }
 .donut-cell { text-align:center; }
 .donut { position:relative; width:170px; height:170px; border-radius:50%;
   margin:0 auto; }
