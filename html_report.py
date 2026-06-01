@@ -16,7 +16,7 @@ import html as _html
 # 미술관 톤 팔레트
 ACCENT = "#255c4a"      # 브랜드 녹색(유지)
 ACCENT2 = "#a05c44"     # 기준 아래(롤리팝) — 약간 채도 낮춘 테라코타
-ACCENT3 = "#5e8ec9"     # 포인트색 — 블루그레이 명도·채도 상향(강조용으로 눈에 띄게)
+ACCENT3 = "#2d4a85"     # 포인트색 — 짙은 네이비(어둡고 선명하게, 강조용)
 INK = "#20231f"
 MUTED = "#7a827a"
 LINE = "#d9ddd4"
@@ -153,8 +153,9 @@ def _budget_revenue(budget, revenue):
     if revenue is not None:
         cap = (f'<p class="body">예산 대비 수입(회수율) {rev / budget * 100:.1f}%, '
                f'순비용 {fmt(budget - rev)}.</p>')
-    # 폭이 불필요하게 길지 않게 — 좁게 가운데 정렬
-    return f'<div class="br-block"><div class="hbar-wrap">{bars}</div>{cap}</div>'
+    # 산점도와 한 줄에 배치(셀이 폭 제어). 작은 제목 동반.
+    return (f'<div class="brc"><div class="fig-title sm">예산·수입 구조</div>'
+            f'<div class="hbar-wrap">{bars}</div>{cap}</div>')
 
 
 def _donut(title, data_dict, unit="점", center=None, colors=None):
@@ -517,12 +518,14 @@ def build_report_html(data):
     # 예산·수입 구조 (신규) — 재정 구조를 서술이 아닌 막대로
     adf = data.get("analysis_data_flat", {})
     br = _budget_revenue(adf.get("총 사용 예산"), adf.get("총수입"))
-    if br:
-        iv.append(_subhead("예산·수입 구조"))
-        iv.append(br)
-    # 예산 대비 관객 산점도 (역대 전 전시 위치 비교) — 작게/절제
-    sc = _scatter(data.get("scatter"))
-    if sc:
+    sc = _scatter(data.get("scatter"))   # 산점도(역대 전 전시 위치)
+    # 예산·수입 막대 + 산점도를 한 줄에. 한쪽만 있으면 단독(좁게 가운데).
+    if br and sc:
+        iv.append(f'<div class="fin-row"><div class="fin-cell">{br}</div>'
+                  f'<div class="fin-cell">{sc}</div></div>')
+    elif br:
+        iv.append(f'<div class="br-solo">{br}</div>')
+    elif sc:
         iv.append(sc)
     # 주차별 추이 SVG
     vc = data.get("visitor_composition", {})
@@ -741,7 +744,7 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 /* 전시 도면 — 세로형(9:16) 박스, 가운데 정렬 */
 .imgph-plangrid { display:flex; flex-wrap:wrap; justify-content:center;
   gap:12px; margin:16px 0 12px; }
-.imgph-plan { width:210px; max-width:48%; }
+.imgph-plan { width:189px; max-width:43%; }  /* 도면 박스 — 기존比 10% 축소 */
 /* 표 안 섬네일 (인쇄물·굿즈) — 세로형 3:4, 1.5배 확대, 셀 안 가운데 정렬 */
 .imgph-thumb { width:117px; margin:0 auto; }
 .imgph-thumb .imgph-label { font-size:10px; }
@@ -779,8 +782,14 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .hbar-pct { color:#8a918a; margin-left:3px; }
 @media (max-width:520px){ .hbar-row{ grid-template-columns:70px 1fr 92px; } }
 /* 예산·수입 블록 — 불필요하게 길지 않게 좁혀서 가운데 정렬 */
-.br-block { max-width:62%; margin:0 auto; }
-@media (max-width:560px){ .br-block{ max-width:100%; } }
+/* 예산·수입 막대 + 산점도 한 줄 배치 */
+.fin-row { display:grid; grid-template-columns:1fr 1fr; gap:24px;
+  align-items:center; margin:10px 0 2px; }
+.fin-cell { min-width:0; }
+.fin-cell .scatter-wrap { max-width:100%; margin:2px 0; }
+.brc .hbar-row { grid-template-columns:74px 1fr 90px; }   /* 좁은 셀용 컬럼 축소 */
+.br-solo { max-width:62%; margin:0 auto; }
+@media (max-width:560px){ .fin-row{ grid-template-columns:1fr; } .br-solo{ max-width:100%; } }
 .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 14px;
   margin-top:12px; font-size:12px; color:#3c403a; }
 .legend .lg { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
@@ -804,7 +813,11 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   /* 배경 강제 출력(도넛·롤리팝·표 헤더 등 색이 사라지지 않게) */
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body { background:#fff; }
-  .report { max-width:none; padding:0; }
+  /* 인쇄 레이아웃 폭을 A4 인쇄영역(210−14×2=182mm)에 정확히 고정 →
+     브라우저가 화면 폭으로 레이아웃 후 페이지에 맞춰 비균등 축소(찌그러짐)하는 것을 차단.
+     본문이 인쇄영역과 1:1이라 스케일 없이 그대로 출력됨. */
+  html, body { width:182mm; }
+  .report { width:182mm; max-width:182mm; margin:0; padding:0; }
   .no-print { display:none !important; }
   /* 섹션 카드는 한 페이지보다 클 수 있으므로 break-inside:avoid 금지
      (금지 시 큰 섹션이 통째로 다음 페이지로 밀려 앞 페이지에 큰 여백 발생).
