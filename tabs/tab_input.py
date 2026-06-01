@@ -431,17 +431,25 @@ def render(tab):
         # 주차별 관객 — 11주차, 1줄 배치 (좌측 클러스터 + gap small)
         st.markdown("**주차별 관객 수**")
         week_cols = st.columns([1] * 11 + [6], gap="small")
-        weekly = st.session_state.get("weekly_visitors", {})
+        weekly = st.session_state.get("weekly_visitors", {}) or {}
+        # 로드 동기화: weekly_visitors 딕셔너리가 외부에서 바뀌면(레코드 로드 등)
+        # 개별 weekly_i 데이터 키를 다시 시드. (내 재구성으로 인한 무한 reseed는
+        # 아래에서 _weekly_sig를 재구성값으로 맞춰 방지)
+        sig = tuple(sorted((k, int(v or 0)) for k, v in weekly.items()))
+        if st.session_state.get("_weekly_sig") != sig:
+            for i in range(11):
+                st.session_state[f"weekly_{i}"] = int(weekly.get(f"{i+1}주", 0) or 0)
+                st.session_state.pop(f"_disp_weekly_{i}", None)
+            st.session_state["_weekly_sig"] = sig
         new_weekly = {}
         for i in range(11):
             with week_cols[i]:
-                label = f"{i+1}주"
-                val = weekly.get(label, 0)
-                entered = st.number_input(label, min_value=0, value=val,
-                                          key=f"weekly_{i}", format="%d")
-                if entered > 0:
-                    new_weekly[label] = entered
+                v = comma_int_input(f"{i+1}주", f"weekly_{i}")
+                if v > 0:
+                    new_weekly[f"{i+1}주"] = v
         st.session_state.weekly_visitors = new_weekly
+        st.session_state["_weekly_sig"] = tuple(
+            sorted((k, int(v or 0)) for k, v in new_weekly.items()))
 
         _section_divider()
 
@@ -586,7 +594,7 @@ def render(tab):
         with cols[1]:
             st.number_input("총 회차", min_value=0, key="program_sessions", format="%d")
         with cols[2]:
-            st.number_input("총 참여", min_value=0, key="program_participants", format="%d")
+            comma_int_input("총 참여", "program_participants")
         with cols[3]:
             st.number_input("도슨트 정기", min_value=0, key="docent_regular", format="%d")
         with cols[4]:
@@ -653,7 +661,7 @@ def render(tab):
             st.number_input("언론 보도 건수", min_value=0, key="press_count", format="%d",
                             help="일간지+온라인 합계. 본 섹션 하단 보도 리스트와 연동.")
         with cols[1]:
-            st.number_input("웹 초청장 발송", min_value=0, key="web_invitation_count", format="%d")
+            comma_int_input("웹 초청장 발송", "web_invitation_count")
         with cols[2]:
             st.number_input("뉴스레터 오픈율 (%)", min_value=0.0, max_value=100.0,
                             step=0.1, key="newsletter_open_rate", format="%.1f")
@@ -662,22 +670,21 @@ def render(tab):
         with cols[0]:
             st.number_input("SNS 게시", min_value=0, key="sns_posts", format="%d")
         with cols[1]:
-            st.number_input("SNS 피드백", min_value=0, key="sns_feedback", format="%d")
+            comma_int_input("SNS 피드백", "sns_feedback")
         with cols[2]:
-            st.number_input("멤버십 회원수", min_value=0, key="membership_count", format="%d")
+            comma_int_input("멤버십 회원수", "membership_count")
 
         st.markdown("**SNS 상세 통계**")
         st.caption("인스타그램 기준 정량 지표.")
         cols = st.columns([1, 1, 1, 1, 6], gap="small")
         with cols[0]:
-            st.number_input("팔로워", min_value=0, key="sns_followers", format="%d")
+            comma_int_input("팔로워", "sns_followers")
         with cols[1]:
-            st.number_input("팔로워 증가", min_value=0, key="sns_followers_gained", format="%d",
-                            help="전시 기간 중 순증가")
+            comma_int_input("팔로워 증가", "sns_followers_gained", help="전시 기간 중 순증가")
         with cols[2]:
-            st.number_input("평균 피드백", min_value=0, key="sns_avg_likes", format="%d")
+            comma_int_input("평균 피드백", "sns_avg_likes")
         with cols[3]:
-            st.number_input("최대 피드백", min_value=0, key="sns_best_likes", format="%d")
+            comma_int_input("최대 피드백", "sns_best_likes")
         bc, _ = st.columns([4, 6])
         with bc:
             st.text_input("최대 피드백 게시물 내용", key="sns_best_post",
