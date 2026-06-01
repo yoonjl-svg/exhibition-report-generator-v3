@@ -25,7 +25,7 @@ JSON 구조:
 
     "analysis_cache": null | {     # 첫 분석 실행 시 채워짐
         "generated_at": "ISO",
-        "model": "claude-opus-4-7",
+        "model": "claude-opus-4-8",
         "llm_sections": dict,
         "summary_metrics": list
     }

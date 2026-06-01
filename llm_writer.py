@@ -20,8 +20,15 @@ except ImportError:
 # 설정
 # ──────────────────────────────────────────────
 
-MODEL = "claude-opus-4-7"  # Anthropic 권장 최신 모델 (Opus 4.5와 동일 가격, 성능 향상)
-MAX_TOKENS = 4096
+MODEL = "claude-opus-4-8"  # Anthropic 최강 모델 (Opus 4.7과 동일 $5/$25, 1M 컨텍스트)
+MAX_TOKENS = 8192
+# effort: 응답에 쓰는 토큰량/철저함 제어. 레벨 low<medium<high<xhigh<max, 기본=high.
+#   high : 뉘앙스 있는 분석·고품질 글쓰기에 최적(이 보고서 작성 용도의 권장값).
+#   max  : 절대 최대 역량(프런티어 추론용). 단 Anthropic 문서상 '구조화 출력(JSON)
+#          작업에선 과도사고로 품질 저하·비용 급증' 경고가 있어 본 용도엔 비권장.
+#   xhigh: 30분+ 장기 에이전트/코딩용 — 본 용도와 무관.
+# → 보고서 산문(JSON) 생성이므로 high 채택. 더 올리려면 이 값만 "max"로 변경.
+EFFORT = "high"
 
 # 보고서 섹션 한국어 매핑
 SECTION_NAMES = {
@@ -370,6 +377,8 @@ def rewrite_insights(
                 },
             ],
             messages=[{"role": "user", "content": user_prompt}],
+            # effort는 신규 output_config 필드 → SDK 버전과 무관하게 extra_body로 전달
+            extra_body={"output_config": {"effort": EFFORT}},
         )
 
         # 응답 파싱
@@ -454,8 +463,8 @@ def estimate_cost(
     cache_creation_tokens: int = 0,
     cache_read_tokens: int = 0,
 ) -> dict:
-    """Claude Opus 4.7 기준 비용 추정 (Prompt Caching 반영, USD)"""
-    # Claude Opus 4.7 가격 (출처: Anthropic 공식 문서, Opus 4.5와 동일)
+    """Claude Opus 4.8 기준 비용 추정 (Prompt Caching 반영, USD)"""
+    # Claude Opus 4.8 가격 (출처: Anthropic 공식 문서, Opus 4.7과 동일 $5/$25)
     input_price_per_mtok = 5.0           # $5 per 1M input tokens (캐시 미적용)
     output_price_per_mtok = 25.0         # $25 per 1M output tokens
     cache_write_price_per_mtok = 6.25    # $6.25 per 1M cache write tokens (=input × 1.25)

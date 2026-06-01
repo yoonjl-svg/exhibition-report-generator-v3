@@ -562,7 +562,7 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 @media (max-width:560px){ .donut-grid{ grid-template-columns:1fr; } }
 /* 사진 placeholder 박스 — 실제 보고서에서 사진이 들어갈 자리 */
 .imgph-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
-  gap:10px; margin:6px 0 2px; }
+  gap:10px; margin:18px 0 22px; }
 .imgph { border:1.5px dashed #c2ccc2; border-radius:6px; background:#f5f7f4;
   display:flex; align-items:center; justify-content:center; }
 .imgph-label { font-size:11.5px; color:#9aa39a; letter-spacing:0.3px; text-align:center; }
@@ -572,17 +572,17 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 /* 전시 전경 — 한 줄에 2개씩(2열) */
 /* 한 줄 2개 이미지(3:4) — 90% 폭으로 10% 축소 + 가운데 정렬 */
 .imgph-grid2 { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;
-  margin:6px auto 2px; max-width:90%; }
+  margin:18px auto 22px; max-width:90%; }
 @media (max-width:520px){ .imgph-grid2{ grid-template-columns:1fr; } }
 /* 전시 도면 — 세로형(9:16) 박스, 가운데 정렬 */
 .imgph-plangrid { display:flex; flex-wrap:wrap; justify-content:center;
-  gap:12px; margin:6px 0 2px; }
+  gap:12px; margin:16px 0 12px; }
 .imgph-plan { width:210px; max-width:48%; }
 /* 표 안 섬네일 (인쇄물·굿즈) — 세로형 3:4, 1.5배 확대, 셀 안 가운데 정렬 */
 .imgph-thumb { width:117px; margin:0 auto; }
 .imgph-thumb .imgph-label { font-size:10px; }
 /* 전시 공간 블록 (공간별 도면+전경) */
-.space-block { margin:6px 0 16px; }
+.space-block { margin:10px 0 24px; }
 .space-name { font-size:13px; font-weight:600; color:#3c403a; margin:12px 0 6px; }
 /* 문서 종료 표시 — 두 줄 띄고 왼쪽 정렬 */
 .rep-end { margin-top:2.6rem; text-align:left; font-size:13.5px; color:#3c403a; }
