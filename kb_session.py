@@ -184,11 +184,19 @@ def get_current_session_data() -> dict:
 
 
 def _normalize_listitem(item):
-    """리스트 항목 내 date → ISO 문자열 정규화."""
+    """리스트 항목 내 date → ISO 문자열 정규화.
+
+    파일류 객체(UploadedFile)는 JSON 직렬화 불가 → 제외(이미지는 경로로 보관).
+    레거시 floor_plan_file/photo_files 키도 안전하게 제거.
+    """
     if not isinstance(item, dict):
         return item
     out = {}
     for k, v in item.items():
+        if k in ("floor_plan_file", "photo_files"):
+            continue  # 레거시 UploadedFile 키 — 경로 키로 대체됨
+        if hasattr(v, "getvalue") or hasattr(v, "read"):
+            continue  # 파일류 객체는 저장하지 않음(직렬화 불가)
         if hasattr(v, "isoformat") and not isinstance(v, str):
             try:
                 v = v.isoformat()

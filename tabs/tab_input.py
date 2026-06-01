@@ -29,6 +29,14 @@ from utils import add_item, remove_item
 from ui_helpers import subsection
 from kb_session import DERIVED_TOTALS
 import excel_template
+import image_store
+
+
+def _img_status(ref, label):
+    """첨부 상태 캡션 — 경로(또는 경로 리스트)가 있으면 '라벨 N장 첨부됨'."""
+    n = len([r for r in ref if r]) if isinstance(ref, (list, tuple)) else (1 if ref else 0)
+    if n:
+        st.caption(f"{label} {n}장 첨부됨")
 
 
 # ──────────────────────────────────────────────
@@ -124,16 +132,22 @@ def _render_room(i: int, room: dict):
     with uc1:
         st.markdown(f'<div style="{_label_style}">도면</div>',
                     unsafe_allow_html=True)
-        st.session_state.rooms[i]["floor_plan_file"] = st.file_uploader(
+        floor_up = st.file_uploader(
             "도면", type=["png", "jpg", "jpeg"], key=f"room_floor_{i}",
             label_visibility="collapsed")
+        image_store.persist_single(floor_up, st.session_state.rooms[i],
+                                   "floor_plan_path", f"room{i}_floor")
+        _img_status(st.session_state.rooms[i].get("floor_plan_path"), "도면")
     with uc2:
         st.markdown(f'<div style="{_label_style}">전경 사진</div>',
                     unsafe_allow_html=True)
-        st.session_state.rooms[i]["photo_files"] = st.file_uploader(
+        photos_up = st.file_uploader(
             "전경 사진", type=["png", "jpg", "jpeg"],
             accept_multiple_files=True, key=f"room_photos_{i}",
             label_visibility="collapsed")
+        image_store.persist_multi(photos_up, st.session_state.rooms[i],
+                                  "photo_paths", f"room{i}_photo")
+        _img_status(st.session_state.rooms[i].get("photo_paths"), "전경")
 
 
 def _section_divider():
@@ -283,6 +297,12 @@ def render(tab):
             if st.session_state.period_start and st.session_state.period_end:
                 days = (st.session_state.period_end - st.session_state.period_start).days + 1
                 st.info(f"전시 일수: **{days}일**")
+            poster_up = st.file_uploader(
+                "전시 포스터 (세로형 1장)", type=["png", "jpg", "jpeg"],
+                key="poster_file")
+            image_store.persist_single(poster_up, st.session_state,
+                                       "poster_path", "poster")
+            _img_status(st.session_state.get("poster_path"), "포스터")
 
         with c_team:
             r1c1, r1c2 = st.columns(2)
@@ -606,6 +626,16 @@ def render(tab):
         # docent_total — 구성요소 합(왕복 무결성: 미변경 시 저장값 보존)
         _derived_total("docent_total")
 
+        # 프로그램 현장 사진 (업로드 장수만큼 보고서에 동적 배치)
+        pp_col, _ = st.columns([3, 7])
+        with pp_col:
+            prog_up = st.file_uploader(
+                "프로그램 현장 사진", type=["png", "jpg", "jpeg"],
+                accept_multiple_files=True, key="program_photos_up")
+            image_store.persist_multi(prog_up, st.session_state,
+                                      "program_photo_paths", "program")
+            _img_status(st.session_state.get("program_photo_paths"), "현장 사진")
+
         _section_divider()
 
         # ════════════════════════════════════════
@@ -628,6 +658,17 @@ def render(tab):
             with cols[2]:
                 st.session_state.printed_materials[i]["note"] = st.text_input(
                     "비고", value=mat.get("note", ""), key=f"mat_note_{i}")
+            # 행별 섬네일 이미지 (보고서 표 왼쪽 칸에 들어감) — 경로만 보관
+            iu, _ = st.columns([1.5, 6.5])
+            with iu:
+                mat_up = st.file_uploader(
+                    "이미지", type=["png", "jpg", "jpeg"],
+                    key=f"mat_image_{i}", label_visibility="collapsed")
+                image_store.persist_single(
+                    mat_up, st.session_state.printed_materials[i],
+                    "image_path", f"mat{i}")
+                _img_status(
+                    st.session_state.printed_materials[i].get("image_path"), "이미지")
 
         _add_remove_buttons(
             "인쇄물 추가", "마지막 제거",
@@ -653,6 +694,13 @@ def render(tab):
             with pc2:
                 st.text_area("SNS", key="promo_sns", height=80)
                 st.text_area("그 외", key="promo_other", height=80)
+            # 홍보물·언론 보도 사진 (업로드 장수만큼 보고서에 동적 배치)
+            promo_up = st.file_uploader(
+                "홍보물·언론 보도 사진", type=["png", "jpg", "jpeg"],
+                accept_multiple_files=True, key="promo_photos_up")
+            image_store.persist_multi(promo_up, st.session_state,
+                                      "promo_photo_paths", "promo")
+            _img_status(st.session_state.get("promo_photo_paths"), "홍보물 사진")
 
         _section_divider()
 
