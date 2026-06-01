@@ -34,29 +34,30 @@ def _esc(s):
 # ──────────────────────────────────────────────
 
 def _lollipop(summary_metrics):
-    """핵심 지표 롤리팝 (현재/기준×100)."""
+    """평균 대비 핵심 지표 롤리팝. 각 지표를 평균(중앙) 대비 ±% 편차로 표시.
+    낮을수록 좋은 지표(관객당 비용)는 부호를 반전해 '개선=+(녹색)'이 되게 한다."""
     rows = []
     for m in (summary_metrics or []):
         cur, ref = m.get("current"), m.get("reference_avg")
         if cur is None or not ref:
             continue
+        diff = (cur - ref) / ref * 100          # 평균 대비 % 편차
+        if "비용" in (m.get("label") or ""):    # 낮을수록 좋음 → 부호 반전
+            diff = -diff
         rows.append((m["label"], m.get("current_fmt", ""),
-                     m.get("reference_avg_fmt", ""), cur / ref * 100,
+                     m.get("reference_avg_fmt", ""), diff,
                      m.get("reference_label", "기준")))
     if len(rows) < 2:
         return ""
-    # 100 기준선을 가운데(50%) 두는 대칭 스케일 → 좌우 균형(왼쪽 과다 여백 제거)
-    maxdev = max(abs(r[3] - 100) for r in rows)
-    dev = max(maxdev * 1.12, 30)
-    xmin, xmax = 100 - dev, 100 + dev
-    span = xmax - xmin
-    base_pct = (100 - xmin) / span * 100  # = 50%
+    # 평균(중앙=50%) 기준 대칭 스케일: 좌우 ±span(%)
+    span = max(max(abs(r[3]) for r in rows) * 1.12, 30)
+    base_pct = 50.0
 
     items = []
-    for label, cur_fmt, ref_fmt, ratio, ref_label in rows:
-        val_pct = (min(max(ratio, xmin), xmax) - xmin) / span * 100
-        above = ratio >= 100
-        color = ACCENT if above else ACCENT2
+    for label, cur_fmt, ref_fmt, diff, ref_label in rows:
+        clamped = min(max(diff, -span), span)
+        val_pct = (clamped + span) / (2 * span) * 100
+        color = ACCENT if diff >= 0 else ACCENT2   # +(좋음)=녹색, -=테라코타
         seg_left = min(base_pct, val_pct)
         seg_w = abs(val_pct - base_pct)
         items.append(f"""
@@ -68,12 +69,12 @@ def _lollipop(summary_metrics):
             <div class="lolli-base" style="left:{base_pct:.1f}%"></div>
             <div class="lolli-seg" style="left:{seg_left:.1f}%;width:{seg_w:.1f}%;background:{color}"></div>
             <div class="lolli-dot" style="left:{val_pct:.1f}%;background:{color}"></div>
-            <div class="lolli-val" style="left:{val_pct:.1f}%;color:{color}">{ratio:.0f}</div>
+            <div class="lolli-val" style="left:{val_pct:.1f}%;color:{color}">{diff:+.0f}%</div>
           </div>
         </div>""")
-    # 기준선(100) 라벨만 — 기준선 바로 위 (0·최댓값 눈금 제거)
-    scale = f'<div class="lolli-scale"><span style="left:{base_pct:.1f}%">100</span></div>'
-    return f"""<div class="subhead">기준 대비 핵심 지표</div>
+    # 평균(기준) 라벨만 — 기준선 바로 위
+    scale = f'<div class="lolli-scale"><span style="left:{base_pct:.1f}%">평균</span></div>'
+    return f"""<div class="subhead">평균 대비 핵심 지표</div>
       <div class="lolli-wrap">{scale}{''.join(items)}</div>"""
 
 
