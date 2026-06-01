@@ -423,8 +423,12 @@ def render(tab):
                       st.session_state.visitor_invitation + st.session_state.visitor_artpass +
                       st.session_state.visitor_discover + st.session_state.visitor_discount)
         if ticket_sum > 0 and st.session_state.total_visitors > 0:
-            if ticket_sum != st.session_state.total_visitors:
-                st.warning(f"입장권별 합계({ticket_sum:,}명)와 총 관객수({st.session_state.total_visitors:,}명)가 다릅니다.")
+            diff = ticket_sum - st.session_state.total_visitors
+            if diff != 0:
+                st.warning(
+                    f"입장권별 합계({ticket_sum:,}명)와 총 관객수"
+                    f"({st.session_state.total_visitors:,}명)가 {abs(diff):,}명 차이납니다. "
+                    "분석·보고서로 넘기기 전에 정합을 맞춰 주세요.")
             else:
                 st.success(f"입장권별 합계 일치: {ticket_sum:,}명")
 

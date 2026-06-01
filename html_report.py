@@ -160,6 +160,15 @@ def _donut(title, data_dict, unit="점", center=None):
     </div>"""
 
 
+def _chart_pair(wide_html, narrow_html):
+    """가로 막대(넓게) + 도넛(좁게)을 한 줄에 배치. 한쪽만 있으면 그대로 반환."""
+    if wide_html and narrow_html:
+        return (f'<div class="chart-pair">'
+                f'<div class="cp-wide">{wide_html}</div>'
+                f'<div class="cp-narrow">{narrow_html}</div></div>')
+    return wide_html or narrow_html or ""
+
+
 def _svg_weekly(weekly, ref_lines):
     """주차별 관객 추이 인라인 SVG 라인 + 비교 기준선."""
     if not weekly or len(weekly) < 2:
@@ -369,10 +378,7 @@ def build_report_html(data):
     nb_donut = _donut("신작·구작 구성", {"신작": nw, "구작": od}, "점")
     if media_bar or nb_donut:
         iii.append(_subhead("출품 작품 구성"))
-        if media_bar:
-            iii.append(media_bar)
-        if nb_donut:
-            iii.append(nb_donut)  # 단일 도넛 — donut-cell이 자체 가운데 정렬
+        iii.append(_chart_pair(media_bar, nb_donut))
         total = art.get("total", 0)
         if any(media.values()) and total:
             top = max(media.items(), key=lambda kv: kv[1])
@@ -445,17 +451,12 @@ def build_report_html(data):
     if tt:
         free = tt.get("초대권", 0) or 0
         paid = sum(v for k, v in tt.items() if k != "초대권")
-        # 입장권별(5항목)은 가로 막대. 유료·무료(2항목)는 도넛 유지하되 중앙값을 전환율로.
+        # 입장권별(5항목)은 가로 막대. 유료·무료(2항목)는 도넛 유지(중앙값=총량).
         ticket_bar = _hbar("입장권별 관객 구성", tt, "명")
-        pf_center = f"유료 {paid / (paid + free) * 100:.0f}%" if (paid + free) else None
-        pf_donut = _donut("유료·무료 비율", {"유료": paid, "무료·초대": free}, "명",
-                          center=pf_center)
+        pf_donut = _donut("유료·무료 비율", {"유료": paid, "무료·초대": free}, "명")
         if ticket_bar or pf_donut:
             iv.append(_subhead("관객 구성"))
-            if ticket_bar:
-                iv.append(ticket_bar)
-            if pf_donut:
-                iv.append(pf_donut)  # 단일 도넛 — 자체 가운데 정렬
+            iv.append(_chart_pair(ticket_bar, pf_donut))
             top = max(tt, key=tt.get)
             tt_total = sum(tt.values()) or 1
             cap = (f"입장권별로는 {top}이(가) {tt[top]:,}명"
@@ -665,6 +666,13 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   border-radius:50%; }
 .donut-hole { position:absolute; inset:0; display:flex; align-items:center;
   justify-content:center; font-size:17px; font-weight:800; color:#20231f; z-index:1; }
+/* 막대(넓게)+도넛(좁게) 한 줄 배치 — 도넛이 더 작은 영역 차지 */
+.chart-pair { display:grid; grid-template-columns:1.7fr 1fr; gap:22px;
+  align-items:center; margin:8px 0 2px; }
+.chart-pair .cp-narrow .donut { width:124px; height:124px; }
+.chart-pair .cp-narrow .donut-hole { font-size:13px; }
+.chart-pair .cp-narrow .legend { font-size:11px; margin-top:8px; gap:3px 10px; }
+@media (max-width:560px){ .chart-pair{ grid-template-columns:1fr; } }
 /* 가로 막대그래프 (구성·예산수입) — 라벨 우측정렬 / 막대 / 값+비율 */
 .hbar-wrap { margin:8px 0 4px; }
 .hbar-row { display:grid; grid-template-columns:92px 1fr 108px; align-items:center;
