@@ -191,32 +191,43 @@ def _subhead(text):
     return f'<div class="subhead">{_esc(text)}</div>'
 
 
-def _thumb():
-    """표 안 섬네일 placeholder (인쇄물·굿즈 등). 세로형 3:4, 캡션 'image'."""
-    return ('<div class="imgph imgph-thumb" style="aspect-ratio:3 / 4">'
-            '<span class="imgph-label">image</span></div>')
+def _imgcell(uri, ratio, cls=""):
+    """이미지 칸 1개. uri가 있으면 실제 사진(object-fit:cover), 없으면 placeholder.
+    ratio는 CSS aspect-ratio('가로 / 세로'). cls로 sizing 클래스(plan/thumb 등) 부여."""
+    extra = (" " + cls) if cls else ""
+    if uri:
+        return (f'<div class="imgph has-img{extra}" style="aspect-ratio:{ratio}">'
+                f'<img src="{uri}" alt=""></div>')
+    return (f'<div class="imgph{extra}" style="aspect-ratio:{ratio}">'
+            f'<span class="imgph-label">image</span></div>')
 
 
-def _img_grid2(count=4, ratio="4 / 3"):
-    """한 줄에 2개씩(2열) 배치되는 placeholder 박스 그리드.
-    콘텐츠 이미지는 가로형 4:3(=세로:가로 3:4). 캡션은 모두 'image'."""
-    boxes = "".join(
-        f'<div class="imgph" style="aspect-ratio:{ratio}">'
-        f'<span class="imgph-label">image</span></div>'
-        for _ in range(count)
-    )
+def _thumb(uri=None):
+    """표 안 섬네일 (인쇄물·굿즈 등). 세로형 3:4. 사진 없으면 placeholder."""
+    return _imgcell(uri, "3 / 4", "imgph-thumb")
+
+
+def _img_grid(images=None, empty=2, ratio="4 / 3"):
+    """한 줄에 2개씩(2열) 배치. 업로드된 사진이 있으면 그 장수만큼 동적 배치,
+    없으면 empty개 placeholder(자리 표시). 콘텐츠 이미지는 가로형 4:3."""
+    images = [u for u in (images or []) if u]
+    if images:
+        boxes = "".join(_imgcell(u, ratio) for u in images)
+    else:
+        boxes = "".join(_imgcell(None, ratio) for _ in range(empty))
     return f'<div class="imgph-grid2">{boxes}</div>'
 
 
-def _space_block(name):
-    """전시 공간 1개의 도면(세로형 9:16 1개, 가운데)+전경(2×2 4개, 가로형) placeholder.
-    공간 이름을 머리로 두어 어느 공간인지 표시. 캡션은 모두 'image'."""
-    plan = ('<div class="imgph imgph-plan" style="aspect-ratio:9 / 16">'
-            '<span class="imgph-label">image</span></div>')
+def _space_block(name, floor_img=None, photo_imgs=None):
+    """전시 공간 1개: 도면(세로형 9:16, 1장, 가운데) + 전경(2열 동적, 가로형).
+    공간 이름을 머리로 표시. 사진 없으면 placeholder(전경 기본 4칸)."""
+    plan = _imgcell(floor_img, "9 / 16", "imgph-plan")
+    photo_imgs = [u for u in (photo_imgs or []) if u]
+    grid = _img_grid(photo_imgs, empty=4)
     return (f'<div class="space-block">'
             f'<div class="space-name">{_esc(name)}</div>'
             f'<div class="imgph-plangrid">{plan}</div>'
-            f'{_img_grid2(count=4)}'
+            f'{grid}'
             f'</div>')
 
 
@@ -272,9 +283,13 @@ def build_report_html(data):
     # ── III. 전시 구성 ──
     iii = []
     rooms = data.get("rooms", [])
-    # 도면·전경 라벨용 공간 이름 (없으면 단일 fallback)
-    room_names = ([(r.get("name") or f"{i+1}전시실") for i, r in enumerate(rooms)]
-                  if rooms else ["1전시실", "2전시실", "3전시실"])
+    # 공간별 (이름, 도면 이미지, 전경 이미지들) — 없으면 이름만 fallback
+    if rooms:
+        space_items = [((r.get("name") or f"{i+1}전시실"),
+                        r.get("floor_plan_img"), (r.get("photo_imgs") or []))
+                       for i, r in enumerate(rooms)]
+    else:
+        space_items = [(n, None, []) for n in ("1전시실", "2전시실", "3전시실")]
     # 1) 출품 작품 구성 (도넛 2-up) — 가장 먼저
     art = data.get("artworks", {})
     media = {"회화": art.get("painting", 0), "조각": art.get("sculpture", 0),
@@ -300,8 +315,8 @@ def build_report_html(data):
     # 2) 전시 도면 · 전경 — 공간별로 도면 1개(세로형) + 전경 2×2(4개)
     #    (전시실→참여 작가 표는 불필요하여 제거)
     iii.append(_subhead("전시 도면 및 전경"))
-    for name in room_names:
-        iii.append(_space_block(name))
+    for name, floor_img, photo_imgs in space_items:
+        iii.append(_space_block(name, floor_img, photo_imgs))
     # 프로그램 — 표 + 설명(구성 분석 서술)을 '전시 연계 프로그램' 밑에 배치
     progs = data.get("related_programs", [])
     comp_ins = _insights_html(data, "composition")
@@ -313,15 +328,17 @@ def build_report_html(data):
                                 p.get("participants", ""), p.get("note", "")] for p in progs]))
         if comp_ins:
             iii.append(comp_ins)
-        if progs:
-            iii.append(_img_grid2(count=2))
-    # 인쇄물 — 표 맨 왼쪽에 작은 섬네일 칸 추가(별도 placeholder 제거)
+        prog_imgs = data.get("program_photo_imgs") or []
+        if progs or prog_imgs:
+            iii.append(_img_grid(prog_imgs, empty=2))
+    # 인쇄물 — 표 맨 왼쪽 칸에 행별 섬네일(업로드 시 실제 사진, 없으면 placeholder)
     mats = data.get("printed_materials", [])
     if mats:
         iii.append(_subhead("인쇄물 및 굿즈"))
         iii.append(_table(["이미지", "종류", "수량", "비고"],
-                          [[_thumb(), m.get("type", ""), m.get("quantity", ""),
-                            m.get("note", "")] for m in mats], raw_cols={0}))
+                          [[_thumb(m.get("image_img")), m.get("type", ""),
+                            m.get("quantity", ""), m.get("note", "")] for m in mats],
+                          raw_cols={0}))
     sec_compose = _section("전시 구성", "".join(iii), num="IV")
 
     # ── IV. 전시 결과 ──
@@ -396,9 +413,9 @@ def build_report_html(data):
     if data.get("membership"):
         v.append(_subhead("멤버십 커뮤니케이션"))
         v.append(_para(data.get("membership")))
-    # 홍보물·언론 보도 캡처 (사진이 거의 확실히 들어가는 자리 — placeholder)
+    # 홍보물·언론 보도 캡처 (업로드 장수만큼 동적, 없으면 placeholder 2칸)
     v.append(_subhead("홍보물·언론 보도"))
-    v.append(_img_grid2(count=2))
+    v.append(_img_grid(data.get("promo_photo_imgs") or [], empty=2))
     v.append(_insights_html(data, "promotion"))
     # 관객 후기 — 긍정/부정/기타 3개 표 (해당 후기가 있는 분류만; 기타는 없을 수 있음)
     reviews = [r for r in (data.get("visitor_reviews") or []) if r.get("content")]
@@ -435,9 +452,14 @@ def build_report_html(data):
                       "".join(f"<li>{_esc(x)}</li>" for x in vals) + "</ul>")
     sec_exec = _section("Executive Summary", "".join(vi), num="II")
 
-    # 포스터 placeholder(세로형) — 1페이지 상단
-    poster = ('<div class="imgph poster-ph">'
-              '<span class="imgph-label">image</span></div>')
+    # 포스터(세로형, 1장) — 1페이지 상단. 업로드 시 실제 포스터, 없으면 placeholder.
+    poster_img = data.get("poster_img")
+    if poster_img:
+        poster = (f'<div class="imgph has-img poster-ph">'
+                  f'<img src="{poster_img}" alt=""></div>')
+    else:
+        poster = ('<div class="imgph poster-ph">'
+                  '<span class="imgph-label">image</span></div>')
     # 보고서 순서: I 전시 개요 → II Executive Summary → III 주제 → IV 구성 → V 결과 → VI 홍보
     # 앞 2페이지 고정: 1p = 포스터 + I 전시 개요, 2p = II Executive Summary,
     # 3p부터는 페이지네이션 강제 없이 자연 흐름.
@@ -529,6 +551,9 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 .imgph { border:1.5px dashed #c2ccc2; border-radius:6px; background:#f5f7f4;
   display:flex; align-items:center; justify-content:center; }
 .imgph-label { font-size:11.5px; color:#9aa39a; letter-spacing:0.3px; text-align:center; }
+/* 실제 사진이 들어간 칸 — 박스를 꽉 채우되 가장자리 잘림(cover), 비율 유지 */
+.imgph.has-img { border:1px solid #e3e7df; background:#fff; padding:0; overflow:hidden; }
+.imgph.has-img img { width:100%; height:100%; object-fit:cover; display:block; }
 /* 전시 전경 — 한 줄에 2개씩(2열) */
 /* 한 줄 2개 이미지(3:4) — 90% 폭으로 10% 축소 + 가운데 정렬 */
 .imgph-grid2 { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;

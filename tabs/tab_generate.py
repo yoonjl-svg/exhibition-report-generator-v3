@@ -9,6 +9,7 @@ from datetime import date
 from utils import fmt_money, fmt_number, collect_analysis_data
 import analysis_engine as ae
 import reference_data as rd
+import image_store as imgs
 from llm_writer import rewrite_insights, validate_api_key, estimate_cost, HAS_ANTHROPIC
 from ui_helpers import section_header, subsection
 
@@ -577,13 +578,17 @@ def _collect_report_data(load_ref=None):
         "theme_text": s.theme_text,
         "graphic_designer": s.get("graphic_designer", ""),
         "space_designer": s.get("space_designer", ""),
-        "rooms": [{"name": r.get("name", ""), "artists": r.get("artists", "")}
+        "poster_img": imgs.to_data_uri(s.get("poster_path")),
+        "rooms": [{"name": r.get("name", ""), "artists": r.get("artists", ""),
+                   "floor_plan_img": imgs.to_data_uri(r.get("floor_plan_path")),
+                   "photo_imgs": imgs.uris(r.get("photo_paths"))}
                   for r in s.rooms if (r.get("name") or "").strip()],
         "related_programs": [p for p in s.related_programs if p.get("title")],
-        "program_photos": [],
+        "program_photo_imgs": imgs.uris(s.get("program_photo_paths")),
+        "promo_photo_imgs": imgs.uris(s.get("promo_photo_paths")),
         "staff": {},
-        "printed_materials": [m for m in s.printed_materials if m.get("type")],
-        "material_photos": [],
+        "printed_materials": [{**m, "image_img": imgs.to_data_uri(m.get("image_path"))}
+                              for m in s.printed_materials if m.get("type")],
         "budget": {
             "total_spent": fmt_money(s.total_budget),
             "breakdown_notes": [n for n in s.budget_breakdown_notes if n.strip()],

@@ -12,6 +12,7 @@ from typing import Optional
 import streamlit as st
 
 import kb_store
+import image_store
 from schema import new_record, SOURCE_FORM
 
 
@@ -25,6 +26,9 @@ DATA_KEYS = [
     # 주제·구성·프로그램·인쇄물·보도·후기
     "theme_text", "rooms", "related_programs", "printed_materials",
     "press_print", "press_online", "visitor_reviews", "membership_text",
+
+    # 이미지 경로 (로컬 저장; 보고서는 생성 시 base64로 내장)
+    "poster_path", "program_photo_paths", "promo_photo_paths",
 
     # 홍보 서술
     "promo_advertising", "promo_press_release", "promo_web_invitation",
@@ -115,6 +119,10 @@ def load_record_to_session(record: dict) -> None:
     for _sec in ("composition", "results", "promotion", "evaluation", "audience_response"):
         st.session_state.pop(f"preview_edit_{_sec}", None)
 
+    # 직전 전시의 업로더 위젯값이 새 전시로 새지 않도록 초기화
+    image_store.clear_uploader_state()
+    st.session_state.pop("_image_session_id", None)
+
 
 def new_exhibition_session() -> None:
     """빈 신규 전시 작업 모드 진입. 이전 데이터를 모두 클리어.
@@ -139,6 +147,10 @@ def new_exhibition_session() -> None:
     # 신규: 파생 합계 기준선 제거 → 항상 구성요소 합으로 자동 계산
     for total_key in DERIVED_TOTALS:
         st.session_state.pop(f"_baseline_{total_key}", None)
+
+    # 업로더 위젯값·이미지 폴더 id 초기화 (새 전시는 새 폴더)
+    image_store.clear_uploader_state()
+    st.session_state.pop("_image_session_id", None)
 
     # _pending_json 트리거 (빈 오버라이드, 메커니즘 활성화용)
     st.session_state["_pending_json"] = {}

@@ -13,3 +13,7 @@ build/
 .claude/
 report_data_*.json
 sample_*.xlsx
+
+# 업로드 사진 로컬 캐시 (보고서엔 base64로 내장; 저장소엔 미포함)
+data/images/
+_report_preview.html

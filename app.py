@@ -644,6 +644,10 @@ def init_session():
         ],
         "related_programs": [{"category": None, "title": "", "date": None, "participants": "", "note": ""}],
         "printed_materials": [{"type": None, "quantity": "", "note": ""}],
+        # 이미지 경로 (image_store가 로컬 저장 후 경로 문자열로 채움 — UploadedFile 아님)
+        "poster_path": None,
+        "program_photo_paths": [],
+        "promo_photo_paths": [],
         # 홍보 방식 (B — 서술)
         "promo_advertising": "",
         "promo_press_release": "",
