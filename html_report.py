@@ -509,9 +509,11 @@ def build_report_html(data):
     # ── IV. 전시 결과 ──
     iv = []
     rev = data.get("revenue", {})
+    # 전시 결과는 '약'이 아닌 정확한 금액(원 단위)으로 표기
+    _b = data.get("budget", {})
     iv.append(_kv([
-        ("총 사용 예산", data.get("budget", {}).get("total_spent")),
-        ("총 수입", rev.get("total_revenue")),
+        ("총 사용 예산", _b.get("total_spent_won") or _b.get("total_spent")),
+        ("총 수입", rev.get("total_revenue_won") or rev.get("total_revenue")),
         ("총 관객수", rev.get("total_visitors")),
         ("일평균 관객", rev.get("daily_average")),
     ]))

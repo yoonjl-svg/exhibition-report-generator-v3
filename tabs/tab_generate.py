@@ -615,6 +615,7 @@ def _collect_report_data(load_ref=None):
                               for m in s.printed_materials if m.get("type")],
         "budget": {
             "total_spent": fmt_money(s.total_budget),
+            "total_spent_won": (f"{int(s.total_budget):,}원" if s.total_budget else ""),
             "breakdown_notes": [n for n in s.budget_breakdown_notes if n.strip()],
             "summary": [x for x in s.budget_summary if x.get("category")],
             "arrow_notes": [n for n in s.budget_arrow_notes if n.strip()],
@@ -626,6 +627,7 @@ def _collect_report_data(load_ref=None):
             "daily_average": fmt_number(s.total_visitors // days, "명") if (s.total_visitors and days) else "",
             "visitor_notes": [],
             "total_revenue": fmt_money(s.total_revenue),
+            "total_revenue_won": (f"{int(s.total_revenue):,}원" if s.total_revenue else ""),
             "ticket_revenue": fmt_money(s.ticket_revenue),
         },
         "visitor_composition": {
