@@ -11,6 +11,7 @@
 build_report_html(data) -> str  (self-contained HTML 문서; components.html로 표시)
 """
 
+import math
 import html as _html
 
 # 미술관 톤 팔레트
@@ -149,10 +150,10 @@ def _budget_revenue(planned, budget, revenue):
                 f'style="width:{(val or 0) / vmax * 100:.1f}%;background:{color}"></div></div>'
                 f'<div class="hbar-val">{fmt(val)}</div></div>')
 
-    # 계획안=옅은 회색(참고치), 총 예산=중립 회색(규모), 총 수입=블루그레이 포인트
+    # 초안=옅은 회색(참고치), 총 예산=중립 회색(규모), 총 수입=블루그레이 포인트
     bars = ""
     if pln > 0:
-        bars += bar("예산 계획안", pln, C_ETC)
+        bars += bar("예산 초안", pln, C_ETC)
     bars += bar("총 사용 예산", budget, C_BASE) + bar("총 수입", rev, C_POINT)
     cap = ""
     if revenue is not None:
@@ -188,6 +189,49 @@ def _donut(title, data_dict, unit="점", center=None, colors=None):
       </div>
       <div class="legend">{''.join(legend)}</div>
     </div>"""
+
+
+def _arc(c, r, sw, color, frac):
+    """원형 링 위 호 1개 (시작=12시, 시계방향). frac=0~1 비율."""
+    C = 2 * math.pi * r
+    arc = min(max(frac, 0.0), 1.0) * C
+    return (f'<circle cx="{c}" cy="{c}" r="{r}" fill="none" stroke="{color}" '
+            f'stroke-width="{sw}" stroke-dasharray="{arc:.2f} {C:.2f}" '
+            f'transform="rotate(-90 {c} {c})"/>')
+
+
+def _donut_paid(paid, free, group):
+    """유료·무료 도넛(SVG) — 유료를 감싸는 외곽 띠로 '단체'(유료의 일부)를 표시.
+    단체 ⊂ 유료. 중앙=총 입장(유료+무료). 단체 없으면 띠·범례 생략."""
+    paid = paid or 0
+    free = free or 0
+    total = paid + free
+    if total <= 0:
+        return ""
+    grp = min(group or 0, paid)        # 단체는 유료의 부분집합
+    W = 124
+    c = W / 2
+    rM, swM = 40, 22                   # 메인 링(유료/무료)
+    rB, swB = 56, 5                    # 외곽 얇은 띠(단체)
+    f_paid = paid / total
+    parts = [
+        _arc(c, rM, swM, C_ETC, 1.0),       # 무료 배경(전체 회색 링)
+        _arc(c, rM, swM, C_PERF, f_paid),   # 유료(녹색)
+    ]
+    if grp > 0:
+        parts.append(_arc(c, rB, swB, "#cdded5", f_paid))     # 유료 영역 위 옅은 띠
+        parts.append(_arc(c, rB, swB, C_POINT, grp / total))  # 단체(네이비)
+    center = (f'<text x="{c}" y="{c+5}" text-anchor="middle" font-size="14" '
+              f'font-weight="800" fill="{INK}">{total:,}명</text>')
+    svg = (f'<svg viewBox="0 0 {W} {W}" class="donut-svg">'
+           f'{"".join(parts)}{center}</svg>')
+    leg = [f'<span class="lg"><i style="background:{C_PERF}"></i>유료 {paid:,}명</span>',
+           f'<span class="lg"><i style="background:{C_ETC}"></i>무료·초대 {free:,}명</span>']
+    if grp > 0:
+        leg.append(f'<span class="lg"><i style="background:{C_POINT}"></i>'
+                   f'단체 {grp:,}명</span>')
+    return (f'<div class="donut-cell"><div class="fig-title sm">유료·무료 비율</div>'
+            f'{svg}<div class="legend">{"".join(leg)}</div></div>')
 
 
 def _chart_pair(wide_html, narrow_html):
@@ -598,11 +642,10 @@ def build_report_html(data):
     if tt:
         free = tt.get("초대권", 0) or 0
         paid = sum(v for k, v in tt.items() if k != "초대권")
-        # 입장권별(5항목)은 가로 막대. 유료·무료(2항목)는 도넛 유지(중앙값=총량).
+        # 입장권별(5항목)은 가로 막대. 유료·무료(2항목)는 도넛 + 외곽 띠로 단체(유료의 일부).
+        _grp = min(int(adf.get("단체 관객수") or 0), paid)
         ticket_bar = _hbar("입장권별 관객 구성", tt, "명", muted_keys={"초대권"})
-        # 유료=성과 녹색, 무료·초대=회색(수입 무관) — 컬러로 수입 구조를 구분
-        pf_donut = _donut("유료·무료 비율", {"유료": paid, "무료·초대": free}, "명",
-                          colors=[C_PERF, C_ETC])
+        pf_donut = _donut_paid(paid, free, _grp)
         if ticket_bar or pf_donut:
             iv.append(_subhead("관객 구성"))
             iv.append(_chart_pair(ticket_bar, pf_donut))
@@ -611,7 +654,9 @@ def build_report_html(data):
             cap = (f"입장권별로는 {top}이(가) {tt[top]:,}명"
                    f"({tt[top]/tt_total*100:.0f}%)으로 가장 큼.")
             if paid + free:
-                cap += f" 유료 관객 {paid:,}명({paid/(paid+free)*100:.0f}%)."
+                cap += f" 유료 관객 {paid:,}명({paid/(paid+free)*100:.0f}%)"
+                cap += (f", 그중 단체 {_grp:,}명({_grp/paid*100:.0f}%)." if (_grp and paid)
+                        else ".")
             iv.append(f'<p class="body">{_esc(cap)}</p>')
     iv.append(_insights_html(data, "results"))
     sec_results = _section("전시 결과", "".join(iv), num="V")
@@ -818,6 +863,8 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   border-radius:50%; }
 .donut-hole { position:absolute; inset:0; display:flex; align-items:center;
   justify-content:center; font-size:17px; font-weight:800; color:#20231f; z-index:1; }
+/* SVG 도넛(유료·무료 + 단체 외곽 띠) */
+.donut-svg { width:124px; height:124px; display:block; margin:0 auto; }
 /* 막대(넓게)+도넛(좁게) 한 줄 배치 — 도넛이 더 작은 영역 차지 */
 .chart-pair { display:grid; grid-template-columns:1.7fr 1fr; gap:22px;
   align-items:center; margin:8px 0 2px; }
