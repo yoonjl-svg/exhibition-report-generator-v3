@@ -192,6 +192,7 @@ def render(tab, load_reference_data):
             else:
                 result = ae.generate_all_insights(current, ref_df, exhibition_type=exhibition_type)
                 st.session_state["analysis_result"] = result
+                st.session_state["analyzed_type"] = exhibition_type  # 표본 안내용
                 st.session_state["insight_selections"] = {}
                 st.session_state["insight_texts"] = {}
                 # 이전 분석 실행의 위젯 상태(텍스트·체크박스) 제거.
@@ -215,6 +216,16 @@ def render(tab, load_reference_data):
             return
 
         result = st.session_state["analysis_result"]
+
+        # 표본 안내 — 선택 유형 전시가 3개 미만이면 통계 해석 유의 고지.
+        _atype = st.session_state.get("analyzed_type")
+        if _atype is not None:
+            _n = rd.get_type_count(ref_df, _atype)
+            if _n < 3:
+                st.info(f"‘{rd.get_type_name(_atype)}’ 전시는 {_n}개로 표본이 적어 "
+                        f"평균·순위 등 통계 해석에 유의가 필요합니다. "
+                        f"폭넓은 비교가 필요하면 ‘전체’를 선택하세요.")
+
         if not result.insights:
             st.info("생성된 인사이트가 없습니다.")
             return

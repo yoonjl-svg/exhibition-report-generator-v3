@@ -208,7 +208,8 @@ def _make_insight(
     current_val, stats, unit="",
     higher_is_better=True, priority=None, group_label="역대", df=None
 ) -> Optional[Insight]:
-    if current_val is None or stats is None or stats.count < 3:
+    # 선택 충실성: 유형 전시가 2개여도 인사이트 생성(표본 작음은 UI에서 안내).
+    if current_val is None or stats is None or stats.count < 2:
         return None
     avg = stats.mean
     if avg == 0:
@@ -814,7 +815,9 @@ SECTION_LABELS = {
 
 def generate_all_insights(current_data, ref_df, exhibition_type=None) -> AnalysisResult:
     df_full = compute_derived_metrics(exclude_type_zero(ref_df))
-    df_typed = filter_by_type(df_full, exhibition_type)
+    # 선택 충실성: 유형이 3개 미만이어도 전체로 폴백하지 않고 그 유형만 사용.
+    # (표본이 작을 때의 주의는 UI에서 안내 문구로 표시.)
+    df_typed = filter_by_type(df_full, exhibition_type, fallback=False)
     is_filtered = len(df_typed) < len(df_full)
     # 보고서 자연어 표기: "기존 기획전" / "기존 특별전" / "기존 전시" / "역대 전시"
     gl = get_type_label(exhibition_type) if is_filtered else "역대 전시"
@@ -831,9 +834,8 @@ def generate_all_insights(current_data, ref_df, exhibition_type=None) -> Analysi
     # 평가 초안 생성
     eval_drafts = _generate_eval_drafts(all_insights, current_data)
 
-    # 유사 전시 — 비교 대상 유형에 맞춰 같은 유형 그룹 안에서 탐색.
-    # (유형이 바뀌면 아래 차트·표도 그 유형의 전시로 갱신되도록 df_typed 사용.
-    #  유형 전시가 3개 미만이면 filter_by_type가 전체로 폴백.)
+    # 유사 전시 — 비교 대상 유형에 맞춰 같은 유형 그룹 안에서만 탐색.
+    # (유형이 바뀌면 아래 차트·표도 그 유형의 전시로 갱신. 폴백 없음.)
     sim_rows, sim_table = _build_similar(current_data, df_typed)
 
     # 보고서 관례 순서 유지 (관객→예산→프로그램→작품→홍보→인력→교차분석)
@@ -907,7 +909,8 @@ def compute_summary_metrics(
         비교 평균이 없는 지표는 결과에서 제외됨 (사실 결여 노출 방지).
     """
     df_full = compute_derived_metrics(exclude_type_zero(ref_df))
-    df_typed = filter_by_type(df_full, exhibition_type)
+    # 분석 탭과 동일하게 선택 유형만 사용(폴백 없음) — 보고서 VI 종합표 일관성.
+    df_typed = filter_by_type(df_full, exhibition_type, fallback=False)
     is_filtered = len(df_typed) < len(df_full)
     reference_label = get_type_label(exhibition_type) if is_filtered else "역대 전시"
 

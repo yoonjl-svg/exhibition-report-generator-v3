@@ -413,7 +413,7 @@ def exclude_type_zero(df: pd.DataFrame) -> pd.DataFrame:
     return df[type_series != EXCLUDED_TYPE]
 
 
-def filter_by_type(df: pd.DataFrame, exhibition_type) -> pd.DataFrame:
+def filter_by_type(df: pd.DataFrame, exhibition_type, fallback: bool = True) -> pd.DataFrame:
     """
     동일 유형의 전시만 필터링합니다.
     유형 0은 항상 제외됩니다.
@@ -421,9 +421,11 @@ def filter_by_type(df: pd.DataFrame, exhibition_type) -> pd.DataFrame:
     Args:
         df: 레퍼런스 DataFrame
         exhibition_type: 유형 값 (1, 2, 3 등). None이면 유형 0 제외 후 전체 반환.
+        fallback: True이면 같은 유형이 3개 미만일 때 전체로 확장(통계 안정성).
+                  False이면 선택한 유형만 그대로 반환(선택 충실성).
 
     Returns:
-        필터링된 DataFrame. 같은 유형이 3개 미만이면 유형 0 제외 전체 반환.
+        필터링된 DataFrame.
     """
     # 유형 0은 항상 제외
     df = exclude_type_zero(df)
@@ -440,8 +442,8 @@ def filter_by_type(df: pd.DataFrame, exhibition_type) -> pd.DataFrame:
 
     filtered = df[type_series == target]
 
-    # 같은 유형이 3개 미만이면 의미 있는 비교가 어려우므로 전체 사용
-    if len(filtered) < 3:
+    # 같은 유형이 3개 미만이면 (fallback=True일 때만) 전체로 확장
+    if fallback and len(filtered) < 3:
         return df
 
     return filtered
