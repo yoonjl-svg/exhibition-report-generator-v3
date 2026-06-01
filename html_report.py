@@ -219,7 +219,7 @@ def _donut_paid(paid, free, group):
         _arc(c, rM, swM, C_PERF, f_paid),   # 유료(녹색)
     ]
     if grp > 0:
-        parts.append(_arc(c, rB, swB, "#cdded5", f_paid))     # 유료 영역 위 옅은 띠
+        # 외곽 띠는 '단체 비율'만 표시(단체 아닌 부분은 표현하지 않음)
         parts.append(_arc(c, rB, swB, C_POINT, grp / total))  # 단체(네이비)
     center = (f'<text x="{c}" y="{c+5}" text-anchor="middle" font-size="14" '
               f'font-weight="800" fill="{INK}">{total:,}명</text>')
@@ -229,8 +229,8 @@ def _donut_paid(paid, free, group):
            f'<span class="lg"><i style="background:{C_ETC}"></i>무료·초대 {free:,}명</span>']
     if grp > 0:
         leg.append(f'<span class="lg"><i style="background:{C_POINT}"></i>'
-                   f'단체 {grp:,}명</span>')
-    return (f'<div class="donut-cell"><div class="fig-title sm">유료·무료 비율</div>'
+                   f'단체 {grp / total * 100:.0f}%</span>')
+    return (f'<div class="donut-cell"><div class="fig-title sm">유료·무료·단체 비율</div>'
             f'{svg}<div class="legend">{"".join(leg)}</div></div>')
 
 
@@ -655,8 +655,7 @@ def build_report_html(data):
                    f"({tt[top]/tt_total*100:.0f}%)으로 가장 큼.")
             if paid + free:
                 cap += f" 유료 관객 {paid:,}명({paid/(paid+free)*100:.0f}%)"
-                cap += (f", 그중 단체 {_grp:,}명({_grp/paid*100:.0f}%)." if (_grp and paid)
-                        else ".")
+                cap += (f", 단체 {_grp:,}명({_grp/(paid+free)*100:.0f}%)." if _grp else ".")
             iv.append(f'<p class="body">{_esc(cap)}</p>')
     iv.append(_insights_html(data, "results"))
     sec_results = _section("전시 결과", "".join(iv), num="V")
