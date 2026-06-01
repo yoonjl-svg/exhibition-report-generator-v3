@@ -53,6 +53,39 @@ def _derived_total(total_key: str) -> int:
     st.session_state[total_key] = total
     return total
 
+
+def _comma_reformat(dkey: str, key: str):
+    """text_input on_change 콜백 — 숫자만 추출해 정수 저장 + 천 단위 쉼표 재표시."""
+    raw = str(st.session_state.get(dkey, ""))
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    val = int(digits) if digits else 0
+    st.session_state[key] = val
+    st.session_state[dkey] = f"{val:,}" if val else ""
+
+
+def comma_int_input(label, key, help=None, label_visibility="visible"):
+    """천 단위 쉼표로 표시되는 정수 입력칸(st.number_input 대체).
+
+    HTML number 입력은 쉼표를 못 보여주므로 text_input으로 구현한다.
+    - 데이터는 정수로 st.session_state[key]에 저장(분석·파생 합계 파이프라인 호환).
+    - 표시 문자열은 _disp_{key}에 쉼표 포맷으로 보관.
+    - 레코드 로드·엑셀 업로드 등으로 데이터 키가 바뀌면 표시를 자동 동기화.
+    """
+    dkey = f"_disp_{key}"
+    data_val = int(st.session_state.get(key) or 0)
+    cur = str(st.session_state.get(dkey, ""))
+    cur_val = int("".join(ch for ch in cur if ch.isdigit()) or "0")
+    if cur_val != data_val:          # 외부 변경 동기화(위젯 생성 전이라 대입 가능)
+        st.session_state[dkey] = f"{data_val:,}" if data_val else ""
+    st.text_input(label, key=dkey, help=help, label_visibility=label_visibility,
+                  placeholder="0", on_change=_comma_reformat, args=(dkey, key))
+    # 방어적 동기화: 표시 문자열을 항상 정수로 파싱해 데이터 키에 반영
+    # (on_change가 어떤 이유로 누락돼도 데이터는 정확히 유지).
+    final = str(st.session_state.get(dkey, ""))
+    st.session_state[key] = int("".join(ch for ch in final if ch.isdigit()) or "0")
+    return st.session_state[key]
+
+
 def _add_remove_buttons(label_add, label_rm, key_add, key_rm, item_key, default_item, page_full=True):
     """추가/제거 버튼 한 쌍 — 페이지 ~15% 너비로 통일.
 
@@ -285,20 +318,15 @@ def render(tab):
         # 순서: 예산 계획액 → 전시 사용 → 부대 사용 → 입장 수입 → 기타 수입
         cols = st.columns([1.3, 1.3, 1.3, 1.3, 1.3, 3.5], gap="small")
         with cols[0]:
-            st.number_input("예산 계획액 (원)", min_value=0, step=1_000_000,
-                            key="budget_planned", format="%d")
+            comma_int_input("예산 계획액 (원)", "budget_planned")
         with cols[1]:
-            st.number_input("전시 사용 예산 (원)", min_value=0, step=1_000_000,
-                            key="budget_exhibition", format="%d")
+            comma_int_input("전시 사용 예산 (원)", "budget_exhibition")
         with cols[2]:
-            st.number_input("부대 사용 예산 (원)", min_value=0, step=100_000,
-                            key="budget_supplementary", format="%d")
+            comma_int_input("부대 사용 예산 (원)", "budget_supplementary")
         with cols[3]:
-            st.number_input("입장 수입 (원)", min_value=0, step=100_000,
-                            key="ticket_revenue", format="%d")
+            comma_int_input("입장 수입 (원)", "ticket_revenue")
         with cols[4]:
-            st.number_input("기타 수입 (원)", min_value=0, step=100_000,
-                            key="other_revenue", format="%d")
+            comma_int_input("기타 수입 (원)", "other_revenue")
 
         total_budget = _derived_total("total_budget")
         total_revenue = _derived_total("total_revenue")
@@ -359,8 +387,7 @@ def render(tab):
 
         cols = st.columns([1.2, 1.2, 7.6])
         with cols[0]:
-            st.number_input("총 관객수", min_value=0, step=100,
-                            key="total_visitors", format="%d")
+            comma_int_input("총 관객수", "total_visitors")
         with cols[1]:
             days = None
             if st.session_state.period_start and st.session_state.period_end:
@@ -376,21 +403,21 @@ def render(tab):
         # 들어가도록 해당 칸을 넓힘. 우측 spacer로 좌측 클러스터 유지.
         cols = st.columns([1, 1, 1.1, 1.5, 2.2, 1.3, 1.2, 1.3, 4], gap="small")
         with cols[0]:
-            st.number_input("일반", min_value=0, key="visitor_general", format="%d")
+            comma_int_input("일반", "visitor_general")
         with cols[1]:
-            st.number_input("학생", min_value=0, key="visitor_student", format="%d")
+            comma_int_input("학생", "visitor_student")
         with cols[2]:
-            st.number_input("초대권", min_value=0, key="visitor_invitation", format="%d")
+            comma_int_input("초대권", "visitor_invitation")
         with cols[3]:
-            st.number_input("예술인패스", min_value=0, key="visitor_artpass", format="%d")
+            comma_int_input("예술인패스", "visitor_artpass")
         with cols[4]:
-            st.number_input("디스커버서울패스", min_value=0, key="visitor_discover", format="%d")
+            comma_int_input("디스커버서울패스", "visitor_discover")
         with cols[5]:
-            st.number_input("기타 할인", min_value=0, key="visitor_discount", format="%d")
+            comma_int_input("기타 할인", "visitor_discount")
         with cols[6]:
-            st.number_input("단체 관객", min_value=0, key="visitor_group", format="%d")
+            comma_int_input("단체 관객", "visitor_group")
         with cols[7]:
-            st.number_input("오프닝 참석", min_value=0, key="opening_attendance", format="%d")
+            comma_int_input("오프닝 참석", "opening_attendance")
 
         ticket_sum = (st.session_state.visitor_general + st.session_state.visitor_student +
                       st.session_state.visitor_invitation + st.session_state.visitor_artpass +
