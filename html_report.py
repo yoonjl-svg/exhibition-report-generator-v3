@@ -128,10 +128,11 @@ def _hbar(title, data_dict, unit="점", muted_keys=()):
 
 
 def _budget_revenue(budget, revenue):
-    """예산·수입 구조 — 2개 가로 막대(예산/수입) + 회수율·순비용 캡션.
-    한쪽이라도 억 단위면 두 값 모두 억(소수 2자리)으로 통일 표기(2.10억 / 0.98억)."""
+    """예산·수입 비율 — 2개 가로 막대(예산/수입) + 회수율·순비용 캡션.
+    한쪽이라도 억 단위면 두 값 모두 억(소수 2자리)으로 통일 표기(2.10억 / 0.98억).
+    반환: (차트 HTML, 캡션 HTML) — 캡션은 두 차트(행) 아래 전체폭에 배치하기 위해 분리."""
     if not budget or budget <= 0:
-        return ""
+        return "", ""
     rev = revenue or 0
     vmax = max(budget, rev) or 1
     use_eok = vmax >= 100_000_000  # 둘 중 하나라도 억 이상 → 둘 다 억으로 통일
@@ -151,11 +152,12 @@ def _budget_revenue(budget, revenue):
     bars = bar("총 사용 예산", budget, C_BASE) + bar("총 수입", rev, C_POINT)
     cap = ""
     if revenue is not None:
-        cap = (f'<p class="body">예산 대비 수입(회수율) {rev / budget * 100:.1f}%, '
-               f'순비용 {fmt(budget - rev)}.</p>')
-    # 산점도와 한 줄에 배치(셀이 폭 제어). 작은 제목 동반.
-    return (f'<div class="brc"><div class="fig-title sm">예산·수입 비율</div>'
-            f'<div class="hbar-wrap">{bars}</div>{cap}</div>')
+        cap = (f'<p class="body" style="margin-top:6px">예산 대비 수입(회수율) '
+               f'{rev / budget * 100:.1f}%, 순비용 {fmt(budget - rev)}.</p>')
+    # 차트(제목+막대)만 셀에. 캡션은 호출부에서 행 아래 전체폭에 배치.
+    chart = (f'<div class="brc"><div class="fig-title sm">예산·수입 비율</div>'
+             f'<div class="hbar-wrap">{bars}</div></div>')
+    return chart, cap
 
 
 def _donut(title, data_dict, unit="점", center=None, colors=None):
@@ -283,8 +285,6 @@ def _scatter(data):
     bud = [p[0] for p in pts] + ([cur[0]] if cur else [])   # 예산 → y
     xmax = _nice_ceil(max(vis), 10_000)        # 관객: 만 단위 nice-ceil
     ymax = _nice_ceil(max(bud), 100_000_000)   # 예산: 억 단위 nice-ceil
-    avv = sum(p[1] for p in pts) / len(pts)    # 평균 관객 → x
-    avb = sum(p[0] for p in pts) / len(pts)    # 평균 예산 → y
 
     def X(v):
         return padL + iw * (v / xmax)
@@ -292,13 +292,14 @@ def _scatter(data):
     def Y(b):
         return padT + ih * (1 - b / ymax)
 
-    # 효율 영역(고관객·저예산 = 우하단) 옅은 틴트 + 평균 십자선(가독성↑)
-    tint = (f'<rect x="{X(avv):.1f}" y="{Y(avb):.1f}" '
-            f'width="{(W-padR)-X(avv):.1f}" height="{(H-padB)-Y(avb):.1f}" '
+    # 십자선을 정확히 가운데에 — 축 max의 절반(관객 1만 명 / 예산 1억 원) 기준선.
+    cx0, cy0 = padL + iw / 2, padT + ih / 2
+    # 효율 영역(고관객·저예산 = 우하단) 옅은 틴트
+    tint = (f'<rect x="{cx0:.1f}" y="{cy0:.1f}" width="{iw/2:.1f}" height="{ih/2:.1f}" '
             f'fill="{ACCENT}" opacity="0.05"/>')
-    cross = (f'<line x1="{X(avv):.1f}" y1="{padT}" x2="{X(avv):.1f}" y2="{H-padB}" '
+    cross = (f'<line x1="{cx0:.1f}" y1="{padT}" x2="{cx0:.1f}" y2="{H-padB}" '
              f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>'
-             f'<line x1="{padL}" y1="{Y(avb):.1f}" x2="{W-padR}" y2="{Y(avb):.1f}" '
+             f'<line x1="{padL}" y1="{cy0:.1f}" x2="{W-padR}" y2="{cy0:.1f}" '
              f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>')
     axis = (f'<line x1="{padL}" y1="{padT}" x2="{padL}" y2="{H-padB}" stroke="{LINE}"/>'
             f'<line x1="{padL}" y1="{H-padB}" x2="{W-padR}" y2="{H-padB}" stroke="{LINE}"/>')
@@ -549,16 +550,18 @@ def build_report_html(data):
         ("총 관객수", rev.get("total_visitors")),
         ("일평균 관객", rev.get("daily_average")),
     ]))
-    # 예산·수입 구조 (신규) — 재정 구조를 서술이 아닌 막대로
+    # 예산·수입 비율 + 산점도 (재정 구조 시각화)
     adf = data.get("analysis_data_flat", {})
-    br = _budget_revenue(adf.get("총 사용 예산"), adf.get("총수입"))
+    br, br_cap = _budget_revenue(adf.get("총 사용 예산"), adf.get("총수입"))
     sc = _scatter(data.get("scatter"))   # 산점도(역대 전 전시 위치)
-    # 예산·수입 막대 + 산점도를 한 줄에. 한쪽만 있으면 단독(좁게 가운데).
+    # 예산·수입 막대 + 산점도를 한 줄에. 캡션은 행 아래 전체폭에. 한쪽만 있으면 단독.
     if br and sc:
         iv.append(f'<div class="fin-row"><div class="fin-cell">{br}</div>'
                   f'<div class="fin-cell">{sc}</div></div>')
+        if br_cap:
+            iv.append(br_cap)
     elif br:
-        iv.append(f'<div class="br-solo">{br}</div>')
+        iv.append(f'<div class="br-solo">{br}{br_cap}</div>')
     elif sc:
         iv.append(sc)
     # 주차별 추이 SVG
