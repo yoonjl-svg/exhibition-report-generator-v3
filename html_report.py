@@ -154,7 +154,7 @@ def _budget_revenue(budget, revenue):
         cap = (f'<p class="body">예산 대비 수입(회수율) {rev / budget * 100:.1f}%, '
                f'순비용 {fmt(budget - rev)}.</p>')
     # 산점도와 한 줄에 배치(셀이 폭 제어). 작은 제목 동반.
-    return (f'<div class="brc"><div class="fig-title sm">예산·수입 구조</div>'
+    return (f'<div class="brc"><div class="fig-title sm">예산·수입 비율</div>'
             f'<div class="hbar-wrap">{bars}</div>{cap}</div>')
 
 
@@ -244,14 +244,16 @@ def _svg_weekly(weekly, ref_lines):
 
 
 def _scatter(data):
-    """예산 대비 관객 산점도 — 모든 전시(회색 점) + 본 전시(네이비, 같은 크기·색만 다름).
-    제목 + 평균 십자선 + 효율영역 틴트. 축 끝에만 스케일 앵커(예: 2억 원 / 2만 명)."""
+    """예산·관객 분포 산점도 — 모든 전시(회색 점) + 본 전시(네이비, 같은 크기·색만 다름).
+    제목 + 평균 십자선 + 효율영역 틴트. 축 끝 스케일 앵커 + 본 전시 라벨.
+    SVG 텍스트는 주차별 차트 라벨과 같은 렌더 크기가 되도록 viewBox 폰트 19 사용."""
     pts = (data or {}).get("points") or []
     cur = (data or {}).get("current")
     if len(pts) < 4:
         return ""
     W, H = 440, 300
-    padL, padR, padT, padB = 16, 16, 22, 22
+    padL, padR, padT, padB = 18, 18, 28, 28
+    LBLF = 19   # viewBox 폰트(작은 차트라 크게 잡아야 주차 라벨과 같은 렌더 크기)
     iw, ih = W - padL - padR, H - padT - padB
     xs = [p[0] for p in pts] + ([cur[0]] if cur else [])
     ys = [p[1] for p in pts] + ([cur[1]] if cur else [])
@@ -274,18 +276,26 @@ def _scatter(data):
            f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>'
            f'<line x1="{padL}" y1="{Y(avv):.1f}" x2="{W-padR}" y2="{Y(avv):.1f}" '
            f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>')
-    # 모든 점 동일 크기. 본 전시는 색(네이비)만 다름.
+    # 모든 점 동일 크기. 본 전시는 색(네이비)만 다르고 '이번 전시' 라벨 부착.
     R = 5
     dots = "".join(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="{R}" fill="{C_ETC}"/>'
                    for x, y in pts)
-    curdot = (f'<circle cx="{X(cur[0]):.1f}" cy="{Y(cur[1]):.1f}" r="{R}" '
-              f'fill="{C_POINT}"/>') if cur else ""
+    curdot = ""
+    if cur:
+        cx, cy = X(cur[0]), Y(cur[1])
+        if cx > W * 0.55:
+            anchor, lx = "end", cx - R - 6
+        else:
+            anchor, lx = "start", cx + R + 6
+        curdot = (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{R}" fill="{C_POINT}"/>'
+                  f'<text x="{lx:.1f}" y="{cy+LBLF*0.35:.1f}" text-anchor="{anchor}" '
+                  f'font-size="{LBLF}" font-weight="700" fill="{C_POINT}">이번 전시</text>')
     # 축 끝 스케일 앵커(데이터 최댓값 반올림): x=억 원, y=만 명
-    xlab = (f'<text x="{W-padR}" y="{H-7}" text-anchor="end" font-size="10" '
+    xlab = (f'<text x="{W-padR}" y="{H-9}" text-anchor="end" font-size="{LBLF}" '
             f'fill="{MUTED}">{round(xmax/100_000_000)}억 원</text>')
-    ylab = (f'<text x="{padL}" y="{padT-7}" text-anchor="start" font-size="10" '
+    ylab = (f'<text x="{padL}" y="{padT-10}" text-anchor="start" font-size="{LBLF}" '
             f'fill="{MUTED}">{round(ymax/10_000)}만 명</text>')
-    return (f'<div class="scatter-wrap"><div class="fig-title sm">예산 대비 관객 (모든 전시)</div>'
+    return (f'<div class="scatter-wrap"><div class="fig-title sm">예산·관객 분포 (역대 전시)</div>'
             f'<svg viewBox="0 0 {W} {H}" class="scatterchart" preserveAspectRatio="xMidYMid meet">'
             f'{tint}{axis}{avg}{dots}{curdot}{xlab}{ylab}</svg></div>')
 
