@@ -293,14 +293,8 @@ def build_report_html(data):
             if nw or od:
                 cap += f" 신작 {nw}점, 구작 {od}점."
             iii.append(f'<p class="body">{_esc(cap)}</p>')
-    # 2) 전시실 (공간별 참여 작가)
-    if rooms:
-        iii.append(_subhead("전시실"))
-        iii.append(_table(["전시실", "참여 작가"],
-                          [[r.get("name", ""),
-                            (", ".join(r["artists"]) if isinstance(r.get("artists"), list)
-                             else r.get("artists", ""))] for r in rooms]))
-    # 3) 전시 도면 · 전경 — 공간별로 도면 1개(세로형) + 전경 2×2(4개)
+    # 2) 전시 도면 · 전경 — 공간별로 도면 1개(세로형) + 전경 2×2(4개)
+    #    (전시실→참여 작가 표는 불필요하여 제거)
     iii.append(_subhead("전시 도면 및 전경"))
     for name in room_names:
         iii.append(_space_block(name))
