@@ -244,64 +244,47 @@ def _svg_weekly(weekly, ref_lines):
 
 
 def _scatter(data):
-    """예산 대비 관객 산점도 — 역대 전 전시(회색 점) + 본 전시(포인트색 강조).
-    절제: 평균 십자선 + 효율영역 옅은 틴트만. 작게(폭 제한) 렌더."""
+    """예산 대비 관객 산점도 — 역대 전 전시(회색 점) + 본 전시(네이비 강조).
+    작게/점 크게. 축 라벨·눈금·제목 없이 평균 십자선 + 효율영역 틴트만.
+    제목 자리에는 읽는 법을 알려주는 헬퍼 문구(동일 스타일)를 둔다."""
     pts = (data or {}).get("points") or []
     cur = (data or {}).get("current")
     if len(pts) < 4:
         return ""
-    W, H = 500, 360
-    padL, padR, padT, padB = 54, 18, 28, 44
-    iw, ih = W - padL - padR, H - padT - padB
+    W, H = 440, 300
+    pad = 16
+    iw, ih = W - 2 * pad, H - 2 * pad
     xs = [p[0] for p in pts] + ([cur[0]] if cur else [])
     ys = [p[1] for p in pts] + ([cur[1]] if cur else [])
-    xmax = max(xs) * 1.12
-    ymax = max(ys) * 1.12
+    xmax = max(xs) * 1.1
+    ymax = max(ys) * 1.1
     avb = sum(p[0] for p in pts) / len(pts)
     avv = sum(p[1] for p in pts) / len(pts)
 
     def X(x):
-        return padL + iw * (x / xmax)
+        return pad + iw * (x / xmax)
 
     def Y(y):
-        return padT + ih * (1 - y / ymax)
+        return pad + ih * (1 - y / ymax)
 
-    tint = (f'<rect x="{padL:.1f}" y="{Y(ymax):.1f}" width="{X(avb)-padL:.1f}" '
-            f'height="{Y(avv)-Y(ymax):.1f}" fill="{ACCENT}" opacity="0.045"/>')
-    axis = (f'<line x1="{padL}" y1="{padT}" x2="{padL}" y2="{padT+ih}" stroke="{LINE}"/>'
-            f'<line x1="{padL}" y1="{padT+ih}" x2="{padL+iw}" y2="{padT+ih}" stroke="{LINE}"/>')
-    avg = (f'<line x1="{X(avb):.1f}" y1="{padT}" x2="{X(avb):.1f}" y2="{padT+ih}" '
+    tint = (f'<rect x="{pad}" y="{Y(ymax):.1f}" width="{X(avb)-pad:.1f}" '
+            f'height="{Y(avv)-Y(ymax):.1f}" fill="{ACCENT}" opacity="0.05"/>')
+    axis = (f'<line x1="{pad}" y1="{pad}" x2="{pad}" y2="{H-pad}" stroke="{LINE}"/>'
+            f'<line x1="{pad}" y1="{H-pad}" x2="{W-pad}" y2="{H-pad}" stroke="{LINE}"/>')
+    avg = (f'<line x1="{X(avb):.1f}" y1="{pad}" x2="{X(avb):.1f}" y2="{H-pad}" '
            f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>'
-           f'<line x1="{padL}" y1="{Y(avv):.1f}" x2="{padL+iw}" y2="{Y(avv):.1f}" '
-           f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>'
-           f'<text x="{X(avb)+4:.1f}" y="{padT+9}" font-size="9.5" fill="{C_BASE}">평균 예산</text>'
-           f'<text x="{padL+4}" y="{Y(avv)-4:.1f}" font-size="9.5" fill="{C_BASE}">평균 관객</text>')
-    ticks = ""
-    for k in range(0, int(xmax // 100_000_000) + 1):
-        ticks += (f'<text x="{X(k*100_000_000):.1f}" y="{padT+ih+16}" text-anchor="middle" '
-                  f'font-size="9.5" fill="{MUTED}">{k}억</text>')
-    for k in range(0, int(ymax // 10_000) + 1, 2):
-        ticks += (f'<text x="{padL-7}" y="{Y(k*10_000)+3:.1f}" text-anchor="end" '
-                  f'font-size="9.5" fill="{MUTED}">{k}만</text>')
-    dots = "".join(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="3.5" fill="{C_ETC}"/>'
+           f'<line x1="{pad}" y1="{Y(avv):.1f}" x2="{W-pad}" y2="{Y(avv):.1f}" '
+           f'stroke="{C_BASE}" stroke-dasharray="4 4" stroke-width="1"/>')
+    dots = "".join(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="7.5" fill="{C_ETC}"/>'
                    for x, y in pts)
     curdot = ""
     if cur:
-        cx, cy = X(cur[0]), Y(cur[1])
-        if cx > W * 0.6:
-            anchor, lx = "end", cx - 9
-        else:
-            anchor, lx = "start", cx + 9
-        curdot = (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="5.5" fill="{C_POINT}"/>'
-                  f'<text x="{lx:.1f}" y="{cy-9:.1f}" text-anchor="{anchor}" font-size="10.5" '
-                  f'font-weight="700" fill="{C_POINT}">이번 전시</text>')
-    xlab = (f'<text x="{padL+iw/2:.1f}" y="{H-8}" text-anchor="middle" font-size="10" '
-            f'fill="{INK}">총 사용 예산 (억 원)</text>')
-    ylab = (f'<text transform="translate(13,{padT+ih/2:.1f}) rotate(-90)" text-anchor="middle" '
-            f'font-size="10" fill="{INK}">총 관객 수 (만 명)</text>')
-    return (f'<div class="scatter-wrap"><div class="fig-title sm">예산 대비 관객 (역대 전시)</div>'
+        curdot = (f'<circle cx="{X(cur[0]):.1f}" cy="{Y(cur[1]):.1f}" r="11.5" '
+                  f'fill="{C_POINT}"/>')
+    helper = "가로 예산·세로 관객 — 좌상단일수록 효율적 (네이비 = 이번 전시)"
+    return (f'<div class="scatter-wrap"><div class="fig-title sm">{_esc(helper)}</div>'
             f'<svg viewBox="0 0 {W} {H}" class="scatterchart" preserveAspectRatio="xMidYMid meet">'
-            f'{tint}{axis}{avg}{ticks}{dots}{curdot}{xlab}{ylab}</svg></div>')
+            f'{tint}{axis}{avg}{dots}{curdot}</svg></div>')
 
 
 def _section(title, body, num=None):
@@ -785,7 +768,7 @@ body { margin:0; background:#f4f6f2; color:#20231f;
 @media (max-width:520px){ .hbar-row{ grid-template-columns:70px 1fr 92px; } }
 /* 예산·수입 블록 — 불필요하게 길지 않게 좁혀서 가운데 정렬 */
 /* 예산·수입 막대 + 산점도 한 줄 배치 */
-.fin-row { display:grid; grid-template-columns:1fr 1fr; gap:24px;
+.fin-row { display:grid; grid-template-columns:1.3fr 0.7fr; gap:24px;
   align-items:center; margin:10px 0 2px; }
 .fin-cell { min-width:0; }
 .fin-cell .scatter-wrap { max-width:100%; margin:2px 0; }
