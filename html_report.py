@@ -150,15 +150,16 @@ def _budget_revenue(planned, budget, revenue):
                 f'style="width:{(val or 0) / vmax * 100:.1f}%;background:{color}"></div></div>'
                 f'<div class="hbar-val">{fmt(val)}</div></div>')
 
-    # 초안=옅은 회색(참고치), 총 예산=중립 회색(규모), 총 수입=블루그레이 포인트
+    # 초안=옅은 회색(참고치), 총 사용 예산=녹색(실집행 핵심), 총 수입=블루그레이 포인트
     bars = ""
     if pln > 0:
         bars += bar("예산 초안", pln, C_ETC)
-    bars += bar("총 사용 예산", budget, C_BASE) + bar("총 수입", rev, C_POINT)
+    bars += bar("총 사용 예산", budget, C_PERF) + bar("총 수입", rev, C_POINT)
     cap = ""
     if revenue is not None:
-        cap = (f'<p class="body" style="margin-top:6px">예산 대비 수입(회수율) '
-               f'{rev / budget * 100:.1f}%, 순비용 {fmt(budget - rev)}.</p>')
+        # 회수율은 결과 표(KV)로 이동 — 캡션엔 순비용만(중복 제거)
+        cap = (f'<p class="body" style="margin-top:6px">'
+               f'순비용(예산−수입) {fmt(budget - rev)}.</p>')
     # 차트(제목+막대)만 셀에. 캡션은 호출부에서 행 아래 전체폭에 배치.
     chart = (f'<div class="brc"><div class="fig-title sm">예산·수입 비율</div>'
              f'<div class="hbar-wrap">{bars}</div></div>')
@@ -211,8 +212,8 @@ def _donut_paid(paid, free, group):
     grp = min(group or 0, paid)        # 단체는 유료의 부분집합
     W = 124
     c = W / 2
-    rM, swM = 40, 22                   # 메인 링(유료/무료)
-    rB, swB = 56, 5                    # 외곽 얇은 띠(단체)
+    rM, swM = 39, 18                   # 메인 링(유료/무료)
+    rB, swB = 56, 9                    # 외곽 띠(단체) — 두께 차이 완화(18:9)
     f_paid = paid / total
     parts = [
         _arc(c, rM, swM, C_ETC, 1.0),       # 무료 배경(전체 회색 링)
@@ -590,20 +591,19 @@ def build_report_html(data):
         except (TypeError, ValueError):
             return fb
 
-    # 예산 집행률(사용/계획) · 일평균 수입(수입/일수) — 좌·우 열 중간에 삽입
+    # 예산 집행률(사용/계획) · 예산 회수율(수입/사용) — 좌·우 열 중간에 삽입
     _plan = _adf.get("예산 계획액")
     _spent = _adf.get("총 사용 예산")
-    _exec = f"{_spent / _plan * 100:.1f}%" if (_plan and _spent) else "—"
     _rv = _adf.get("총수입")
-    _days = _adf.get("전시 일수")
-    _drev = f"{int(round(_rv / _days)):,}원" if (_rv and _days) else "—"
+    _exec = f"{_spent / _plan * 100:.1f}%" if (_plan and _spent) else "—"
+    _recov = f"{_rv / _spent * 100:.1f}%" if (_rv and _spent) else "—"
     iv.append(_kv([
         ("총 사용 예산", _won(_adf.get("총 사용 예산"),
                           _b.get("total_spent_won") or _b.get("total_spent"))),
         ("총 수입", _won(_adf.get("총수입"),
                       rev.get("total_revenue_won") or rev.get("total_revenue"))),
         ("예산 집행률", _exec),
-        ("일평균 수입", _drev),
+        ("예산 회수율", _recov),
         ("총 관객수", rev.get("total_visitors")),
         ("일평균 관객", rev.get("daily_average")),
     ]))
