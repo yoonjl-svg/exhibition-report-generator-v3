@@ -128,16 +128,19 @@ def _hbar(title, data_dict, unit="점", muted_keys=()):
             f'{rows}</div>')
 
 
-def _budget_revenue(planned, budget, revenue):
-    """예산·수입 비율 — 예산 계획안 / 총 사용 예산 / 총 수입 가로 막대 + 회수율·순비용 캡션.
-    한쪽이라도 억 단위면 모든 값 억(소수 2자리)으로 통일 표기(2.10억 / 0.98억).
-    반환: (차트 HTML, 캡션 HTML) — 캡션은 두 차트(행) 아래 전체폭에 배치하기 위해 분리."""
-    if not budget or budget <= 0:
-        return "", ""
-    rev = revenue or 0
+def _budget_revenue(planned, exhibition, supplementary, revenue):
+    """예산·수입 비율 — 전시 예산 초안 / 전시 사용 / 부대 사용 / 총 수입 가로 막대 + 순비용.
+    초안은 '전시 사용 예산'의 계획치라 같은 범위(전시 사용)와 짝지어 비교(범위 일치).
+    한쪽이라도 억 이상이면 모든 값 억(소수 2자리)으로 통일. 반환: (차트, 캡션)."""
+    exh = exhibition or 0
+    sup = supplementary or 0
     pln = planned or 0
-    vmax = max(pln, budget, rev) or 1
-    use_eok = vmax >= 100_000_000  # 하나라도 억 이상 → 모두 억으로 통일
+    rev = revenue or 0
+    total_spent = exh + sup            # 총 사용 예산 = 전시 + 부대
+    if total_spent <= 0:
+        return "", ""
+    vmax = max(pln, exh, sup, rev) or 1
+    use_eok = vmax >= 100_000_000
 
     def fmt(v):
         v = int(v or 0)
@@ -150,17 +153,21 @@ def _budget_revenue(planned, budget, revenue):
                 f'style="width:{(val or 0) / vmax * 100:.1f}%;background:{color}"></div></div>'
                 f'<div class="hbar-val">{fmt(val)}</div></div>')
 
-    # 초안=옅은 회색(참고치), 총 사용 예산=녹색(실집행 핵심), 총 수입=블루그레이 포인트
+    # 전시 초안(옅은 회색) ↔ 전시 사용(녹색)을 같은 범위로 비교. 부대=회색, 수입=네이비.
     bars = ""
     if pln > 0:
-        bars += bar("예산 초안", pln, C_ETC)
-    bars += bar("총 사용 예산", budget, C_PERF) + bar("총 수입", rev, C_POINT)
+        bars += bar("전시 예산 초안", pln, C_ETC)
+    if exh > 0:
+        bars += bar("전시 사용 예산", exh, C_PERF)
+    if sup > 0:
+        bars += bar("부대 사용 예산", sup, C_BASE)
+    if rev > 0:
+        bars += bar("총 수입", rev, C_POINT)
     cap = ""
-    if revenue is not None:
-        # 회수율은 결과 표(KV)로 이동 — 캡션엔 순비용만(중복 제거)
+    if rev > 0:
+        # 순비용 = 총 사용 예산(전시+부대) − 총 수입
         cap = (f'<p class="body" style="margin-top:6px">'
-               f'순비용(예산−수입) {fmt(budget - rev)}.</p>')
-    # 차트(제목+막대)만 셀에. 캡션은 호출부에서 행 아래 전체폭에 배치.
+               f'순비용(예산−수입) {fmt(total_spent - rev)}.</p>')
     chart = (f'<div class="brc"><div class="fig-title sm">예산·수입 비율</div>'
              f'<div class="hbar-wrap">{bars}</div></div>')
     return chart, cap
@@ -592,10 +599,12 @@ def build_report_html(data):
             return fb
 
     # 예산 집행률(사용/계획) · 예산 회수율(수입/사용) — 좌·우 열 중간에 삽입
-    _plan = _adf.get("예산 계획액")
-    _spent = _adf.get("총 사용 예산")
+    _plan = _adf.get("예산 계획액")       # = 전시 사용 예산의 초안
+    _spent = _adf.get("총 사용 예산")     # = 전시 + 부대
+    _exh = _adf.get("전시 사용 예산")
     _rv = _adf.get("총수입")
-    _exec = f"{_spent / _plan * 100:.1f}%" if (_plan and _spent) else "—"
+    # 집행률은 같은 범위끼리: 전시 사용 ÷ 전시 초안. 회수율: 총 수입 ÷ 총 사용.
+    _exec = f"{_exh / _plan * 100:.1f}%" if (_plan and _exh) else "—"
     _recov = f"{_rv / _spent * 100:.1f}%" if (_rv and _spent) else "—"
     iv.append(_kv([
         ("총 사용 예산", _won(_adf.get("총 사용 예산"),
@@ -609,8 +618,8 @@ def build_report_html(data):
     ]))
     # 예산·수입 비율 + 산점도 (재정 구조 시각화)
     adf = data.get("analysis_data_flat", {})
-    br, br_cap = _budget_revenue(adf.get("예산 계획액"),
-                                 adf.get("총 사용 예산"), adf.get("총수입"))
+    br, br_cap = _budget_revenue(adf.get("예산 계획액"), adf.get("전시 사용 예산"),
+                                 adf.get("부대 사용 예산"), adf.get("총수입"))
     sc = _scatter(data.get("scatter"))   # 산점도(역대 전 전시 위치)
     # 예산·수입 막대 + 산점도를 한 줄에. 캡션은 행 아래 전체폭에. 한쪽만 있으면 단독.
     if br and sc:
@@ -887,7 +896,7 @@ body { margin:0; background:#f4f6f2; color:#20231f;
   align-items:center; margin:10px 0 2px; }
 .fin-cell { min-width:0; }
 .fin-cell .scatter-wrap { max-width:100%; margin:2px 0; }
-.brc .hbar-row { grid-template-columns:74px 1fr 90px; }   /* 좁은 셀용 컬럼 축소 */
+.brc .hbar-row { grid-template-columns:90px 1fr 86px; }   /* 좁은 셀용 — 라벨 '전시 예산 초안' 수용 */
 .br-solo { max-width:62%; margin:0 auto; }
 @media (max-width:560px){ .fin-row{ grid-template-columns:1fr; } .br-solo{ max-width:100%; } }
 .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 14px;
